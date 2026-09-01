@@ -1,0 +1,83 @@
+import { Callout, Cards } from 'nextra/components'
+
+# Provisioning as code (Pillar 3)
+
+<Callout type="info">
+  **Planned design.** This documents Pillar 3 (provisioning as code) as designed in the build plan. Its control-plane operations depend on contracts still being live-verified and raise `NotImplementedError("blocked on verification: …")` until confirmed — with a possible Terraform-generation pivot. See [Verification policy](/concepts/verification).
+</Callout>
+
+## The idea
+
+Declare your governed topology — gateways, policies, and published assets — in
+a spec, then `plan` / `apply` it the way you would infrastructure-as-code, with
+a governance lint step and drift detection layered on top:
+
+- A single `fabric.yaml`, versioned in your own repo. See [Spec format](/provisioning/spec).
+- `agent-fabric plan` / `apply` — read-before-write, idempotent, CI-gateable.
+  See [Plan & apply](/provisioning/plan-apply).
+- `agent-fabric lint` validates specs against project and centralized rulesets
+  before anything publishes. See [Governance lint](/provisioning/governance-lint).
+
+## The reshaping discovery
+
+Provisioning on Agent Fabric is **not** a clean REST CRUD API. It's delivered
+as a **Maven-project + CLI** flow (branded "Agent Network"): the deploy target
+is a Private Space running Flex Gateway with paired ingress + egress gateways,
+and `project build` invokes a bundled JVM toolchain (`./mvnw`).
+
+That means the SDK's declarative `fabric.yaml` plan/apply will either **wrap
+this CLI/Maven toolchain** or **emit its project layout** — it will not invent
+a REST provisioning API. The exact REST calls behind the CLI are recorded
+(from static analysis of the official plugin) but need live confirmation
+before any guard is removed. See
+[`docs/verified-apis.md` §12](https://github.com/your-org/mulesoft-agent-fabric/blob/main/docs/verified-apis.md).
+
+## One schema, three producers
+
+The spec format isn't unique to `plan`/`apply`. It's the same shape emitted by
+two other features, deliberately:
+
+- The [governance object](/concepts/environments)'s `Governance.export()` emits
+  a `fabric.yaml` fragment for the policies it resolved.
+- [Publishing](/publishing)'s `Publication.export()` emits a fragment for the
+  assets it published.
+
+That symmetry means you can go from "what's actually applied" to "what's
+declared" and back without a second format to learn.
+
+## The fallback: generate Terraform instead
+
+If the CLI/Maven control plane turns out to be wizard-only underneath — no
+live-confirmable API at all — the fallback is to cut the plan/apply engine
+from v1 and instead emit **Terraform** from the same `fabric.yaml`
+(`agent-fabric generate --target terraform`), letting the official Terraform
+provider do the applying. The lint step needs no provisioning API either way,
+so it ships regardless.
+
+This is treated as a genuinely good outcome, not a failure mode: the
+highest-leverage part of the spec — `inputSchema: auto` — survives the pivot
+intact, because it's a local OAS/RAML transform, not a control-plane call.
+
+## Planned capabilities
+
+- Spec format, `plan` / `apply`, and `drift`.
+- `inputSchema: auto`, a policy allow-list catalog, a GitHub Action for CI gating.
+- `Governance.export()` and `Publication.export()` emitting fragments of this
+  same spec.
+
+Target milestone: **M4 (0.5.0)** — with a possible Terraform-generation pivot
+depending on live verification.
+
+<Cards>
+  <Cards.Card title="Spec format" href="/provisioning/spec" arrow>
+    The `fabric.yaml` shape: mcpBridges, tools, policies, and the
+    `inputSchema: auto` derivation.
+  </Cards.Card>
+  <Cards.Card title="Plan & apply" href="/provisioning/plan-apply" arrow>
+    Read-before-write diffing, CI gating, drift detection, and policy ownership.
+  </Cards.Card>
+  <Cards.Card title="Governance lint" href="/provisioning/governance-lint" arrow>
+    Validate specs against rulesets before publish — ships early, no
+    provisioning API required.
+  </Cards.Card>
+</Cards>

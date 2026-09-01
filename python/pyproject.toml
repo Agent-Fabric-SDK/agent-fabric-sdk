@@ -1,0 +1,152 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mulesoft-agent-fabric"
+version = "0.1.0.dev0"
+description = "An SDK for consuming MuleSoft Agent Fabric capabilities (governed model access, governed tools, provisioning-as-code) from your own agent framework."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "See README for maintainer + support statement" }]
+keywords = ["mulesoft", "anypoint", "agent", "llm", "mcp", "gateway"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Typing :: Typed",
+]
+
+# core/ has ZERO agent-framework dependencies. httpx only. (§1.1 hard rule)
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "typing-extensions>=4.10; python_version < '3.12'",
+    # stdlib tomllib is 3.11+; backfill for the 3.10 floor (config.py, governance.py).
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+# --- LLM client (raw, framework-free) ---
+llm = ["openai>=1.30"]
+
+# --- Per-framework integrations (one extra each) ---
+# Floors, never ceilings (working instruction, §8.4). Class names / kwargs
+# inside the adapters are marked UNVERIFIED until §0.3 confirms them.
+langgraph = ["langchain-openai>=0.1", "langchain-core>=0.2"]
+adk = ["google-adk>=0.2", "litellm>=1.84"]
+agent_framework = ["agent-framework>=0.1"]
+openai = ["openai-agents>=0.1", "openai>=1.30"]
+anthropic = ["anthropic>=0.40"]
+crewai = ["crewai>=0.80"]
+llamaindex = ["llama-index-llms-openai-like>=0.1"]
+strands = ["strands-agents>=0.1"]
+
+# --- Tool binding (MCP) ---
+mcp = ["mcp>=1.2"]
+a2a = ["a2a-sdk>=0.1"]
+
+# --- Local simulation harness (docker) — optional, §6.5 ---
+local = []
+
+# --- Telemetry (§2.5) ---
+otel = ["opentelemetry-api>=1.24", "opentelemetry-sdk>=1.24"]
+
+# --- CLI + provisioning (§5) ---
+cli = ["typer>=0.12", "pyyaml>=6.0", "rich>=13.0"]
+
+# --- Everything, for convenience ---
+all = [
+    "mulesoft-agent-fabric[llm,langgraph,adk,strands,agent_framework,openai,anthropic,crewai,llamaindex,mcp,otel,cli]",
+]
+
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "mypy>=1.10",
+    "ruff>=0.5",
+    "import-linter>=2.0",
+    # stubs so mypy --strict typechecks the CLI/provisioning yaml handling.
+    "types-PyYAML>=6.0",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+agent-fabric = "agent_fabric.provisioning.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_fabric"]
+
+[tool.mypy]
+# Working instruction #8: mypy --strict, blocking in CI.
+strict = true
+python_version = "3.10"
+files = ["src/agent_fabric"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# Optional framework deps may not expose stubs; do not fail base typecheck.
+module = [
+    "langchain_openai.*",
+    "langchain_core.*",
+    "google.adk.*",
+    "agent_framework.*",
+    "agents.*",
+    "anthropic.*",
+    "crewai.*",
+    "llama_index.*",
+    "strands.*",
+    "litellm.*",
+    "mcp.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "local_gateway: requires a local Omni Gateway via docker (§6.5); off by default",
+    "sandbox: requires a real Anypoint sandbox (FABRIC_SANDBOX_TESTS=1); off by default",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer's API requires calling typer.Option(...) in argument defaults (B008).
+"src/agent_fabric/provisioning/cli.py" = ["B008"]
+
+# --- import-linter: enforce the §1.1 layering rule in CI, from day one ---
+[tool.importlinter]
+root_package = "agent_fabric"
+
+[[tool.importlinter.contracts]]
+name = "core is framework-free (nothing in integrations may be imported by lower layers)"
+type = "forbidden"
+source_modules = [
+    "agent_fabric.core",
+    "agent_fabric.llm",
+    "agent_fabric.registry",
+    "agent_fabric.tools",
+]
+forbidden_modules = ["agent_fabric.integrations"]
+
+[[tool.importlinter.contracts]]
+name = "layered architecture (§1.1)"
+type = "layers"
+# integrations (top) may use everything below; tools resolves registry handles;
+# registry/llm sit above the framework-free core (bottom). Lower never imports
+# higher.
+layers = [
+    "agent_fabric.integrations",
+    "agent_fabric.tools",
+    "agent_fabric.registry",
+    "agent_fabric.llm",
+    "agent_fabric.core",
+]

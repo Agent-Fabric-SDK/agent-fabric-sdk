@@ -1,0 +1,107 @@
+# Nightly framework matrix (§8.4).
+#
+# Purpose: catch upstream framework churn early. Each framework's adapter targets
+# class names/kwargs recorded in docs/verified-apis.md §8; when a framework
+# renames a class or changes a signature, the verification harness turns red here
+# *before* a user hits it. This is also the DoD #4 gate ("listed in the nightly
+# matrix") for every adapter.
+#
+# What runs per framework:
+#   1. verify_frameworks.py --only <fw>  — signature check (offline). Fails the job
+#      if an INSTALLED framework's class/kwarg signature no longer matches §8.
+#   2. examples/<fw>/main.py             — smoke: must exit 0 with no creds set
+#      (each example prints setup guidance and exits cleanly when unconfigured).
+#   3. pytest                            — the unit + ergonomics suites.
+#
+# NOTE (known constraint): the extras carry no `openai` upper bound ("floors,
+# never ceilings"), so a fresh resolve may pull openai 3.x / vendored httpx2,
+# which breaks the httpx transport injection the SDK is verified against (openai
+# 1.x). If a framework job fails on that, it is EXPECTED signal, not a flake —
+# see the pending openai-version decision in docs/m1-completion-checklist.md §3.
+#
+# Live verification (a real proxy round-trip) is intentionally NOT in the nightly
+# run: it needs sandbox credentials. Trigger it manually via workflow_dispatch
+# with `live: true` and the MULESOFT_LLM_PROXY_* repo secrets configured.
+#
+# Security: matrix values and inputs are passed into steps via `env:` and
+# referenced as shell variables (never interpolated directly into run: bodies),
+# per the GitHub Actions injection-hardening guidance.
+
+name: nightly-framework-matrix
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Run a live proxy round-trip (requires MULESOFT_LLM_PROXY_* secrets)"
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    working-directory: python
+
+jobs:
+  # Base gates on the framework-free core — must pass regardless of any framework.
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (dev + llm, no framework)
+        run: pip install -e ".[dev,llm,cli]"
+      - run: ruff check .
+      - run: mypy
+      - run: lint-imports
+      - run: pytest -q
+
+  matrix:
+    runs-on: ubuntu-latest
+    # Don't let one framework's upstream break cancel the others — we want the
+    # full per-framework signal every night.
+    strategy:
+      fail-fast: false
+      matrix:
+        framework:
+          - langgraph
+          - adk
+          - strands
+          - agent_framework
+          - llamaindex
+          - autogen
+          - semantic_kernel
+    name: verify (${{ matrix.framework }})
+    env:
+      # Bind the matrix value to an env var so it is never interpolated into a
+      # run: body directly (injection hardening).
+      FRAMEWORK: ${{ matrix.framework }}
+      RUN_LIVE: ${{ inputs.live }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install SDK + framework extra
+        run: pip install -e ".[dev,llm,${FRAMEWORK}]"
+
+      - name: Signature verification (§8)
+        run: python scripts/verify_frameworks.py --only "${FRAMEWORK}"
+
+      - name: Example smoke (must exit 0 without creds)
+        run: python "examples/${FRAMEWORK}/main.py"
+
+      - name: Unit + ergonomics suites
+        run: pytest -q
+
+      - name: Live round-trip (opt-in)
+        if: ${{ inputs.live == true }}
+        env:
+          MULESOFT_LLM_PROXY_URL: ${{ secrets.MULESOFT_LLM_PROXY_URL }}
+          MULESOFT_LLM_PROXY_CLIENT_ID: ${{ secrets.MULESOFT_LLM_PROXY_CLIENT_ID }}
+          MULESOFT_LLM_PROXY_CLIENT_SECRET: ${{ secrets.MULESOFT_LLM_PROXY_CLIENT_SECRET }}
+        run: python scripts/verify_frameworks.py --only "${FRAMEWORK}" --live --emit-verified

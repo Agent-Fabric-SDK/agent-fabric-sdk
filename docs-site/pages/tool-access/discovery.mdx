@@ -1,0 +1,137 @@
+import { Callout } from 'nextra/components'
+
+# Discovery, search & filter
+
+`fabric.tools.discover(...)` is the one entry point for finding governed tools.
+It narrows the catalog by **name/description (search)**, **governance**, domain,
+tags, asset type, and environment — so an agent binds only the tools it needs
+rather than the entire catalog. It returns a [`ToolSet`](/tool-access/binding)
+whose per-framework methods hand back native tool objects.
+
+## The two most common calls
+
+```python
+# 1. Governed-only + name search:
+#    only governed tools whose name or description matches the glob "*accounts*".
+tools = await fabric.tools.discover(governed_only=True, search="*accounts*")
+
+# 2. Everything governed in a domain:
+tools = await fabric.tools.discover(domain="hr", governed_only=True)
+```
+
+## The full filter surface
+
+Every argument is optional and combines with `AND` semantics:
+
+```python
+tools = await fabric.tools.discover(
+    search="*accounts*",     # glob over asset name + description; None = no text filter
+    governed_only=True,      # True = default criteria; or an explicit GovernanceCriteria
+    domain="hr",             # catalog domain
+    tags=["approved"],       # all tags must be present
+    asset_types=["mcp"],     # restrict to MCP servers, agents, etc.
+    environment="Production",# environment-scoped governance
+    limit=50,
+)
+```
+
+| Argument | Type | Meaning |
+|---|---|---|
+| `search` | `str \| None` | Glob over asset **name and description** (`*accounts*`, `get_*`). `None` = no text filter. |
+| `governed_only` | `bool \| GovernanceCriteria \| None` | `True` applies the default criteria; pass a `GovernanceCriteria` (e.g. `STRICT`) for explicit rules; `None` = unfiltered. |
+| `domain` | `str \| None` | Catalog domain. |
+| `tags` | `list[str] \| None` | All listed tags must be present. |
+| `asset_types` | `list[AssetType] \| None` | e.g. `["mcp"]`. |
+| `environment` | `str \| None` | Which environment governance is computed against. |
+| `limit` | `int` | Max results (default 50). |
+
+<Callout type="info">
+  `discover(...)` is the high-level facade over `ExchangeRegistry.search()`. On
+  the facade, `search` is the text/glob filter (the registry's `query`) and
+  `governed_only` is the governance predicate (the registry's `governed`). The
+  glob is applied server-side where Exchange supports a wildcard/substring query,
+  and client-side otherwise — the behaviour you see is identical either way.
+  Which path Exchange supports is a live-verification item; see
+  [Verification policy](/concepts/verification).
+</Callout>
+
+## "Governed" is a computed predicate, not a flag
+
+Publication to Exchange says nothing about whether an asset is fronted by a
+gateway, has policies applied, or passes the org's rulesets — there is no single
+boolean to query. "Governed" is **computed** by joining state across systems, and
+it is **environment-scoped**: an asset governed in Production may be ungoverned in
+Sandbox. `GovernanceCriteria` makes every condition explicit and independently
+checkable:
+
+```python
+from agent_fabric.registry.governance import GovernanceCriteria, STRICT
+
+@dataclass(frozen=True)
+class GovernanceCriteria:
+    require_api_instance: bool = True     # an API Manager instance exists in this env
+    require_deployed: bool = True         # deployed to a gateway, not just configured
+    require_any_policy: bool = True       # at least one policy applied
+    required_policies: list[str] = ...    # e.g. ["client-id-enforcement"]
+    forbidden_policies: list[str] = ...
+    require_governance_pass: bool = False  # passes org rulesets with no `error` findings
+    require_gateways: list[str] = ...      # only assets behind these named gateways
+    require_tags: list[str] = ...
+    require_lifecycle: list[str] = ...     # e.g. ["published", "approved"]
+    allow_unknown: bool = False            # if a check can't be evaluated, does it pass?
+
+# A ready-made strict preset:
+STRICT = GovernanceCriteria(
+    require_governance_pass=True,
+    required_policies=["client-id-enforcement"],
+    allow_unknown=False,
+)
+```
+
+`governed_only=STRICT` passes it straight through:
+
+```python
+tools = await fabric.tools.discover(domain="hr", governed_only=STRICT)
+```
+
+<Callout type="warning">
+  `allow_unknown` matters more than it looks. If the platform doesn't expose, say,
+  ruleset results, then `require_governance_pass=True` with `allow_unknown=False`
+  silently filters the whole catalog to zero — so every filtered-out asset carries
+  a **reason**, surfaced by `explain()`.
+</Callout>
+
+## `explain()` — why a tool was included or excluded
+
+`governed_only=True` returning an empty list is otherwise indistinguishable from a
+broken credential. `explain()` is a first-class, always-available method:
+
+```python
+report = await fabric.registry.explain(ref, criteria=STRICT)
+# GovernanceReport(governed=False, checks=[
+#     Check("api_instance_exists", True,  "instance 19283 in Sandbox"),
+#     Check("deployed",            True,  "gateway managed-omni-eu-1"),
+#     Check("required_policies",   False, "missing: client-id-enforcement"),
+#     Check("governance_pass",     None,  "UNKNOWN: rulesets API returned 403"),
+# ])
+```
+
+Each check is `True` (passed), `False` (failed, with the reason), or `None`
+(couldn't be evaluated — resolved via `allow_unknown`). The empty-result warning
+message references `explain()` directly.
+
+## Defaults and performance
+
+- **Unfiltered by default.** `governed_only` defaults to `None` in v1, with a
+  startup log line stating discovery is unfiltered. Flipping the default to `True`
+  is a breaking change reserved for a later major version.
+- **Warm the index.** The governance join is a bulk operation, not one API call
+  per asset. A long-running agent process can build the index at startup with
+  `fabric.registry.warm(environment=...)` so first discovery is fast.
+
+## Related
+
+- [Framework binding](/tool-access/binding) — turn a `ToolSet` into native tools.
+- [Pinning & lockfile](/tool-access/lockfile) — pin resolved versions for prod.
+- [Governance & environments](/concepts/environments) — the `Governance` object
+  you can pass as `governance=` to scope discovery to a target.

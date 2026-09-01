@@ -1,0 +1,67 @@
+import { Callout } from 'nextra/components'
+
+# Verification policy (§0.3)
+
+This is the most important thing to understand about the SDK's trustworthiness.
+
+<Callout type="error">
+  **Never invent an endpoint, header name, or class name.** A fabricated
+  endpoint that 404s in a customer sandbox destroys trust in the whole package.
+</Callout>
+
+Every platform fact the SDK relies on is either **verified against a real
+Anypoint sandbox / an installed framework**, or it is **not used** — the code
+path that would need it raises `NotImplementedError("blocked on verification: …")`
+or a clear `ConfigError` instead of guessing. The engineering source of truth is
+[`docs/verified-apis.md`](https://github.com/your-org/mulesoft-agent-fabric/blob/main/docs/verified-apis.md).
+
+## What is verified today
+
+- **LLM proxy data plane** (live-verified): base-URL shape
+  (`https://<ingress>/<instance>/`, no `/v1`), the `client_id` + `client_secret`
+  consumer-auth header pair, model-based routing, streaming, token accounting,
+  and the absence of a `/models` endpoint (`404`).
+- **Attribution** (live-verified): the `client_id` credential is the per-agent
+  attribution unit; the gateway emits identity/telemetry on the response.
+- **The four policy rejection shapes** (live-verified): auth `401`, PII `403`,
+  token-budget `429`, upstream passthrough. See [Error taxonomy](/errors).
+
+## What is still blocked — and why that's a feature
+
+| Area | Status | What the SDK does about it |
+|---|---|---|
+| Framework **constructor signatures** (§8) | Unverified per framework | Adapters target recorded class names; a mismatch surfaces via the verification harness / nightly matrix rather than silently misbehaving. Agent Framework's client raises `blocked on verification` today. |
+| MCP tool discovery + binding (Pillar 2, §9) | Unverified | `fabric.tools.discover` and the binding classes raise `blocked on verification`. |
+| Provisioning control plane (Pillar 3) | Reshaped + unverified | The real flow is CLI + Maven, not REST CRUD; the design is pending, not guessed. |
+| Prompt-injection / content-safety bodies | Not captured | Fall through to a generic `PolicyViolation` — no invented discriminator. |
+| First-party **TypeScript SDK** | Planned (M3) | TypeScript examples reach the proxy over its OpenAI-compatible API via the `openai` / `@anthropic-ai/sdk` clients; no first-party TS package is implied until M3 ships. |
+
+## How framework signatures get verified
+
+The constructor signatures (§8) are confirmed with an executable harness,
+`python/scripts/verify_frameworks.py`. Per framework it runs:
+
+1. **Signature check (offline).** It constructs the native object via the
+   adapter's factory — importing the exact class we name and passing the exact
+   kwargs. A wrong class path or kwarg raises, and it then confirms the object is
+   an instance of the class imported from its **recorded** path (so a rename or
+   re-export is caught).
+2. **Live round-trip (`--live`).** One real completion through the framework's
+   own call, against the sandbox proxy.
+
+```bash
+cd python
+python scripts/verify_frameworks.py            # signature check
+python scripts/verify_frameworks.py --live      # + a real proxy round-trip
+python scripts/verify_frameworks.py --emit-verified   # prints §8 rows to paste
+```
+
+The [nightly framework matrix](https://github.com/your-org/mulesoft-agent-fabric/blob/main/.github/workflows/nightly-matrix.yml)
+runs this every night so an upstream framework rename turns CI red **before** it
+reaches you.
+
+<Callout type="info">
+  A signature is only marked verified after the harness is green **and** a
+  maintainer signs off on scope — then the `docs/verified-apis.md` §8 row flips
+  and the code's unverified note is relaxed.
+</Callout>

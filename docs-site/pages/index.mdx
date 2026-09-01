@@ -1,0 +1,138 @@
+import { Callout, Cards, Tabs } from 'nextra/components'
+
+# What is the Agent Fabric SDK?
+
+The **Agent Fabric SDK** lets you consume **MuleSoft Agent Fabric** capabilities —
+governed model access, governed tool access, and provisioning-as-code — from
+**your own agent framework, in your own IDE, without adopting Mule**.
+
+You keep writing LangGraph, Google ADK, Strands, LlamaIndex, CrewAI, the OpenAI
+Agents SDK, the Anthropic SDK, or Microsoft Agent Framework code exactly as you
+do today. The SDK wires
+those frameworks to your organisation's governed **Omni Gateway LLM proxy** so
+every model call is authenticated, attributed, and policy-checked — and it hands
+you back your framework's **own native objects**, never a wrapper you have to
+code around.
+
+<Callout type="info">
+  **"Agent Fabric" is a MuleSoft (Salesforce) product name**, not a generic
+  term. This project is an SDK *for* that product; it is descriptive, not a
+  first-party release. See [§0.4 in the README](https://github.com/your-org/mulesoft-agent-fabric).
+</Callout>
+
+## The one design rule
+
+> **Adapters return the framework's native object — never a wrapper.**
+
+`fabric.langgraph.chat_model("gpt-4o")` returns a real `langchain_openai.ChatOpenAI`.
+`fabric.llamaindex.llm("gpt-4o")` returns a real `OpenAILike`. You can hand these
+straight to `create_react_agent`, a LlamaIndex query engine, a Strands `Agent`,
+and so on. If you ever want to drop the SDK, you eject to three lines of native
+constructor code — every framework page shows you exactly which three.
+
+## Make a governed call
+
+The Python SDK returns native framework objects. From any other language you hit
+the *same* governed proxy over its OpenAI-compatible HTTP API — the verified base
+URL plus the `client_id` / `client_secret` headers. (No first-party TypeScript
+SDK yet.)
+
+<Tabs items={['Python', 'TypeScript', 'cURL']}>
+<Tabs.Tab>
+
+```python
+from agent_fabric.integrations.langgraph import chat_model
+
+# A real langchain_openai.ChatOpenAI, already pointed at your governed proxy.
+model = chat_model("gpt-4o", temperature=0)
+reply = await model.ainvoke([("user", "Explain quantum computing in simple terms.")])
+print(reply.content)
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```typescript
+const base = process.env.MULESOFT_LLM_PROXY_URL!;   // ends in "/", no /v1
+const resp = await fetch(`${base}chat/completions`, {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+  },
+  body: JSON.stringify({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: "Explain quantum computing in simple terms." }],
+  }),
+});
+console.log((await resp.json()).choices[0].message.content);
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```bash
+curl "${MULESOFT_LLM_PROXY_URL}chat/completions" \
+  -H "content-type: application/json" \
+  -H "client_id: ${MULESOFT_LLM_PROXY_CLIENT_ID}" \
+  -H "client_secret: ${MULESOFT_LLM_PROXY_CLIENT_SECRET}" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Explain quantum computing in simple terms."}]
+  }'
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## The three pillars
+
+<Cards>
+  <Cards.Card title="1 · Governed model access" href="/frameworks" arrow>
+    Point any of eight frameworks at your governed proxy. Verified auth,
+    attribution, retries, and a typed error taxonomy — injected for you.
+  </Cards.Card>
+  <Cards.Card title="2 · Governed tool access" href="/tool-access" arrow>
+    Discover and bind governed MCP tools across frameworks, with governed-only
+    filtering. (Roadmap — see the page for what's blocked and why.)
+  </Cards.Card>
+  <Cards.Card title="3 · Provisioning as code" href="/provisioning" arrow>
+    Declare gateways, policies, and published assets and apply them. (Roadmap.)
+  </Cards.Card>
+</Cards>
+
+## What is live today
+
+<Callout type="default">
+  **Pillar 1 (governed model access) is live-verified** against a real Anypoint
+  sandbox: the proxy base-URL shape (`https://<ingress>/<instance>/`, no `/v1`),
+  the `client_id` + `client_secret` consumer-auth header pair, the attribution
+  headers, and the four policy rejection shapes (auth `401`, PII `403`,
+  token-budget `429`, upstream passthrough). The framework-free client and all
+  eight adapters are wired to that verified contract.
+</Callout>
+
+What is **not** yet unblocked — and why the SDK raises a clear error instead of
+guessing — is covered honestly on the [Verification policy](/concepts/verification)
+page. In short: Pillar 2, Pillar 3, and the exact framework *constructor
+signatures* (§8) still need live confirmation, and code paths that depend on an
+unverified endpoint, header, or class name raise
+`NotImplementedError("blocked on verification: …")` rather than fabricate one.
+
+## Next steps
+
+<Cards>
+  <Cards.Card title="Quickstart" href="/quickstart" arrow>
+    Make your first governed model call in under five minutes.
+  </Cards.Card>
+  <Cards.Card title="Feature overview" href="/feature-overview" arrow>
+    A tour of everything Pillar 1 gives you today.
+  </Cards.Card>
+  <Cards.Card title="Pick your framework" href="/frameworks" arrow>
+    Per-framework install, quickstart, and the manual equivalent.
+  </Cards.Card>
+  <Cards.Card title="Error taxonomy" href="/errors" arrow>
+    Branch on governance outcomes instead of parsing error bodies.
+  </Cards.Card>
+</Cards>

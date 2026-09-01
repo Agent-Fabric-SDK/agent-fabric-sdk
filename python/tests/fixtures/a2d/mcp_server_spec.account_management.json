@@ -1,0 +1,94 @@
+{
+  "spec": {
+    "protocolVersion": "2025-06-18",
+    "transport": {
+      "kind": "streamableHttp",
+      "path": "/api/platform/{serverId}/mcp"
+    },
+    "provider": {
+      "organization": "",
+      "url": ""
+    },
+    "capabilities": {
+      "tools": true,
+      "resources": true,
+      "prompts": true,
+      "logging": true
+    },
+    "logging": {
+      "level": "info"
+    },
+    "platform": "mulesoft",
+    "tools": [
+      {
+        "name": "listAccounts",
+        "description": "List all accounts",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "integer",
+              "description": "Page number for pagination"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Number of items per page"
+            },
+            "search": {
+              "type": "string",
+              "description": "Search by account name or domain"
+            },
+            "status": {
+              "type": "string",
+              "description": "Filter by account status"
+            }
+          }
+        }
+      },
+      {
+        "name": "getAccount",
+        "description": "Get account by ID",
+        "inputSchema": {
+          "type": "object",
+          "required": [
+            "accountId"
+          ],
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "description": "Unique identifier of the account"
+            }
+          }
+        }
+      },
+      {
+        "name": "createAccount",
+        "description": "Create a new account",
+        "inputSchema": {
+          "type": "object",
+          "required": [
+            "name",
+            "status"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 255,
+              "minLength": 1
+            },
+            "status": {
+              "enum": [
+                "active",
+                "inactive",
+                "prospect",
+                "customer",
+                "churned"
+              ],
+              "type": "string"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

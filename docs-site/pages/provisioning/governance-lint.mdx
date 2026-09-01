@@ -1,0 +1,40 @@
+import { Callout } from 'nextra/components'
+
+# Governance lint
+
+`agent-fabric lint` validates API specs against **project** and
+**centralized** rulesets before anything publishes, and fails the pull
+request on any `error`-severity finding:
+
+```bash
+$ agent-fabric lint -f fabric.yaml
+✗ employee-api        no-unbounded-array-response       error
+✓ finance-tools/get_invoice                              pass
+✗ hr-tools/search_employees   missing-rate-limit-policy   warning
+
+1 error, 1 warning. Failing (error-severity findings present).
+```
+
+Rulesets resolve **locally**, with per-rule severities — the same lint that
+runs in CI can run on a laptop with no network call to a governance service.
+A rule can be tightened from `warning` to `error` (or the reverse) per
+project without touching the centralized ruleset itself.
+
+## Why it ships early
+
+<Callout type="info">
+  Governance lint needs no provisioning API at all — it's a spec-in,
+  findings-out check against static rulesets. That makes it small, cheap, and
+  uncontroversial: the fastest way to get a platform team to say yes to the
+  SDK.
+</Callout>
+
+Because of that independence, `agent-fabric lint` targets **M1**, well ahead
+of the rest of [provisioning](/provisioning), which targets M4. It also
+survives the [Terraform-generation fallback](/provisioning#the-fallback-generate-terraform-instead)
+unchanged if the plan/apply engine ends up cut from v1 — lint has nothing to
+do with how (or whether) the spec gets applied.
+
+See [Spec format](/provisioning/spec) for what's being linted, and
+[Plan & apply](/provisioning/plan-apply) for where this check sits relative to
+`apply` in the pipeline.

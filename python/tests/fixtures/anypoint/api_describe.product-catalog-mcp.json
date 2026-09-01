@@ -1,0 +1,108 @@
+{
+  "audit": {
+    "created": {
+      "date": "2026-08-24T11:22:33.820Z"
+    },
+    "updated": {
+      "date": "2026-08-24T11:24:29.876Z"
+    }
+  },
+  "masterOrganizationId": "82a0453b-22e6-430d-bbf4-35b989d043dc",
+  "organizationId": "82a0453b-22e6-430d-bbf4-35b989d043dc",
+  "id": 21121315,
+  "instanceLabel": "product-catalog-mcp",
+  "environmentInstanceId": "instance_21121315",
+  "groupId": "82a0453b-22e6-430d-bbf4-35b989d043dc",
+  "assetId": "product-catalog-mcp",
+  "assetVersion": "1.0.0",
+  "productVersion": "v1.0",
+  "description": null,
+  "tags": [],
+  "order": 1,
+  "providerId": null,
+  "deprecated": false,
+  "lastActiveDate": null,
+  "endpointUri": "https://agent-network-ingress-gw-zovwbn.jeg62f.usa-e2.cloudhub.io/mcp/product-catalog/",
+  "environmentId": "3e6ce455-e3e8-4402-b830-9fcf07d9207b",
+  "isPublic": false,
+  "stage": "release",
+  "technology": "flexGateway",
+  "approvalMethod": null,
+  "endpoint": {
+    "audit": {
+      "created": {},
+      "updated": {}
+    },
+    "id": 5534643,
+    "type": "mcp",
+    "uri": "https://data-product-api-zovwbn.jeg62f.usa-e2.cloudhub.io/mcp/product-catalog/",
+    "apiGatewayVersion": "1.13.2",
+    "proxyUri": "http://0.0.0.0:8081/mcp/product-catalog",
+    "proxyRegistrationUri": null,
+    "lastActiveDate": null,
+    "isCloudHub": null,
+    "deploymentType": "HY",
+    "policiesVersion": null,
+    "referencesUserDomain": null,
+    "responseTimeout": null,
+    "wsdlConfig": null,
+    "tlsContexts": {},
+    "muleVersion4OrAbove": null
+  },
+  "deployment": {
+    "audit": {
+      "created": {},
+      "updated": {
+        "date": "2026-08-24T11:22:38.444Z"
+      }
+    },
+    "id": 28406441,
+    "applicationId": "d87e0a49-9c7e-4c76-a511-2a9ef6dbb457",
+    "applicationName": null,
+    "gatewayVersion": "1.13.2",
+    "environmentName": null,
+    "environmentId": "3e6ce455-e3e8-4402-b830-9fcf07d9207b",
+    "targetId": "35755bec-3177-4d32-a8c9-c9705f5b1c0b",
+    "targetName": "agent-network-ingress-gw",
+    "deploymentId": null,
+    "updatedDate": "2026-08-24T11:22:38.444Z",
+    "type": "HY",
+    "expectedStatus": "deployed",
+    "targetMetadata": {
+      "spec": {
+        "target": {
+          "annotations": {
+            "gateway-manager.mulesoft.com/kind": "managed",
+            "gateway-manager.mulesoft.com/targetType": "private-space"
+          },
+          "environment": {
+            "target": {
+              "id": "35755bec-3177-4d32-a8c9-c9705f5b1c0b",
+              "provider": "RR"
+            }
+          }
+        }
+      },
+      "target": {
+        "id": "35755bec-3177-4d32-a8c9-c9705f5b1c0b",
+        "provider": "RR"
+      }
+    },
+    "apiId": 21121315
+  },
+  "routing": [
+    {
+      "upstreams": [
+        {
+          "id": "52e81b94-584e-4503-9675-f3d58c39df24",
+          "weight": 100
+        }
+      ]
+    }
+  ],
+  "metadata": null,
+  "semanticServiceConfigId": null,
+  "semanticCacheConfigId": null,
+  "status": "active",
+  "autodiscoveryInstanceName": "v1.0:21121315"
+}

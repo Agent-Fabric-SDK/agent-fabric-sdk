@@ -1,0 +1,84 @@
+import { Callout } from 'nextra/components'
+
+# Framework binding
+
+Once [discovery](/tool-access/discovery) hands you a `ToolSet`, binding is the
+step that turns governed MCP servers into a framework's own tool objects —
+nothing wrapped, nothing re-implemented.
+
+## MCP session management
+
+MCP servers created by MCP Bridge are gateway endpoints speaking streamable
+HTTP, protected by gateway policies. The SDK's session layer handles four
+things so you don't have to:
+
+- **Auth.** Client-credentials OAuth is the machine-to-machine case. Strands'
+  `MCPClient` already builds streamable HTTP with a `client_credentials` grant
+  internally; every other framework needs headers supplied explicitly.
+  `McpServerHandle.auth_headers()` returns a ready-to-use header dict, and it
+  is refreshed automatically on a `401`.
+- **Connection lifecycle.** MCP clients are stateful, and several frameworks
+  connect lazily. `fabric.tools.discover()` never opens a connection — it
+  returns handles. The underlying connection opens on first tool use.
+- **Multi-server aggregation.** `ToolSet` wraps N `McpServerHandle`s. When two
+  servers expose a tool with the same name, the collision is resolved by
+  prefixing with the server's short name — for example `hr__get_employee` —
+  and the mapping is surfaced on `ToolSet.name_map` so you can see exactly why
+  the model called that name.
+- **Filtering.** Enterprise MCP servers can expose dozens of tools. Handing 60
+  tool descriptors to a model degrades it and inflates token cost, so filter
+  before you bind:
+
+```python
+tools = await fabric.tools.discover(domain="hr")
+filtered = tools.filter(allow=["get_employee", "search_employees"])
+# or:
+filtered = tools.filter(deny=["delete_*"])
+# or a predicate over the tool descriptor:
+filtered = tools.filter(predicate=lambda t: t.name.startswith("get_"))
+```
+
+<Callout type="info">
+  The SDK logs the descriptor token count for a `ToolSet` at debug level, so
+  you can see the cost of skipping `filter()` before a model does.
+</Callout>
+
+## Per-framework binding
+
+| Framework | Binding |
+|---|---|
+| LangGraph | `langchain_mcp_adapters.client.MultiServerMCPClient({...}).get_tools()` — the SDK builds the connection dict from your handles, transport `"streamable_http"`, headers injected. |
+| Google ADK | `McpToolset(connection_params=StreamableHTTPConnectionParams(url=..., headers=...), tool_filter=[...])`, passed straight into `LlmAgent(tools=[...])`. |
+| MS Agent Framework | its MCP client/tool class for streamable HTTP (name pending live verification — §9); the framework's own docs reference hosted MCP tools and MCP clients for tool integration. |
+| OpenAI Agents SDK | `agents.mcp.MCPServerStreamableHttp(params={"url": ..., "headers": ...})`, passed into `Agent(mcp_servers=[...])` (pending live verification — §9). |
+| Anthropic SDK | no native client-side MCP binding in the `anthropic` SDK itself; bind via the MCP Python SDK's streamable-HTTP client and pass the resulting tool schemas to `messages.create(tools=...)` (pending live verification — §9). |
+| CrewAI | its MCP adapter for streamable-HTTP servers (name pending live verification — §9), yielding native `crewai` tool objects for a `Crew`/`Agent`. |
+| LlamaIndex | `llama_index.tools.mcp.BasicMCPClient` + `McpToolSpec(...).to_tool_list_async()`. |
+| Strands | `MCPClient(lambda: streamablehttp_client(url, headers=...))` — implements `ToolProvider`, so it can be passed directly into `Agent(tools=[...])` with automatic lifecycle management. |
+
+Each binding returns the framework's **native** tool type — a LangGraph
+`BaseTool`, an ADK `McpToolset`, a Strands `MCPClient`, and so on. `ToolSet`
+exposes one method per installed integration:
+
+```python
+ts = await fabric.tools.discover(domain="hr")
+ts.langgraph()          # -> list[BaseTool]
+ts.adk()                # -> list[McpToolset]
+ts.strands()            # -> list[MCPClient]
+ts.llamaindex()         # -> list[FunctionTool]
+# etc.
+```
+
+Note the shape difference: ADK and Strands want a toolset/provider object,
+LangGraph and LlamaIndex want a flat tool list. The SDK does not force a
+uniform return type — each method matches its framework's own idiom, and the
+difference is called out in that method's docstring.
+
+<Callout type="warning">
+  The proxy contract discovery and session management depend on is designed
+  against MCP Bridge, but the binding classes marked "pending live
+  verification" above have not yet been confirmed against an installed
+  framework. See [Verification policy](/concepts/verification) for how these
+  get unblocked, and the [error taxonomy](/errors) for how a binding failure
+  or a `401` surfaces as a typed exception.
+</Callout>

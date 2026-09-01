@@ -12,7 +12,7 @@
 
 A Python and TypeScript SDK that lets an agent developer, working in their own IDE and their own agent framework, consume three MuleSoft platform capabilities without adopting Mule:
 
-1. **Governed model access** — the Omni Gateway LLM Proxy as a drop-in model provider for seven agent frameworks.
+1. **Governed model access** — the Omni Gateway LLM Proxy as a drop-in model provider for eight agent frameworks.
 2. **Governed tool access** — Anypoint Exchange as a live registry, resolving to ready-to-bind MCP toolsets.
 3. **Provisioning as code** — declarative MCP Bridge instances and policy bindings, applied from CI with plan/diff/apply semantics.
 
@@ -25,7 +25,7 @@ Do not build these. Each was considered and rejected for a stated reason.
 | A Python/TS runtime for Agent Broker orchestration | Agent networks compile to Mule apps on CloudHub 2.0; brokers are A2A servers. Reimplementing the guided-determinism graph engine is a competing product, not an SDK. |
 | Authoring of gateway policy *logic* | Omni Gateway policies are Rust→WASM on Envoy via the PDK. Cannot be expressed in Python or TS. |
 | An agent-network YAML/Agent Script generator | Schema is new and moving (Agent Network 2.0 / `.agent` files). The Anypoint CLI plugin and DX MCP Server already cover it. Wrap the CLI later if demanded. |
-| A wrapper abstraction over the seven frameworks | Adapters return **native** framework objects. See §3.1. |
+| A wrapper abstraction over the eight frameworks | Adapters return **native** framework objects. See §3.1. |
 | Runtime policy application from application code | Inverts the platform-team ownership model. Provisioning is a CI-time concern. See §5.4. |
 
 ### 0.3 Mandatory verification step (do this first, before M0)
@@ -37,10 +37,12 @@ Verify:
 - **Anypoint OAuth token endpoint** — exact path, region host variants (US/EU/Canada/Japan Hyperforce), connected-app scope names needed for Exchange read, API Manager write, and policy management. Some operations require an *admin* connected app with user context rather than pure client credentials.
 - **LLM Proxy endpoint shape** — base URL format, whether `/v1` is included, auth header name (bearer vs. custom), whether an SLA/consumer credential pair or a single API key is used, streaming support, and which OpenAI request fields pass through vs. get stripped.
 - **Token attribution headers** — the exact header names the gateway reads for business-group and client-application attribution. These are the single most important unknown; without them the SDK's core value proposition (cost attribution per agent) does not work.
-- **Policy rejection response shapes** — status codes and bodies returned when token rate limiting, prompt-injection protection, content safety, or PII detection blocks a request. Capture real responses as fixtures (§6.2).
+- **Policy rejection response shapes** — status codes and bodies returned when token rate limiting, prompt-injection protection, content safety, or PII detection blocks a request. Capture real responses as fixtures (§8.2).
 - **MCP Bridge provisioning API** — whether API Manager exposes a documented REST endpoint for creating MCP Bridge instances, or whether it is UI/wizard-only with an internal endpoint. **This determines whether §5 is viable at all.** If UI-only, fall back to wrapping the Terraform provider (§5.5).
 - **Terraform provider coverage** — `mulesoft/anypoint` v1.x reportedly covers MCP servers and AI agent resources. Enumerate exactly what it already does before duplicating it.
 - **Framework APIs** — every constructor in §3.3. `agent-framework` (Python) in particular changed its top-level class name recently; the August 2026 docs show `from agent_framework import Agent` with a `client=` kwarg, not `ChatAgent`.
+
+**Six further M0 items specific to governance and local mode are listed in §6.7, and six more for publication in §7.9. They gate §6 and §7 entirely — do all of them in the same pass.**
 
 If any verification fails, **stop and report** rather than inventing an endpoint. A fabricated endpoint that returns 404 in a customer's sandbox destroys trust in the whole package.
 
@@ -50,7 +52,7 @@ If any verification fails, **stop and report** rather than inventing an endpoint
 
 Two workable paths:
 
-1. **Endorsed.** Confirm with MuleSoft (see the week-1 conversation in §8) and use the name as-is.
+1. **Endorsed.** Confirm with MuleSoft (see the week-1 conversation in §10) and use the name as-is.
 2. **Unaffiliated.** Keep the descriptive form in the docs — "an SDK for MuleSoft Agent Fabric" — but ship under a distinct, org-scoped project name so the package itself does not read as first-party.
 
 Working names in this document — `mulesoft-agent-fabric` (import `agent_fabric`) / `@yourorg/agent-fabric`, CLI `agent-fabric` — assume path 1. Under path 2, rename the distributions and keep the import name. Either way, put a support statement in the README stating exactly who maintains the project and what the support expectations are.
@@ -64,8 +66,8 @@ Working names in this document — `mulesoft-agent-fabric` (import `agent_fabric
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │ integrations/  (one optional extra per framework)              │
-│  langgraph · adk · autogen · agent_framework · semantic_kernel │
-│  llamaindex · strands                                          │
+│  langgraph · adk · strands · agent_framework · openai · crewai │
+│  anthropic · llamaindex                                        │
 │  — each returns NATIVE framework objects, never wrappers       │
 └───────────────┬────────────────────────────────────────────────┘
                 │
@@ -109,6 +111,9 @@ mulesoft-agent-fabric-sdk/
 │   │   │   └── catalog.py             # ModelHandle, list/resolve models
 │   │   ├── registry/
 │   │   │   ├── exchange.py            # search, get asset, resolve
+│   │   │   ├── governance.py          # GovernanceCriteria, explain()
+│   │   │   ├── publication.py         # Publication, AssetType, descriptors
+│   │   │   └── introspect.py          # descriptor='auto' generation
 │   │   │   └── models.py              # AssetRef, McpServerHandle, AgentHandle
 │   │   ├── tools/
 │   │   │   ├── session.py             # MCP streamable-HTTP session mgmt
@@ -116,16 +121,18 @@ mulesoft-agent-fabric-sdk/
 │   │   ├── integrations/
 │   │   │   ├── langgraph.py
 │   │   │   ├── adk.py
-│   │   │   ├── autogen.py
+│   │   │   ├── strands.py
 │   │   │   ├── agent_framework.py
-│   │   │   ├── semantic_kernel.py
-│   │   │   ├── llamaindex.py
-│   │   │   └── strands.py
+│   │   │   ├── openai_agents.py     # fabric.openai — OpenAI Agents SDK
+│   │   │   ├── anthropic.py
+│   │   │   ├── crewai.py
+│   │   │   └── llamaindex.py
 │   │   └── provisioning/
 │   │       ├── spec.py                # pydantic models for the YAML spec
 │   │       ├── planner.py             # desired vs. actual → Plan
 │   │       ├── applier.py
 │   │       ├── lint.py                # governance ruleset preflight
+│   │       ├── publish.py             # Exchange publication, digest, --if-changed
 │   │       └── cli.py                 # `agent-fabric` typer CLI
 │   └── tests/
 │       ├── unit/
@@ -144,35 +151,38 @@ mulesoft-agent-fabric-sdk/
 ├── examples/                          # one runnable example per framework
 ├── docs/
 │   ├── verified-apis.md               # OUTPUT OF §0.3 — keep current
-│   └── unsupported-boundary.md        # §7.3
+│   └── unsupported-boundary.md        # §9.3
 └── .github/workflows/
 ```
 
 ### 1.3 Language parity — be honest about this
 
-Of the seven requested frameworks, TypeScript equivalents exist for only some:
+Of the eight targeted frameworks, TypeScript equivalents exist for only some:
 
 | Framework | Python | TypeScript |
 |---|---|---|
 | LangGraph | yes | yes (LangGraph.js) |
 | Google ADK | yes | yes (`@google/adk`) |
-| LlamaIndex | yes | yes (LlamaIndex.TS) |
 | Strands | yes | yes (`@strands-agents/sdk`) |
-| AutoGen | yes | no |
+| OpenAI Agents SDK | yes | yes (`@openai/agents`) |
+| Anthropic SDK | yes | yes (`@anthropic-ai/sdk`) |
+| LlamaIndex | yes | yes (LlamaIndex.TS) |
+| CrewAI | yes | no |
 | Microsoft Agent Framework | yes | no (.NET, Python, Go) |
-| Semantic Kernel | yes | no (.NET, Python, Java) |
 
-**Ship Python for all seven. Ship TypeScript for four**, and add the Vercel AI SDK and OpenAI Agents SDK (JS) as the two TS-native targets that fill the gap. Do not promise TS AutoGen/SK/MAF in any README.
+**Ship Python for all eight. Ship TypeScript for six** — LangGraph, ADK, Strands, OpenAI Agents SDK, Anthropic SDK, LlamaIndex — and add the Vercel AI SDK as one further TS-native target. Do not promise TS CrewAI or Microsoft Agent Framework in any README.
 
 ### 1.4 Framework tiering — also be honest
 
-Microsoft's own documentation positions Agent Framework as the direct successor to both Semantic Kernel and AutoGen, built by the same teams, merging AutoGen's abstractions with Semantic Kernel's enterprise features. Three of the seven targets are Microsoft, and two of those are on a declared sunset path.
+The roster deliberately drops AutoGen and Semantic Kernel: Microsoft's own documentation positions Agent Framework as the direct successor to both — built by the same teams, merging AutoGen's abstractions with Semantic Kernel's enterprise features — so carrying all three would mean shipping two sunset-path adapters. Microsoft Agent Framework covers that lineage; CrewAI, the OpenAI Agents SDK, and the Anthropic SDK take the freed capacity.
 
 Plan accordingly:
 
-- **Tier 1 (full support, conformance-gated, blocking CI):** LangGraph, Google ADK, Strands, Microsoft Agent Framework.
+- **Tier 1 (full support, conformance-gated, blocking CI):** LangGraph, Google ADK, Strands, Microsoft Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI.
 - **Tier 2 (supported, conformance-gated, non-blocking CI):** LlamaIndex.
-- **Tier 3 (maintenance only, examples + smoke test, documented as legacy):** AutoGen, Semantic Kernel. Point users at the Microsoft migration guides in the docstrings.
+- **Tier 3:** none. (AutoGen and Semantic Kernel are out of scope — see the note above.)
+
+Two Tier 1 targets carry known constraints, tracked as documented conformance exemptions (§8.1) rather than as a lower tier: CrewAI reaches models through LiteLLM (like ADK), so per-run correlation degrades to per-client; and the Anthropic SDK depends on the proxy exposing an Anthropic-native Messages API route, which is an open M0 verification item (§0.3).
 
 This is a scope decision, not a technical one — raise it with the human lead before M1.
 
@@ -299,7 +309,7 @@ Two design points that matter:
 1. **`PolicyViolation` must be distinguishable from a transient error at the framework boundary.** Most agent frameworks will retry or loop on an exception. A prompt-injection block that gets retried three times is three policy violations in the audit log and a confused developer. Every adapter must surface `PolicyViolation` in a way the host framework will not silently retry — for frameworks with middleware/hooks, install a hook that converts it to a terminal agent state.
 2. **`remediation` is a required field.** "Token budget exceeded for business group `finance`; limit resets in 42m; request an increase in API Manager" is worth more than a stack trace.
 
-The concrete mapping from HTTP response → exception class lives in one function, `errors.classify(response)`, driven by a table populated from real captured fixtures (§6.2). Do not hand-write guesses into the table.
+The concrete mapping from HTTP response → exception class lives in one function, `errors.classify(response)`, driven by a table populated from real captured fixtures (§8.2). Do not hand-write guesses into the table.
 
 ### 2.5 Telemetry
 
@@ -344,11 +354,12 @@ models = await fabric.llm.list_models()         # [ModelHandle(id, provider, ...
 # Per framework (each an optional extra)
 fabric.langgraph.chat_model("gpt-4o", temperature=0.2)
 fabric.adk.model("gpt-4o")
-fabric.autogen.model_client("gpt-4o")
-fabric.agent_framework.chat_client("gpt-4o")
-fabric.semantic_kernel.chat_completion("gpt-4o")
-fabric.llamaindex.llm("gpt-4o")
 fabric.strands.model("gpt-4o")
+fabric.agent_framework.chat_client("gpt-4o")
+fabric.openai.model("gpt-4o")                   # OpenAI Agents SDK
+fabric.anthropic.client()                       # AsyncAnthropic; model id is per-call
+fabric.crewai.llm("gpt-4o")
+fabric.llamaindex.llm("gpt-4o")
 ```
 
 Accessing an adapter whose extra is not installed raises `ImportError` with the exact install command:
@@ -400,24 +411,24 @@ Header injection: via LiteLLM's `extra_headers`. **Cannot inject our httpx clien
 
 ADK requires `litellm>=1.84`. Pin a floor, not a ceiling.
 
-#### AutoGen (Python only; Tier 3)
+#### CrewAI (Python; Tier 1)
+
+CrewAI reaches models through its own `crewai.LLM` class, which wraps LiteLLM — so, as with ADK, an OpenAI-compatible proxy is addressed with the `openai/` model prefix.
 
 ```python
-from autogen_ext.models.openai import OpenAIChatCompletionClient
-from autogen_core.models import ModelInfo
+from crewai import LLM
 
-def model_client(self, model: str, model_info: ModelInfo | None = None, **kw):
-    return OpenAIChatCompletionClient(
-        model=model,
+def llm(self, model: str, **kw) -> LLM:
+    return LLM(
+        model=f"openai/{model}",          # LiteLLM's OpenAI-compatible route
         base_url=self._cfg.llm_proxy_url,
         api_key=self._cfg.llm_proxy_key,
-        default_headers=self._attribution_headers(),
-        model_info=model_info or self._infer_model_info(model),
+        extra_headers=self._attribution_headers(),
         **kw,
     )
 ```
 
-**Gotcha:** AutoGen requires an explicit `model_info` (vision/function-calling/JSON-output capability flags) for any model name it does not recognise. Since the proxy may expose arbitrary logical model names, `_infer_model_info` must derive capabilities from the registry's model catalog, with a conservative fallback (`function_calling=True, vision=False, json_output=False`) and a warning. Without this, AutoGen throws on construction and the adapter looks broken.
+Header injection: via LiteLLM's `extra_headers`. **Cannot inject our httpx client** — LiteLLM owns the transport, exactly as with ADK. Consequence: retries and correlation-ID-per-run degrade to per-client. This is a documented, asserted conformance exemption (§8.1 `correlation_id_propagated`), shared with ADK.
 
 #### Microsoft Agent Framework (Python; .NET and Go out of scope for v1)
 
@@ -435,29 +446,51 @@ def chat_client(self, model: str, **kw):
     )
 ```
 
-Agent Framework has first-class **middleware** for intercepting agent actions. Use it: ship `fabric.agent_framework.policy_middleware()` that catches `PolicyViolation` and terminates the run cleanly rather than letting the agent loop retry. This is the best policy-integration story of any of the seven — make it the flagship example.
+Agent Framework has first-class **middleware** for intercepting agent actions. Use it: ship `fabric.agent_framework.policy_middleware()` that catches `PolicyViolation` and terminates the run cleanly rather than letting the agent loop retry. This is the best policy-integration story of any of the eight — make it the flagship example.
 
-#### Semantic Kernel (Python; Tier 3)
+#### OpenAI Agents SDK (Python + TS; Tier 1)
+
+The OpenAI Agents SDK (pip `openai-agents`, import `agents`) models a provider as an `OpenAIChatCompletionsModel` wrapping an `AsyncOpenAI` client. Because we construct that client ourselves, header AND transport injection are both available.
 
 ```python
 from openai import AsyncOpenAI
-from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from agents import OpenAIChatCompletionsModel
 
-def chat_completion(self, model: str, service_id: str = "mulesoft", **kw):
-    return OpenAIChatCompletion(
-        ai_model_id=model,
-        service_id=service_id,
-        async_client=AsyncOpenAI(
+def model(self, model: str, **kw) -> OpenAIChatCompletionsModel:
+    return OpenAIChatCompletionsModel(
+        model=model,
+        openai_client=AsyncOpenAI(
             base_url=self._cfg.llm_proxy_url,
             api_key=self._cfg.llm_proxy_key,
             default_headers=self._attribution_headers(),
             http_client=self._http_client(),
+            max_retries=0,                # we retry in transport (§2.3)
         ),
         **kw,
     )
 ```
 
-Header injection: full, because we construct the `AsyncOpenAI` client ourselves. Prefer this pattern anywhere a framework accepts a pre-built OpenAI client.
+Header injection: full — the preferred pattern anywhere a framework accepts a pre-built OpenAI client. Pass the returned model into `agents.Agent(model=...)` and drive it with `Runner` per the SDK's own docs.
+
+#### Anthropic SDK (Python + TS; Tier 1)
+
+Returns a native `anthropic.AsyncAnthropic` client bound to the proxy. **Divergence, by design (§11.10 — the framework wins):** Anthropic's native surface is a *client*, and the model id is a per-call argument, so this adapter exposes `client()` rather than the `model(...)` factory the OpenAI-compatible adapters use.
+
+```python
+from anthropic import AsyncAnthropic
+
+def client(self, **kw) -> AsyncAnthropic:
+    return AsyncAnthropic(
+        base_url=self._cfg.llm_proxy_url,   # UNVERIFIED route — see note below
+        api_key=self._cfg.llm_proxy_key,
+        default_headers=self._attribution_headers(),
+        http_client=self._http_client(),
+        max_retries=0,
+        **kw,
+    )
+```
+
+Header injection: full. **Open M0 dependency (§0.3):** the Omni Gateway LLM proxy is verified OpenAI-compatible; whether it also exposes an **Anthropic-native Messages API route** is unverified. If it does not, this adapter's requests will not reach a working upstream — so the SDK emits a one-time `UnverifiedValueWarning` on first use and keeps `base_url` overridable. Confirm the route in M0 before relying on this adapter.
 
 #### LlamaIndex (Python + TS)
 
@@ -502,7 +535,7 @@ def model(self, model: str, **kw) -> OpenAIModel:
 
 `fabric.llm.list_models()` returns logical model names the proxy exposes, not raw provider names. Prefer the proxy's own `/models` endpoint if it has one; fall back to the registry. Cache with the configured TTL.
 
-`ModelHandle` should carry enough capability metadata to feed AutoGen's `model_info` and to let a developer branch on function-calling support. If the platform does not expose capability metadata, ship a small bundled JSON capability table keyed by well-known model IDs, clearly marked as a heuristic, and let users override it.
+`ModelHandle` should carry enough capability metadata to feed any framework that requires explicit capability flags and to let a developer branch on function-calling support. If the platform does not expose capability metadata, ship a small bundled JSON capability table keyed by well-known model IDs, clearly marked as a heuristic, and let users override it.
 
 ---
 
@@ -519,6 +552,26 @@ agent = create_react_agent(fabric.langgraph.chat_model("gpt-4o"), tools.langgrap
 
 Two lines from "our enterprise has a governed tool catalog" to "my LangGraph agent can use it." Everything in this section exists to make those two lines work.
 
+Discovery is also the **filter and search** entry point. The same call narrows the catalog by name/description (glob), governance, domain, tags, and asset type, so an agent binds only the tools it needs rather than the entire catalog:
+
+```python
+# governed-only + name search: only governed tools whose name/description matches "*accounts*"
+tools = await fabric.tools.discover(governed_only=True, search="*accounts*")
+
+# full filter surface
+tools = await fabric.tools.discover(
+    search="*accounts*",           # glob over asset name + description; None = no text filter
+    governed_only=True,            # True = default criteria; or a GovernanceCriteria (§6.1)
+    domain="hr",
+    tags=["approved"],
+    asset_types=["mcp"],
+    environment="Production",
+    limit=50,
+)
+```
+
+`fabric.tools.discover(...)` is the high-level facade over `ExchangeRegistry.search()` (§4.2). On the facade, `search` is the text/glob filter (maps to the registry's `query`) and `governed_only` is the governance predicate (maps to the registry's `governed`) — the facade uses the clearer names. **Verify (M0/M2):** whether Exchange supports a server-side wildcard/substring query, or the glob must be applied client-side after a coarse Exchange query — see §4.2.
+
 ### 4.2 Registry discovery
 
 ```python
@@ -532,6 +585,8 @@ class ExchangeRegistry:
     async def resolve_mcp(self, ref: AssetRef | str) -> McpServerHandle: ...
     async def resolve_agent(self, ref: AssetRef | str) -> AgentHandle: ...
 ```
+
+`query` matches against asset **name and description** and must accept a glob (`*accounts*`, `get_*`). Apply it server-side if Exchange exposes a wildcard/substring search parameter; otherwise fetch the coarse candidate set (by `asset_types`/`tags`/`domain`) and filter the glob client-side. **Verify in M0** which path Exchange supports; either way the developer-facing `search=` behaviour is identical.
 
 `AssetRef` is `group_id/asset_id/version` plus name, type, tags, description, and the Exchange URL. Accept a shorthand string form (`"com.acme/vendor-shipment-mcp/1.0.0"`) everywhere a ref is taken.
 
@@ -556,9 +611,10 @@ MCP servers created by MCP Bridge are gateway endpoints speaking streamable HTTP
 |---|---|
 | LangGraph | `langchain_mcp_adapters.client.MultiServerMCPClient({...}).get_tools()` — build the connection dict from handles, transport `"streamable_http"`, headers injected |
 | Google ADK | `McpToolset(connection_params=StreamableHTTPConnectionParams(url=..., headers=...), tool_filter=[...])`; pass the toolset object straight into `LlmAgent(tools=[...])` |
-| AutoGen | `autogen_ext.tools.mcp.mcp_server_tools(StreamableHttpServerParams(url=..., headers=...))` — **verify class name** |
 | MS Agent Framework | its MCP client/tool class for streamable HTTP — **verify name**; docs reference hosted MCP tools and MCP clients for tool integration |
-| Semantic Kernel | `MCPStreamableHttpPlugin` added to the `Kernel` — **verify** |
+| OpenAI Agents SDK | `agents.mcp.MCPServerStreamableHttp(params={"url": ..., "headers": ...})`; pass into `agents.Agent(mcp_servers=[...])` — **verify class name** |
+| Anthropic SDK | streamable-HTTP MCP servers supplied via the SDK's `mcp_servers` tool integration — **verify name** |
+| CrewAI | `crewai_tools.MCPServerAdapter(server_params)` yielding native CrewAI tools — **verify class name** |
 | LlamaIndex | `llama_index.tools.mcp.BasicMCPClient` + `McpToolSpec(...).to_tool_list_async()` |
 | Strands | `MCPClient(lambda: streamablehttp_client(url, headers=...))`; implements `ToolProvider`, so it can be passed directly into `Agent(tools=[...])` with automatic lifecycle management |
 
@@ -589,7 +645,7 @@ This is what lets a Python agent delegate to an Agent Broker without the develop
 
 ### 5.1 Spec format
 
-A single declarative YAML file, versioned in the user's repo, validated by pydantic models.
+A single declarative YAML file, versioned in the user's repo, validated by pydantic models. `Governance.export()` (§6.3) emits fragments of exactly this format — the two features share one schema, and that is deliberate. Do not let them diverge.
 
 ```yaml
 apiVersion: fabric/v1
@@ -687,9 +743,559 @@ Option 3 is a genuinely good outcome. Do not treat it as a failure mode.
 
 ---
 
-## 6. Testing
+## 6. Governance profiles and environment targeting
 
-### 6.1 The adapter conformance kit — the most important test asset
+Two requested capabilities live here: **governed-only discovery** (§6.1) and the **governance object** attached to agent and MCP-server construction (§6.2 onward). Both are worth building. The second needs one structural change and one corrected expectation before it is safe to implement — read §6.3 and §6.4 before writing code.
+
+### 6.1 Governed-only discovery
+
+#### 6.1.1 "Governed" is not a flag — it is a computed predicate
+
+Exchange is a catalog. Publication to Exchange says nothing about whether an asset is fronted by a gateway, has policies applied, or passes the org's rulesets. There is no single boolean to query. "Governed" must be computed by joining state across three systems, and the join is environment-scoped: an asset governed in Production may be ungoverned in Sandbox.
+
+```python
+# src/agent_fabric/registry/governance.py
+from dataclasses import dataclass, field
+
+@dataclass(frozen=True)
+class GovernanceCriteria:
+    """Definition of 'governed'. Every field is a separate, independently
+    checkable condition. Defaults are deliberately moderate; orgs override."""
+
+    require_api_instance: bool = True        # an API Manager instance exists in this env
+    require_deployed: bool = True            # the instance is deployed to a gateway, not just configured
+    require_any_policy: bool = True          # at least one policy is applied
+    required_policies: list[str] = field(default_factory=list)
+                                             # asset IDs that MUST be present, e.g.
+                                             # ["client-id-enforcement", "rate-limiting-sla-based"]
+    forbidden_policies: list[str] = field(default_factory=list)
+    require_governance_pass: bool = False    # passes org governance rulesets with no `error` findings
+    require_gateways: list[str] = field(default_factory=list)
+                                             # only assets behind these named gateways
+    require_tags: list[str] = field(default_factory=list)
+    require_lifecycle: list[str] = field(default_factory=list)
+                                             # e.g. ["published", "approved"] if Exchange exposes lifecycle
+    allow_unknown: bool = False              # if a check cannot be evaluated, does the asset pass?
+
+STRICT = GovernanceCriteria(
+    require_governance_pass=True,
+    required_policies=["client-id-enforcement"],
+    allow_unknown=False,
+)
+```
+
+`allow_unknown` matters more than it looks. If the platform does not expose, say, ruleset results through an API, `require_governance_pass=True` with `allow_unknown=False` silently filters the entire catalog to zero results and the developer has no idea why. Every filtered-out asset must therefore carry a reason.
+
+#### 6.1.2 API surface
+
+```python
+tools = await fabric.tools.discover(domain="hr", governed_only=True)               # default criteria
+tools = await fabric.tools.discover(domain="hr", governed_only=STRICT)             # explicit criteria
+tools = await fabric.tools.discover(search="*accounts*", governed_only=True)       # + name/desc glob
+assets = await fabric.registry.search(query="*accounts*", asset_types=["mcp"], governed=True)
+
+# Always available for debugging:
+report = await fabric.registry.explain(ref, criteria=STRICT)
+# GovernanceReport(governed=False, checks=[
+#     Check("api_instance_exists", True,  "instance 19283 in Sandbox"),
+#     Check("deployed",            True,  "gateway managed-omni-eu-1"),
+#     Check("required_policies",   False, "missing: client-id-enforcement"),
+#     Check("governance_pass",     None,  "UNKNOWN: rulesets API returned 403"),
+# ])
+```
+
+`explain()` is not optional polish. Without it, `governed=True` returning an empty list is indistinguishable from a broken credential, and the SDK gets blamed. Make it a first-class documented method and reference it in the empty-result warning message.
+
+**Default:** `governed_only` on the facade (and `governed` on `registry.search()`) defaults to `None` (no filtering) in v1, with a startup log line stating that discovery is unfiltered. Both accept `True` (default `GovernanceCriteria`) or an explicit `GovernanceCriteria` such as `STRICT`. Flipping the default to `True` is a breaking change for a later major version — consider it, but do not surprise people in a minor release.
+
+#### 6.1.3 Implementation — avoid the N+1
+
+Naive implementation queries API Manager once per Exchange asset. On a 500-asset catalog that is 500 sequential calls and a discovery step that takes minutes.
+
+Correct approach:
+
+1. One call to list **all** API Manager instances for `(org, environment)`. Build an in-memory index keyed by `(groupId, assetId, version)` — and also by `(groupId, assetId)` for version-agnostic matching, since instance version and asset version can diverge.
+2. One call per instance-set to fetch applied policies, or a single bulk policies call if one exists. **Verify in M0** whether policies can be fetched in bulk; if not, fetch policies only for the candidate assets that survived steps 1 and the cheap Exchange-side filters.
+3. Apply Exchange-side filters (tags, lifecycle, asset type) first, before any API Manager calls, to shrink the candidate set.
+4. Cache the whole index under `registry_cache_ttl_s`, keyed by environment.
+
+Expose `fabric.registry.warm(environment=...)` so a long-running agent process can build the index at startup rather than on first discovery.
+
+**Verify in M0:** whether "deployed to a gateway" is readable per instance, and whether governance ruleset results are exposed through an API at all. If ruleset results are UI-only, ship `require_governance_pass` as permanently `UNKNOWN` and say so in the docstring rather than quietly dropping the field.
+
+---
+
+### 6.2 The governance object — what it is
+
+```python
+from agent_fabric import Governance, GatewayTarget, PolicyBinding
+
+gov = Governance(
+    name="hr-agent",
+    gateway=GatewayTarget.from_env(),      # resolves local | sandbox | prod
+    policies=[
+        PolicyBinding("rate-limiting-sla-based", "1.4.0", config={
+            "rateLimits": [{"maximumRequests": 100, "timePeriodInMilliseconds": 60000}],
+        }),
+        PolicyBinding("openai-token-policy", "1.0.0", config={
+            "maxTokensPerMinute": 50_000,
+        }),
+        PolicyBinding("prompt-injection-protection", "1.0.0"),
+    ],
+)
+
+model = fabric.langgraph.chat_model("gpt-4o", governance=gov)
+tools = await fabric.tools.discover(domain="hr", governed=True, governance=gov)
+```
+
+`GatewayTarget` is the environment-varying part:
+
+```python
+@dataclass(frozen=True)
+class GatewayTarget:
+    mode: Literal["local", "managed", "self-managed"]
+    base_url: str                    # http://localhost:8081 | https://<managed>.gw... | https://<own-host>
+    environment: str | None = None   # None for local
+    gateway_name: str | None = None  # control-plane gateway/registration name
+    connected: bool = True           # local mode gateways are unconnected
+
+    @classmethod
+    def from_env(cls) -> "GatewayTarget":
+        """FABRIC_TARGET=local|sandbox|production selects a profile from
+        .agent-fabric.toml. Local requires no Anypoint credentials beyond
+        whatever registration the local gateway itself needs (§6.4)."""
+```
+
+Profiles live in `.agent-fabric.toml`, committed to the repo:
+
+```toml
+[targets.local]
+mode = "local"
+base_url = "http://localhost:8081"
+
+[targets.sandbox]
+mode = "managed"
+base_url = "https://hr-agent.sandbox.eu1.gw.mulesoft.com"
+environment = "Sandbox"
+gateway_name = "managed-omni-eu-1"
+
+[targets.production]
+mode = "self-managed"
+base_url = "https://gw.internal.acme.com"
+environment = "Production"
+gateway_name = "prod-k8s-omni"
+```
+
+This part of the request is sound and maps cleanly onto a pattern developers already know from Terraform workspaces and Kustomize overlays. Build it as specified.
+
+---
+
+### 6.3 Structural change: one object, three verbs — not one deploy
+
+The request as stated is "set the governance object, then deploying it applies it locally / in sandbox / in prod." That is the right ergonomics and the wrong lifecycle, for the reason already established in §5.4: if application code applies policies to a shared gateway, the app team has taken the platform team's job, and the SDK gets rejected in security review.
+
+The fix keeps the ergonomics. **The same `Governance` object supports three verbs with three different trust levels:**
+
+| Verb | Target | Who runs it | What it does |
+|---|---|---|---|
+| `simulate()` | local | developer, laptop | Starts an ephemeral local Omni Gateway, applies the config, returns a live `base_url`. Nothing shared is touched. |
+| `export()` | sandbox, prod | developer, laptop | Compiles the object into a `fabric.yaml` fragment (§5.1). Writes a file. Touches nothing. |
+| `resolve()` | sandbox, prod | agent process, runtime | **Read-only.** Looks up the already-provisioned gateway route, verifies the expected policies are actually applied, returns the `base_url`. Raises `GovernanceDrift` if reality does not match the declaration. |
+
+There is deliberately **no `apply()` on the runtime object.** Applying to sandbox and production goes through `agent-fabric apply` in CI, against the reviewed spec, under platform-controlled credentials, filtered by the allow-list catalog (§5.4). The path is:
+
+```
+agent code declares Governance
+   → export()  → fabric.yaml   → PR review
+   → CI: agent-fabric plan      → posted as PR comment
+   → merge: agent-fabric apply  → gateway provisioned
+   → runtime: resolve()         → verifies + returns URL
+```
+
+`resolve()` is the piece that makes this feel like the user's original request rather than a bureaucratic downgrade. The developer still writes one governance object; at runtime it *checks* rather than *mutates*, and a mismatch fails loudly at startup instead of silently running ungoverned. That verification is a genuinely better property than blind application, and it should be marketed as such.
+
+**Escape hatch:** `Governance.apply(target, i_am_the_platform_team=True)` may exist for platform teams automating their own gateways. Make the kwarg name that explicit, require the connected app to hold write scopes it will not have by default, and log every use at WARNING.
+
+---
+
+### 6.4 Corrected expectation: local is not sandbox with a different URL
+
+The request states the difference between local and sandbox/prod is the URL. **It is not, and building on that assumption will produce a local dev loop that passes and a sandbox deploy that fails.** Three material differences:
+
+**1. Local Mode and Connected Mode are different feature sets.** Local Mode gateways are configured by declarative YAML files on disk and do not talk to the control plane. Anything control-plane-dependent is therefore unavailable locally. Verify the exact list in M0, but expect at minimum:
+
+| Capability | Local Mode | Connected Mode |
+|---|---|---|
+| Routing, CORS, headers, TLS | yes | yes |
+| Basic rate limiting / spike control | yes | yes |
+| Custom WASM (PDK) policies | yes | yes |
+| SLA-based rate limiting, client-ID enforcement, contracts | **no** (needs API Manager client apps) | yes |
+| **LLM Proxy** | **probably not** — verify | yes |
+| **MCP Bridge** | **probably not** — delivered as an API Manager guided experience | yes |
+| Control-plane analytics, token usage reporting | no | yes |
+
+If LLM Proxy and MCP Bridge are Connected-Mode-only, the local gateway **cannot** be a faithful stand-in for the two capabilities this SDK is mostly about. That is the single most important finding M0 must produce. Plan for it now:
+
+- **If confirmed unavailable locally:** `simulate()` still validates routing, auth, rate limiting, custom policies and request/response shape — real value for the dev loop — but LLM traffic is served by a **local mock proxy** the SDK ships (an OpenAI-compatible stub that replays fixtures and simulates policy rejections from §8.2). Label it unambiguously in logs: `LOCAL SIMULATION — LLM proxy is mocked, not a real gateway`. Never let a developer believe they tested the real thing.
+- **If available locally:** great, use it, and drop the mock to a fallback.
+
+**2. Policies are not portable across modes.** Classify every policy in a shipped table:
+
+```python
+class PolicyPortability(Enum):
+    BOTH = "both"
+    CONNECTED_ONLY = "connected_only"
+    LOCAL_ONLY = "local_only"
+    UNKNOWN = "unknown"
+```
+
+`simulate()` must print, before it starts, exactly which declared policies are being skipped and why:
+
+```
+Starting local Omni Gateway (target: local)
+  applied  cors                            1.0.0
+  applied  rate-limiting                   1.3.0
+  applied  acme-custom-redaction           0.2.0  (WASM)
+  SKIPPED  rate-limiting-sla-based         1.4.0  connected-mode only (needs API Manager client apps)
+  SKIPPED  prompt-injection-protection     1.0.0  connected-mode only
+  ! 2 of 5 policies are not exercised locally. Local pass does not imply sandbox pass.
+```
+
+A silent skip here is the worst possible failure mode for this feature. Make the warning loud, non-suppressible by default, and repeated in the summary at teardown.
+
+**3. Identity and secrets differ.** No connected app, no client credentials, no Secrets Manager locally. Ship a `LocalCredentialShim` that generates throwaway credentials and injects them into both the gateway config and the SDK client, so `${secret:...}` references in the spec resolve to dev values from a gitignored `.agent-fabric.local.toml`.
+
+---
+
+### 6.5 `simulate()` — the local harness
+
+```python
+async with gov.simulate() as env:
+    model = fabric.langgraph.chat_model("gpt-4o", gateway=env.gateway)
+    tools = await fabric.tools.discover(domain="hr", gateway=env.gateway)
+    agent = create_react_agent(model, tools.langgraph())
+    result = await agent.ainvoke({"messages": [("user", "…")]})
+assert env.policy_events("rate-limiting").count == 1
+```
+
+Implementation:
+
+1. Render the `Governance` object to Local Mode declarative YAML into a temp dir.
+2. `docker compose up` the Omni Gateway image plus, if needed, the mock LLM proxy and any upstream mocks. Wait for readiness on the health endpoint with a bounded timeout and a clear error if the image cannot be pulled.
+3. Yield an `Environment` exposing `gateway` (a `GatewayTarget` pointing at the mapped localhost port), `logs()`, and `policy_events(policy_name)` parsed from gateway logs so tests can assert a policy actually fired.
+4. Tear down, unless `FABRIC_KEEP_LOCAL=1`.
+
+Design constraints that matter:
+
+- **Port allocation must be dynamic**, not hardcoded 8081, so parallel test workers do not collide.
+- **Prefer config hot-reload over container restart** between test cases. Container startup measured in seconds is fine for a dev loop and unacceptable in a test matrix. Make the fixture session-scoped by default with per-test config reload.
+- **Do not run this in unit tests.** Gate behind a pytest marker (`@pytest.mark.local_gateway`) that is off by default.
+- **Verify licensing in M0.** Omni Gateway local mode likely requires a registration artifact obtained from the control plane. If so, contributors and CI runners without an Anypoint org cannot run `simulate()` at all — which changes it from "the default dev loop" to "an opt-in dev loop for licensed users," and the mock proxy becomes the primary local experience. This is a gating question for the feature's value, not a detail.
+
+**Docker is a hard dependency for this feature only.** It must remain an optional extra (`[local]`) and the rest of the SDK must work without it.
+
+---
+
+### 6.6 MCP servers written in Python or TypeScript
+
+Worth stating plainly, because the request implies it: if a developer writes an MCP server *in their agent framework* and attaches a governance object, the SDK can put a gateway in front of it locally, and can generate the gateway configuration for sandbox and production. **It cannot deploy the server itself to sandbox or production.** CloudHub 2.0 runs Mule applications; there is no MuleSoft-hosted runtime for a Python or TypeScript process.
+
+So the honest split:
+
+| | Local | Sandbox / Prod |
+|---|---|---|
+| The MCP server process | SDK runs it in docker-compose | **User's own platform** — K8s, Cloud Run, Lambda, ECS |
+| The gateway in front of it | SDK spins up local Omni Gateway | SDK exports config; CI applies it |
+| Upstream URL in the config | container DNS name | user-supplied, from their deployment |
+
+To make the gap less painful, `agent-fabric export --with-runtime` may emit a Dockerfile and a plain Kubernetes manifest as a starting point. Frame it as a convenience, never as a deployment platform. Do not build a deployment orchestrator — that is a different product, and §0.2 exists to stop this kind of drift.
+
+---
+
+### 6.7 Verification checklist added to M0
+
+Add to §0.3:
+
+- Can Local Mode run the LLM Proxy? Can it run MCP Bridge? **(gating for §6.4/§6.5)**
+- Does Local Mode require a control-plane-issued registration or licence artifact? Can CI run it?
+- Which policies are Connected-Mode-only? Produce the portability table in §6.4 from real data, not inference.
+- Is "deployed to gateway" readable per API instance via a documented API? **(gating for `require_deployed`)**
+- Are governance ruleset results exposed via API? **(gating for `require_governance_pass`)**
+- Can applied policies be fetched in bulk for an environment, or only per instance? **(determines whether §6.1.3 is fast or slow)**
+
+---
+
+## 7. Publication — registering code-first assets into Exchange
+
+Symmetric with §6 by design: one declarative object, the same three-verb lifecycle, the same "declare in code, apply in CI, verify at runtime" discipline. The symmetry holds for two of the three verbs. **It breaks at runtime, and §7.4 explains why — read that before implementing.**
+
+Publication is lower risk than §5, because Exchange has a well-trodden publication mechanism (Exchange API, Anypoint CLI, and the Exchange Maven plugin) rather than a possibly-UI-only wizard. Confidence here is higher than anywhere else in this spec.
+
+### 7.1 Scope: code-first assets only
+
+Publication exists for assets that **originate in the developer's code**:
+
+- an MCP server written in Python or TypeScript,
+- an agent written in one of the eight frameworks and exposed over A2A,
+- an agent exposed as a tool without an A2A surface.
+
+It does **not** exist for assets the platform already owns. If an MCP server was created by MCP Bridge from an existing API (§5), that capability is already in Exchange. Publishing a second, code-derived descriptor for it creates two catalog entries for one capability, which is exactly the failure a registry is supposed to prevent.
+
+**Implement a collision check.** Before publishing, search Exchange for an existing asset with the same endpoint, name, or derived tool signature. On a probable match, refuse and print the existing asset's coordinates. Override with an explicit `--allow-duplicate` flag that logs at WARNING.
+
+### 7.2 The object
+
+```python
+from agent_fabric import Publication, AssetType, Contact
+
+pub = Publication(
+    asset_type=AssetType.MCP_SERVER,          # MCP_SERVER | A2A_AGENT | AGENT | API
+    group_id="${ANYPOINT_ORG_ID}",
+    asset_id="hr-tools-mcp",
+    version="1.3.0",                          # semver; see §7.5 on immutability
+    name="HR Tools",
+    description="Employee lookup and leave-balance tools for HR agents.",
+
+    # Discovery metadata
+    tags=["hr", "internal", "agent-tool"],
+    categories={"Domain": "People", "Lifecycle": "Production"},
+    contact=Contact(team="People Platform", email="people-plat@acme.com"),
+
+    # Type-specific descriptor — exactly one, matching asset_type
+    descriptor="auto",                        # introspect the live server (§7.3)
+
+    # Documentation pages, published alongside the asset
+    docs=[
+        ("home", "docs/exchange/overview.md"),
+        ("getting-started", "docs/exchange/quickstart.md"),
+    ],
+
+    # Where it actually lives — metadata only, see §7.6
+    endpoint="https://hr-tools.internal.acme.com/mcp",
+    governance=gov,                           # optional link to the §6 object
+)
+```
+
+`AssetType` drives which descriptor is required and how it is generated:
+
+| `asset_type` | Descriptor | Generated from |
+|---|---|---|
+| `MCP_SERVER` | MCP tool manifest — server info, tool names, descriptions, JSON Schema inputs | live `tools/list` against the running server |
+| `A2A_AGENT` | A2A Agent Card | declared skills, endpoint, auth schemes, input/output modes |
+| `AGENT` | agent descriptor (no A2A surface) | framework-specific introspection, best-effort |
+| `API` | OpenAPI / AsyncAPI | user-supplied file; no generation |
+
+**M0 gate:** verify whether Exchange exposes first-class asset types for MCP servers and AI agents. Agent Fabric's Agent Registry is built on Exchange, so this is likely — but if it does not, publication degrades to a generic or custom asset type carrying tags, which weakens discoverability and **breaks `asset_types=["mcp"]` filtering in §6.1**. The two features share this dependency; verify once, record once.
+
+### 7.3 `descriptor="auto"` — deriving the spec from code
+
+Hand-maintained catalog descriptors go stale within one sprint. Generation is the entire value of this object, exactly as `inputSchema: auto` is the value of §5.
+
+#### 7.3.1 The key insight: do not write a type-hint-to-JSON-Schema converter
+
+Every one of the eight frameworks **already derives JSON Schema from function signatures, type hints, and docstrings**, because that is how tool calling works at all. `@tool` in LangChain and Strands, `FunctionTool` in ADK and LlamaIndex, `@function_tool` in the OpenAI Agents SDK, `@mcp.tool()` in the MCP Python SDK — each builds a schema and attaches it to a tool object. ADK's documentation is explicit that the docstring is what the model reads.
+
+The SDK's job is therefore **to ask the framework for the schema it already computed**, not to re-derive it. Re-implementing type-hint inference would produce a second, subtly different schema from the one the model actually sees, which is worse than useless — it means the catalog documents something other than the running behaviour.
+
+Concretely, per framework, read the already-populated fields:
+
+| Framework | Tool object | Name / description / schema |
+|---|---|---|
+| MCP Python SDK (FastMCP) | registered tool | `.name`, `.description`, `.inputSchema` |
+| LangChain / LangGraph | `BaseTool` | `.name`, `.description`, `.args_schema` (pydantic → `.model_json_schema()`) |
+| Strands | `@tool` function | tool spec including input schema |
+| Google ADK | `FunctionTool` | declaration with parameters |
+| LlamaIndex | `FunctionTool` | `.metadata.name`, `.description`, `.fn_schema` |
+| OpenAI Agents SDK | `FunctionTool` | `.name`, `.description`, `.params_json_schema` |
+| Anthropic SDK | tool param dict | `name`, `description`, `input_schema` |
+| CrewAI | `BaseTool` | `.name`, `.description`, `.args_schema` (pydantic → `.model_json_schema()`) |
+| MS Agent Framework | tool / `AIFunction` | declaration + JSON schema |
+
+**These are per-framework adapters and they will break on upstream releases.** Some of these attributes are semi-public. Put every one of them in the conformance kit and the nightly matrix (§8.4), same as the model and tool adapters.
+
+#### 7.3.2 Three derivation modes, ranked by fidelity
+
+```python
+descriptor="auto"          # object introspection — the default
+descriptor="auto:live"     # live protocol introspection — highest fidelity
+descriptor="auto:static"   # AST only — lowest fidelity, no code execution
+descriptor="auto:check"    # generate, diff against committed file, fail on mismatch
+```
+
+**1. `auto:live` — highest fidelity.** Start the server, perform the MCP initialize handshake, call `tools/list` (plus `resources/list` and `prompts/list`). This is exactly what a client sees, so it captures dynamically registered tools and any runtime filtering. Requires the server to actually run, which may need credentials and network.
+
+**2. `auto` (object introspection) — the default, and the answer to "build the spec from the code."** Import the user's module, locate the tool and agent objects, read their already-computed schemas. No server, no network, works in CI. Fidelity is near-identical to `auto:live` because it reads the same objects the server would expose.
+
+Caveat that must be documented prominently: **importing user code executes it.** Module-level side effects — database connections, API calls, config loading — will fire. Mitigate with an explicit entrypoint rather than package-wide scanning:
+
+```toml
+[publication.entrypoints]
+"hr-tools-mcp" = "acme.hr.server:mcp"        # module:attribute
+"hr-agent"     = "acme.hr.agent:build_agent" # a zero-arg factory is also accepted
+```
+
+Document the contract in one line: **tool definitions must be import-safe.** Most already are.
+
+**3. `auto:static` — AST parsing, genuinely lower fidelity.** Parse decorators, signatures and docstrings without executing anything. Useful only where importing user code is unacceptable (untrusted CI, a security policy against executing PR code during analysis).
+
+Be honest about what it cannot see, because the gap is not marginal:
+
+- tools registered in a loop, or from a config file or database
+- tools registered conditionally behind a feature flag
+- tools attached dynamically at startup
+- schemas built from imported or generated pydantic models
+- any tool whose description is computed rather than literal
+
+A static descriptor that silently lists 4 of 11 tools is worse than no descriptor. So: `auto:static` must emit a **completeness warning** whenever it encounters dynamic registration patterns it cannot resolve, and must never be the default.
+
+**Cross-check mode.** `agent-fabric publish --cross-check` runs `auto` and `auto:live` and diffs them. Disagreement means either dynamic registration the object graph does not reflect, or a broken framework adapter. Worth running in CI for anything important.
+
+#### 7.3.3 The honest ceiling: shape is derivable, meaning is not
+
+Type hints give the **shape**. `department: str` becomes `{"type": "string"}` and says nothing about what a valid department is, which values exist, or when the tool should be used instead of a similar one. Only a human supplies that, and it is precisely the part that determines whether a model calls the tool correctly.
+
+So auto-derivation automates the mechanical 80% and cannot touch the 20% that matters most. Design accordingly:
+
+- **Fail publication on missing or tautological descriptions.** A description equal to the identifier, or a near-match after normalising underscores and case, is a failure, not a warning. `"search_employees"` as the description of `search_employees` makes a useless tool look documented.
+- **Report description quality** in `preview()`: which tools have descriptions under N characters, which parameters have none, which enums are untyped `str`. Give the developer a checklist, not a verdict.
+- Optionally offer `agent-fabric describe --suggest`, which drafts descriptions with an LLM through the governed proxy and writes them into the **source** as docstrings for human review. Drafts into source, never straight into the catalog. Keep this opt-in and clearly labelled.
+
+#### 7.3.4 A2A agent cards derive less well than MCP manifests
+
+Worth stating plainly, because the asymmetry is easy to miss. An **MCP tool manifest is close to 1:1 with functions**, so derivation works well. An **A2A skill is not a function** — it is a coarser capability with examples, input/output modes, and its own description, and one skill typically spans several functions.
+
+Auto-deriving skills from functions produces a card advertising forty micro-skills, which is a bad agent card. So:
+
+- Derive the **mechanical** card fields automatically: endpoint, transport, auth schemes, capability flags, input/output modes, version.
+- Require **explicit skill declaration or grouping**. Provide a decorator (`@skill("leave-management", examples=[...])`) or a config mapping functions to skills, and fail publication if an `A2A_AGENT` has no declared skills rather than inventing them.
+
+Also note the card must be **served** at the agent's well-known path for A2A clients to find it. Ship `pub.agent_card_handler()` returning an ASGI/Express-compatible route and one example per web framework. The developer mounts it; do not auto-mount.
+
+#### 7.3.5 Committed vs generated
+
+Support both, and make the CI-friendly mode obvious. `descriptor="auto:check"` generates, compares against a committed descriptor file, and fails on mismatch. That is what teams will actually run in CI: the descriptor is reviewable in the PR diff, and drift between code and descriptor is caught before publication rather than by `verify()` after it.
+
+### 7.4 Runtime verb: `verify()`, not `publish()`
+
+The request asks for publication to work at runtime the way governance does. **The symmetry does not survive contact with how Exchange works, and implementing runtime publication would be actively harmful.** Four reasons, all concrete:
+
+1. **Exchange versions are immutable.** Publishing the same version twice fails. A process that publishes on startup must therefore bump versions, which means every pod restart mints a new catalog version. A ten-replica deployment races to mint ten.
+2. **The catalog would reflect what happens to be running.** A registry's value is that it is a curated, reviewed statement of what exists. Runtime self-registration turns it into a log of process starts. This is the specific outcome enterprises adopt a registry to avoid.
+3. **Privilege escalation.** Exchange publication needs write scopes. Granting them to a production agent's runtime credential means any compromise of that agent can rewrite the enterprise catalog.
+4. **No review.** Publication is a governance act. It belongs behind a PR, like policy.
+
+So the three verbs are:
+
+| Verb | Runs where | What it does |
+|---|---|---|
+| `preview()` | developer laptop | Generates the descriptor and renders the Exchange entry as it would appear. Writes nothing. |
+| `export()` | developer laptop | Compiles into the `fabric.yaml` spec (§5.1). CI publishes on merge via `agent-fabric apply`. |
+| `verify()` | agent process, runtime | **Read-only.** Fetches the published descriptor from Exchange, introspects the live server, and compares. Raises `PublicationDrift` on mismatch. |
+
+`verify()` is the genuine mirror of `resolve()`, and it is more useful than runtime publishing would have been. It catches the single most common way an agent registry rots: **a team ships a new tool and the catalog still describes the old surface.** A `verify()` call at startup, or a scheduled `agent-fabric verify` in CI, turns catalog staleness from an invisible slow decay into a failing check with a diff:
+
+```
+PublicationDrift: com.acme/hr-tools-mcp/1.3.0
+  live server exposes 7 tools, Exchange descriptor lists 5
+  + get_leave_balance   (live, not in Exchange)
+  + approve_leave       (live, not in Exchange)
+  ~ search_employees    input schema changed: +department (required)
+  Run `agent-fabric publish --bump minor` to update the catalog.
+```
+
+Default `verify()` to warn-and-continue, configurable to raise. A drifted catalog should not take down production traffic, but it must be loud.
+
+### 7.5 Versioning and idempotency
+
+The predictable failure mode is CI publishing a new version on every merge until the catalog holds four hundred patch versions of one asset. Prevent it structurally:
+
+- **Content digest.** Compute a stable hash over the canonical descriptor plus metadata. Store it as an Exchange field or tag on publish.
+- **`--if-changed` is the CI default.** Compare the digest against the latest published version; if identical, skip and exit zero.
+- **Version strategy is explicit config**, one of: `pinned` (from the object), `from-package` (read the Python/npm package version), or `semantic-auto` (patch for metadata-only changes, minor for added tools, **major for removed or narrowed tools** — a removed tool is a breaking change for every consuming agent). Default to `pinned`, since implicit version bumps in a shared catalog are the kind of magic that erodes trust.
+- **Never delete or overwrite.** Deprecation is a metadata change on the existing version, not a delete. If Exchange supports lifecycle states, use them.
+
+### 7.6 Publication ≠ deployment ≠ governance
+
+Three independent facts that this object handles exactly one of:
+
+| Fact | Meaning | Owned by |
+|---|---|---|
+| Published in Exchange | discoverable | §7 |
+| Deployed and reachable | someone can call it | the user's own platform (§6.6) |
+| Fronted by a gateway with policies | governed | §6 |
+
+An asset published by §7 alone **will not pass `governed=True` filtering in §6.1**, and that is correct behaviour, not a bug. Publication plus Governance together produce a fully registered, governed asset; either alone is a half-state.
+
+Make this visible rather than leaving developers to discover it. `agent-fabric status` should render all three facts per asset:
+
+```
+com.acme/hr-tools-mcp/1.3.0
+  published   yes   Exchange, 2026-08-14
+  reachable   yes   https://hr-tools.internal.acme.com/mcp (200, 7 tools)
+  governed    NO    no API Manager instance in Production
+              -> `agent-fabric apply -f fabric.yaml --target production`
+```
+
+### 7.7 Catalog ownership
+
+The same political constraint as §5.4. In most orgs, publishing into the shared Exchange organisation requires approval, and an SDK that makes it a one-liner will be seen as a threat to the catalog rather than a contribution to it.
+
+Defaults that keep the SDK welcome:
+
+- Publish to the **developer's own business group** by default. Publishing to the root or a shared org requires explicit `group_id` config plus a `--target shared` flag.
+- Support an **allow-list of publishable asset types and target groups**, owned by the platform team in a separate repo, mirroring the policy catalog in §5.4.
+- CI-only publication under a connected app whose Exchange write scopes the platform team controls. The developer's own credential should not have them.
+
+### 7.8 Asset auto-detection and `agent-fabric init`
+
+Asset type detection is reliable, because the framework objects are unambiguous. Scan the entrypoint or project and classify:
+
+| Detected | Inferred type |
+|---|---|
+| A FastMCP / MCP server instance with registered tools | `MCP_SERVER` |
+| An A2A server app, or an agent with declared skills and an A2A route | `A2A_AGENT` |
+| A framework agent object (LangGraph compiled graph, ADK `LlmAgent`, Strands `Agent`, `agent_framework.Agent`, `agents.Agent` (OpenAI Agents SDK), CrewAI `Agent`/`Crew`, LlamaIndex `FunctionAgent`) with no A2A surface | `AGENT` |
+| An OpenAPI / AsyncAPI file with no agent or server object | `API` |
+
+Two things this must get right:
+
+**One project can produce several assets.** A single repo commonly exposes an MCP server *and* an A2A agent, or several agents. Detection returns a **list** of candidate publications, not one. Model it that way from the start; retrofitting multi-asset support later is painful because the CLI, config, and digest layout all assume cardinality.
+
+**Never silently pick a type.** Exchange versions are immutable (§7.5), so an asset published under the wrong type is a catalog error you cannot cleanly delete. Detection proposes; the developer confirms once; the answer is written to config and never re-inferred.
+
+```
+$ agent-fabric init
+Scanning acme/hr/ …
+
+  Found 2 publishable assets:
+
+  1. MCP_SERVER   acme.hr.server:mcp
+     7 tools  ·  all have descriptions  ·  2 params undocumented
+  2. A2A_AGENT    acme.hr.agent:build_agent
+     LangGraph agent with an A2A route
+     ! no skills declared — an agent card needs explicit skills (§7.3.4)
+
+  Write these to .agent-fabric.toml? [Y/n]
+```
+
+`init` should also run the §7.3.3 quality report and the §7.1 collision check at this point, so the developer sees every problem before their first publish rather than one per attempt.
+
+Ambiguous or unrecognised projects exit with a clear message naming the entrypoint config to set manually. Detection failing is fine; detection guessing wrong is not.
+
+### 7.9 Added to the M0 verification checklist
+
+- Does Exchange have first-class asset types for MCP servers and AI agents, or must they be published as generic/custom types? **(gates §7.2 and, jointly, `asset_types` filtering in §6.1)**
+- Which publication mechanism is supported for non-Mule assets: Exchange REST API, Anypoint CLI, or the Maven plugin? Pick one and note whether it requires a JVM at publish time — a Maven-only path makes the Python and TS CI story materially worse.
+- Can arbitrary metadata or tags be attached for the content digest (§7.5)?
+- Are asset lifecycle states (draft / published / deprecated) exposed via API? **(gates `require_lifecycle` in §6.1.1 and deprecation in §7.5)**
+- Can documentation pages be published programmatically, and in what markup?
+- Does Exchange accept an MCP tool manifest and an A2A agent card as native descriptor formats, or must they be attached as files? **(shapes §7.3 output)**
+
+---
+
+## 8. Testing
+
+### 8.1 The adapter conformance kit — the most important test asset
 
 One suite, defined once, executed identically against every framework adapter. Any new framework is "supported" only when it passes all of it.
 
@@ -704,45 +1310,60 @@ CONFORMANCE_SCENARIOS = [
     "policy_violation_terminal",   # gateway 4xx -> PolicyViolation, NOT retried
     "attribution_headers_present", # assert headers on every outbound request
     "correlation_id_propagated",   # same ID on model call and tool call
+    "governed_filter_excludes",    # ungoverned asset absent when governed=True
+    "governance_resolve_drift",    # declared policy missing on gateway -> GovernanceDrift
+    "governance_target_switch",    # same code, FABRIC_TARGET=local|sandbox, correct base_url
+    "descriptor_auto_stable",      # two introspections of one server -> identical digest
+    "publication_verify_drift",    # added tool on live server -> PublicationDrift
+    "publication_idempotent",      # --if-changed with no change -> zero writes, exit 0
+    "descriptor_matches_framework",# derived schema == the schema the model receives
+    "auto_vs_live_agree",          # object and live introspection produce one digest
+    "dynamic_tools_detected",      # loop-registered tools present in `auto`, warned in `auto:static`
+    "asset_type_detection",        # fixture projects per framework classify correctly
 ]
 ```
 
 Parametrise over adapters with pytest. A framework that cannot satisfy `correlation_id_propagated` (likely ADK, via LiteLLM) records a documented, asserted exemption in a `KNOWN_LIMITATIONS` table rather than silently skipping. Publish that table in the README — it is credibility, not embarrassment.
 
-### 6.2 Contract fixtures
+### 8.2 Contract fixtures
 
 Write a `scripts/probe.py` that runs against a real sandbox and records every response shape into `tests/contract/fixtures/`: token issuance, model list, a successful completion, a streaming completion, and one deliberately-triggered instance of each policy rejection. Redact secrets on write.
 
 Unit and contract tests replay these with `respx` (Python) / `msw` (TS). **The `errors.classify` table is generated from these fixtures**, not from guesses. Re-run the probe monthly; a fixture diff is an early warning that the platform changed.
 
-### 6.3 Integration
+### 8.3 Integration
 
 `docker-compose` bringing up Omni Gateway in Local Mode with declarative config, an upstream mock API, and an MCP Bridge-equivalent config. Not everything is testable locally — LLM Proxy and MCP Bridge are Connected Mode features — so integration coverage is partial by design. Mark clearly which tests need a real sandbox and gate them behind `FABRIC_SANDBOX_TESTS=1` so contributors without an org can still run the suite.
 
-### 6.4 Nightly framework matrix
+### 8.4 Nightly framework matrix
 
-Seven frameworks, each releasing independently, several pre-1.0. Run the conformance suite nightly against the **latest** release of each framework in addition to the pinned version. Open an issue automatically on failure. Without this you find out a framework broke when a user reports it.
+Eight frameworks, each releasing independently, several pre-1.0. Run the conformance suite nightly against the **latest** release of each framework in addition to the pinned version. Open an issue automatically on failure. Without this you find out a framework broke when a user reports it.
 
 Pin floors, not ceilings, in `pyproject.toml`. Never `<` pin a framework — it forces users into dependency hell.
 
 ---
 
-## 7. Delivery
+## 9. Delivery
 
-### 7.1 Milestones
+### 9.1 Milestones
 
 | Milestone | Scope | Est. (2 engineers) |
 |---|---|---|
 | **M0 — Verify** | §0.3 in full. `docs/verified-apis.md`. `scripts/probe.py` + captured fixtures. Go/no-go on §5. | 2 weeks |
-| **M1 — Model access** | `core` complete. `llm` client + catalog. Adapters for Tier 1 (LangGraph, ADK, Strands, Agent Framework). Conformance kit. `lint` command. Docs site skeleton. **First public release, 0.1.0.** | 4 weeks |
-| **M2 — Tool access** | `registry` + `tools` + `ToolSet`. Bindings for all seven. Lockfile. A2A agent handles. LlamaIndex, AutoGen, SK adapters. **0.2.0.** | 5 weeks |
-| **M3 — TypeScript** | TS core + LangGraph.js, ADK TS, LlamaIndex.TS, Strands TS, Vercel AI SDK. Shared conformance scenarios ported. **0.3.0.** | 4 weeks |
-| **M4 — Provisioning** | Spec, plan/apply/drift, `inputSchema: auto`, policy allow-list, GitHub Action. Or the Terraform-generation pivot. **0.4.0.** | 5 weeks |
-| **M5 — Hardening** | Perf, telemetry polish, error-message pass, migration guide, examples for all seven, security review. **1.0.0.** | 3 weeks |
+| **M1 — Model access** | `core` complete. `llm` client + catalog. Adapters for Tier 1 (LangGraph, ADK, Strands, Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI). Conformance kit. `lint` command. Docs site skeleton. **First public release, 0.1.0.** | 4 weeks |
+| **M2 — Tool access** | `registry` + `tools` + `ToolSet`. Bindings for all eight. Lockfile. A2A agent handles. LlamaIndex (Tier 2) adapter. Governed-only discovery, name/glob `search` + filters, and `explain()` (§6.1). **0.2.0.** | 6 weeks |
+| **M2.5 — Governance object** | `Governance`, `GatewayTarget`, target profiles, `resolve()` with drift detection, policy portability table, `simulate()` with local gateway or mock proxy (§6.2–§6.6). **0.3.0.** | 4 weeks |
+| **M2.7 — Publication** | `Publication`, `preview()`, `verify()` with drift diff, digest + `--if-changed`, collision check, `agent-fabric status` (§7). **0.3.5.** | 3 weeks |
+| **M2.8 — Derivation** | Per-framework descriptor adapters (§7.3.1), `auto` / `auto:live` / `auto:static` / `auto:check`, cross-check, quality report, asset detection + `agent-fabric init` (§7.8). **0.3.8.** | 4 weeks |
+| **M3 — TypeScript** | TS core + LangGraph.js, ADK TS, Strands TS, OpenAI Agents (JS), Anthropic SDK (TS), LlamaIndex.TS, Vercel AI SDK. Shared conformance scenarios ported. **0.4.0.** | 4 weeks |
+| **M4 — Provisioning** | Spec, plan/apply/drift, `inputSchema: auto`, policy allow-list, GitHub Action. Plus `Governance.export()` and `Publication.export()`. Or the Terraform-generation pivot. **0.5.0.** | 5 weeks |
+| **M5 — Hardening** | Perf, telemetry polish, error-message pass, migration guide, examples for all eight, security review. **1.0.0.** | 3 weeks |
 
-Roughly six months for two engineers. Ship M1 publicly rather than waiting — the LLM proxy adapters are useful alone, and early feedback will reorder M2–M4.
+`export()` — for both the governance and publication objects — lands with M4, since it emits the M4 spec format. Ship M2.5 and M2.7 with their local and runtime verbs only, and document `export()` as coming.
 
-### 7.2 Definition of done, per adapter
+Roughly nine to ten months for two engineers, up from six. M2.8 is the single highest-leverage block in the plan after M1 — it is what makes the catalog self-maintaining instead of self-rotting — but it is also the block most exposed to upstream framework churn, so it needs the nightly matrix in place before it starts. Ship M1 publicly rather than waiting — the LLM proxy adapters are useful alone, and early feedback will reorder M2–M4.
+
+### 9.2 Definition of done, per adapter
 
 1. Passes the full conformance kit, or has an asserted documented exemption.
 2. A runnable example in `examples/<framework>/` that works against a sandbox with only env vars set.
@@ -750,7 +1371,7 @@ Roughly six months for two engineers. Ship M1 publicly rather than waiting — t
 4. Listed in the nightly matrix.
 5. Version floor declared, no ceiling.
 
-### 7.3 The unsupported boundary
+### 9.3 The unsupported boundary
 
 Maintain `docs/unsupported-boundary.md` listing every platform API the SDK calls, classified:
 
@@ -762,22 +1383,38 @@ Link it from the README above the fold. Enterprise buyers will ask; having the a
 
 ---
 
-## 8. Risk register
+## 10. Risk register
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | MuleSoft ships a first-party Python/TS SDK | Medium-high | Existential | Talk to MuleSoft product in week 1 of M0. Ask for a written answer. Offer to be a design partner. |
 | MCP Bridge has no provisioning API | Medium | M4 only | Pivot to Terraform generation (§5.5). M1–M3 unaffected. |
 | Attribution header names not exposed | Low-medium | High — kills cost attribution | Surfaced in M0. If unavailable, escalate to MuleSoft; ship with correlation-ID-only telemetry and document the gap. |
-| Framework churn breaks adapters | Certain | Medium | Nightly matrix (§6.4). Native-object design (§3.1) minimises blast radius. |
-| Agent Framework absorbs SK and AutoGen users | High | Low | Already tiered (§1.4). |
-| Anypoint API changes break control-plane calls | Medium | Medium | Contract fixtures + monthly probe re-run (§6.2). |
+| Framework churn breaks adapters | Certain | Medium | Nightly matrix (§8.4). Native-object design (§3.1) minimises blast radius. |
+| Anthropic-native proxy route unavailable | Medium | Medium — Anthropic adapter cannot reach a working upstream | M0 gate (§3.3). One-time `UnverifiedValueWarning`; `base_url` overridable; the seven other adapters are unaffected. |
+| CrewAI/ADK LiteLLM transport blocks per-run correlation | Certain | Low | Documented, asserted conformance exemption (§8.1); LiteLLM logger callback may recover it later. |
+| Anypoint API changes break control-plane calls | Medium | Medium | Contract fixtures + monthly probe re-run (§8.2). |
 | Scope creep into agent-network authoring | High | High | It is in §0.2. Point at it in every scope discussion. |
+| **Local Mode cannot run LLM Proxy or MCP Bridge** | **Medium-high** | **High — `simulate()` becomes a mock, not a replica** | M0 gate (§6.7). Ship the mock proxy either way; label simulation loudly (§6.4). |
+| Local Mode needs a control-plane licence artifact | Medium | Medium — blocks OSS contributors and CI | M0 gate. Fall back to mock-proxy-only local loop. |
+| Developers trust a green `simulate()` run | High | High — ungoverned code reaches prod | Non-suppressible skipped-policy warning (§6.4). `resolve()` drift check at startup as the real gate. |
+| `governed=True` silently returns empty | High | Medium — SDK gets blamed | `explain()` (§6.1.2) plus a reason attached to every exclusion. |
+| Governed-discovery join is slow on large catalogs | Medium | Medium | Bulk index + Exchange-side prefilter (§6.1.3). `warm()` at startup. |
+| Governance object read as app-team policy authorship | Medium | High — security review rejection | Three-verb split, no runtime `apply()` (§6.3). |
+| Exchange lacks first-class MCP/agent asset types | Medium | High — weakens both §7 and `governed` filtering in §6.1 | Single M0 gate serving both features (§7.9). Fall back to tagged custom types. |
+| Catalog spam from per-merge publishing | High if unguarded | Medium — erodes registry trust | Content digest + `--if-changed` as CI default + `pinned` version strategy (§7.5). |
+| Auto-generated descriptions make useless tools look documented | High | Medium | Fail publication on missing or tautological descriptions (§7.3.3). |
+| Framework tool-object internals change, breaking descriptor derivation | High | Medium | Conformance scenario `descriptor_matches_framework` + nightly matrix (§8.4). |
+| Importing user code for introspection triggers side effects | Medium | Medium | Explicit entrypoints, documented import-safety contract, `auto:static` fallback (§7.3.2). |
+| `auto:static` silently under-reports tools | Medium | High — incomplete catalog looks complete | Completeness warning on unresolved dynamic registration; never the default (§7.3.2). |
+| Auto-derived A2A cards advertise dozens of micro-skills | High if unguarded | Medium | Require explicit skill declaration; fail rather than invent (§7.3.4). |
+| Publication seen as a threat to catalog ownership | Medium | High | Own-business-group default, shared-target flag, platform-owned allow-list (§7.7). |
+| Maven-only publication path for non-Mule assets | Medium | Medium — JVM in Python/TS CI | M0 gate (§7.9). Prefer Exchange REST API; document the JVM requirement if unavoidable. |
 | Security review rejects policy-from-code | Medium | High | Allow-list catalog + CI-only apply, shipped in v1 (§5.4). |
 
 ---
 
-## 9. Working instructions for the implementing model
+## 11. Working instructions for the implementing model
 
 1. **Verify before you build.** §0.3 is not optional and not parallelisable with implementation. If a doc page contradicts this spec, the doc page wins — update this spec and note the change.
 2. **Never invent an endpoint, header name, or class name.** If you cannot verify it, write the code path with an explicit `NotImplementedError("blocked on verification: <what>")` and report it. A stub that raises is honest; a guess that 404s is not.
@@ -789,3 +1426,4 @@ Link it from the README above the fold. Enterprise buyers will ask; having the a
 8. **Type everything.** `mypy --strict` on Python, `strict: true` on TS, both blocking in CI. This SDK's differentiator over the existing MCP-tool-based workflow is that it is typed and testable. Untyped code forfeits the entire premise.
 9. **Optional extras are genuinely optional.** CI must include a job that installs only the base package and runs the base test suite, to catch accidental top-level framework imports.
 10. **When a framework's idiom conflicts with SDK consistency, the framework wins.** Users came from the framework, not from us.
+11. **Nothing in the runtime path mutates shared state.** `resolve()` and `verify()` read. `simulate()` touches only ephemeral local resources. Every mutation of a gateway or the catalog happens in CI, from a reviewed spec, under platform-controlled credentials. If you find yourself writing a network call that creates or updates a control-plane or Exchange resource outside `provisioning/`, stop — it is in the wrong module.

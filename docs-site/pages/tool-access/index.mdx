@@ -1,0 +1,63 @@
+import { Callout, Cards } from 'nextra/components'
+
+# Tool access (Pillar 2)
+
+<Callout type="info">
+  **Planned design.** This documents Pillar 2 (governed tool access) as designed in the build plan. The platform contracts it depends on are being live-verified; until then, unverified paths raise `NotImplementedError("blocked on verification: …")` rather than guess. See [Verification policy](/concepts/verification).
+</Callout>
+
+Pillar 2 is the differentiating feature: discover the MCP tools your
+organisation has published and governed, filter them down to what an agent
+actually needs, and bind them into any of the eight frameworks as that
+framework's **native tool objects** — the same "no wrapper" rule as
+[model access](/frameworks).
+
+## The target developer experience
+
+Two lines take you from "our enterprise has a governed tool catalog" to "my
+LangGraph agent can use it":
+
+```python
+tools = await fabric.tools.discover(domain="hr", tags=["approved"])
+agent = create_react_agent(fabric.langgraph.chat_model("gpt-4o"), tools.langgraph())
+```
+
+Everything else in this section — search filters, session management,
+per-framework binding, pinning, and A2A tool handles — exists to make those
+two lines hold up in production.
+
+## What discovery returns
+
+`fabric.tools.discover(...)` is also the filter and search entry point. The
+same call narrows the catalog by name/description glob, governance, domain,
+tags, and asset type, so an agent binds only the tools it needs instead of the
+whole catalog:
+
+```python
+tools = await fabric.tools.discover(
+    search="*accounts*",     # glob over asset name + description
+    governed_only=True,      # default criteria, or a GovernanceCriteria
+    domain="hr",
+    tags=["approved"],
+    asset_types=["mcp"],
+    environment="Production",
+    limit=50,
+)
+```
+
+`governed_only` and the `GovernanceCriteria` vocabulary are covered on the
+[Discovery, search & filter](/tool-access/discovery) page — "governed" is a
+computed predicate, not a flag Exchange exposes directly. See also the
+[environments and governance object](/concepts/environments) page for how
+governance is scoped per environment.
+
+## In this section
+
+<Cards>
+  <Cards.Card title="Discovery, search & filter" href="/tool-access/discovery" arrow />
+  <Cards.Card title="Framework binding" href="/tool-access/binding" arrow />
+  <Cards.Card title="Pinning & lockfile" href="/tool-access/lockfile" arrow />
+  <Cards.Card title="A2A agent tools" href="/tool-access/a2a" arrow />
+</Cards>
+
+Target milestone: **M2 (0.2.0)**.

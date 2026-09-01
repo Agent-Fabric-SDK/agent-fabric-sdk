@@ -1,0 +1,62 @@
+[
+  {
+    "ID": 9095047,
+    "Template ID": "433810",
+    "Asset ID": "cors",
+    "Asset Version": "1.3.2",
+    "Label": null,
+    "Status": "Enabled",
+    "Configuration": "publicResource: false\nsupportCredentials: false\noriginGroups: [\n  {\n    \"name\": \"Default group\",\n    \"origins\": [\n      \"*\"\n    ],\n    \"accessControlMaxAge\": 30,\n    \"allowedMethods\": [\n      {\n        \"methodName\": \"GET\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"POST\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"PUT\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"PATCH\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"DELETE\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"CONNECT\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"TRACE\",\n        \"isAllowed\": true\n      },\n      {\n        \"methodName\": \"OPTIONS\",\n        \"isAllowed\": true\n      }\n    ],\n    \"headers\": [\n      \"Content-Type\",\n      \"client_id\",\n      \"client_secret\",\n      \"Authorization\",\n      \"X-API-Key\",\n      \"X-Auth-Token\",\n      \"X-Request-ID\",\n      \"Accept\",\n      \"Origin\"\n    ],\n    \"exposedHeaders\": [\n      \"x-llm-proxy-llm-model\",\n      \"x-llm-proxy-llm-provider\",\n      \"x-llm-proxy-routing-fallback\",\n      \"x-llm-proxy-routing-type\",\n      \"x-ratelimit-limit-requests\",\n      \"x-ratelimit-limit-tokens\",\n      \"x-ratelimit-remaining-requests\",\n      \"x-ratelimit-remaining-tokens\",\n      \"x-llm-proxy-semantic-routing-success\",\n      \"x-llm-proxy-ratelimit\",\n      \"x-llm-proxy-request-success\",\n      \"x-llm-proxy-semantic-guard-success\",\n      \"x-llm-proxy-model-based-routing-success\",\n      \"openai-processing-ms\",\n      \"x-correlation-id\"\n    ]\n  }\n]",
+    "Updated": "6 minutes ago"
+  },
+  {
+    "ID": 9095048,
+    "Template ID": "444306",
+    "Asset ID": "dataweave-headers-transformation",
+    "Asset Version": "1.0.0",
+    "Label": null,
+    "Status": "Enabled",
+    "Configuration": "script: %dw 2.0\noutput application/json\nvar authHeader = attributes.headers.'authorization' default \"\"\nvar apikeyRaw = attributes.headers.'apikey' default \"\"\nvar useAuth = (authHeader != \"\")\nvar raw = if (useAuth) authHeader else apikeyRaw\nvar stripped = if ((raw startsWith \"Bearer \") or (raw startsWith \"bearer \")) (raw[7 to -1] default \"\") else raw\nvar parts = stripped splitBy \":\"\nvar hasValidFormat = (sizeOf(parts) == 2) and (parts[0] != \"\") and (parts[1] != \"\")\nvar alreadyHasClientId = attributes.headers.'client_id'?\nvar alreadyHasClientSecret = attributes.headers.'client_secret'?\n---\nif (hasValidFormat and !alreadyHasClientId and !alreadyHasClientSecret)\n  (if (useAuth) (attributes.headers - \"authorization\") else (attributes.headers - \"apikey\")) ++ {\n    \"client_id\": parts[0],\n    \"client_secret\": parts[1]\n  }\nelse\n  attributes.headers\nrequiresPayload: false\nrequestFlow: onRequest",
+    "Updated": "6 minutes ago"
+  },
+  {
+    "ID": 9095049,
+    "Template ID": "433807",
+    "Asset ID": "client-id-enforcement",
+    "Asset Version": "1.3.3",
+    "Label": null,
+    "Status": "Enabled",
+    "Configuration": "credentialsOriginHasHttpBasicAuthenticationHeader: customExpression\nclientIdExpression: #[attributes.headers['client_id']]\nclientSecretExpression: #[attributes.headers['client_secret']]",
+    "Updated": "6 minutes ago"
+  },
+  {
+    "ID": 9095050,
+    "Template ID": "462142",
+    "Asset ID": "llm-proxy-core",
+    "Asset Version": "1.0.5",
+    "Label": null,
+    "Status": "Enabled",
+    "Configuration": "clientIdentifier: #[authentication.clientName]\ninputFormat: openai",
+    "Updated": "6 minutes ago"
+  },
+  {
+    "ID": 9095051,
+    "Template ID": "453225",
+    "Asset ID": "model-based-routing",
+    "Asset Version": "1.0.3",
+    "Label": null,
+    "Status": "Enabled",
+    "Configuration": "supportedVendors: [\n  {\n    \"vendor\": \"openai\"\n  }\n]",
+    "Updated": "6 minutes ago"
+  },
+  {
+    "ID": 9095052,
+    "Template ID": "454369",
+    "Asset ID": "openai-transcoding-policy",
+    "Asset Version": "1.0.3",
+    "Label": null,
+    "Status": "Enabled",
+    "Configuration": "modelMapper: []",
+    "Updated": "6 minutes ago"
+  }
+]

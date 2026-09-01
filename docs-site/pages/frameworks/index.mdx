@@ -1,0 +1,74 @@
+import { Callout, Cards } from 'nextra/components'
+
+# Model access
+
+Pillar 1 gives you governed model access from eight agent frameworks. Each
+adapter returns the framework's **own native object**, pointed at your Omni
+Gateway proxy with verified auth, attribution, and retries injected.
+
+<Callout type="info">
+  **Language support.** Python is the only first-party SDK today; a TypeScript
+  SDK is planned (build plan §1.3, milestone M3). Until then, every framework
+  page's **TypeScript** tab reaches the same governed proxy over its
+  OpenAI-compatible API with the official `openai` npm client (or
+  `@anthropic-ai/sdk` for Anthropic) — a real, typed native integration, with no
+  first-party TS package implied. Native TypeScript SDKs exist for LangGraph,
+  ADK, Strands, the OpenAI Agents SDK, the Anthropic SDK, and LlamaIndex;
+  **CrewAI (Python-only)** and **MS Agent Framework (.NET/Python/Go)** have none.
+</Callout>
+
+## Frameworks by tier
+
+Tiers reflect support depth (build plan §1.4), not quality:
+
+- **Tier 1** — full, conformance-gated, blocking CI.
+- **Tier 2** — supported, non-blocking CI.
+
+<Cards>
+  <Cards.Card title="LangGraph · Tier 1" href="/frameworks/langgraph" arrow />
+  <Cards.Card title="Google ADK · Tier 1" href="/frameworks/adk" arrow />
+  <Cards.Card title="Strands · Tier 1" href="/frameworks/strands" arrow />
+  <Cards.Card title="MS Agent Framework · Tier 1" href="/frameworks/agent-framework" arrow />
+  <Cards.Card title="OpenAI Agents SDK · Tier 1" href="/frameworks/openai" arrow />
+  <Cards.Card title="Anthropic SDK · Tier 1" href="/frameworks/anthropic" arrow />
+  <Cards.Card title="CrewAI · Tier 1" href="/frameworks/crewai" arrow />
+  <Cards.Card title="LlamaIndex · Tier 2" href="/frameworks/llamaindex" arrow />
+</Cards>
+
+## The shape is the same everywhere
+
+```bash
+pip install "mulesoft-agent-fabric[<framework>]"
+export MULESOFT_LLM_PROXY_URL=…  MULESOFT_LLM_PROXY_CLIENT_ID=…  MULESOFT_LLM_PROXY_CLIENT_SECRET=…
+```
+
+```python
+from agent_fabric import Fabric
+async with Fabric.from_env() as fabric:
+    model = fabric.<framework>.<factory>("gpt-4o")   # native object at the proxy
+```
+
+Each page shows the factory name, the native class you get back, the three ways
+to construct it, and — importantly — **the manual equivalent** so you can eject
+to plain framework code whenever you want.
+
+## Injection depth differs by framework
+
+How completely the SDK can inject its governed HTTP transport depends on what
+each framework exposes:
+
+| Framework | Header injection | Transport injection | Notes |
+|---|---|---|---|
+| LangGraph | ✅ | ✅ | Best case — `default_headers` + custom async client. |
+| Strands | ✅ | ✅ | Via `client_args`. |
+| LlamaIndex | ✅ | ✅ | `is_chat_model=True` forced (avoids the completions-endpoint gotcha). |
+| OpenAI Agents SDK | ✅ | ✅ | We build the `AsyncOpenAI` client ourselves. |
+| Anthropic SDK | ✅ | ✅ | Returns a bare `client()`, not a model-bound object — see the [divergence note](/frameworks/anthropic). |
+| MS Agent Framework | ✅ | ✅ | Class name/kwarg **unverified** (§8). |
+| Google ADK | ✅ (`extra_headers`) | ❌ | LiteLLM owns the transport — correlation-ID is per-client, a documented exemption. |
+| CrewAI | ✅ (`extra_headers`) | ❌ | LiteLLM-backed `LLM`; same correlation-ID exemption as Google ADK. |
+
+<Callout type="warning">
+  The proxy contract is verified; the exact **constructor signatures** are still
+  being confirmed per framework — see [Verification policy](/concepts/verification).
+</Callout>

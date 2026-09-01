@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: python
+
+jobs:
+  base-only:
+    # Working instruction #9: install ONLY the base package and run the base
+    # suite, to catch accidental top-level framework imports.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: import agent_fabric with no framework extras installed
+        run: python -c "import agent_fabric; from agent_fabric import Fabric; print(agent_fabric.__version__)"
+      - run: pytest -q tests/unit
+
+  typecheck-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,llm,cli]"
+      - name: mypy --strict (blocking, working instruction #8)
+        run: mypy
+      - run: ruff check .
+      - name: import-linter (framework-free core, §1.1)
+        run: lint-imports
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev,llm,cli]"
+      - run: pytest -q
+
+  # Nightly framework matrix (§8.4) — runs the conformance kit against the
+  # LATEST release of each framework and opens an issue on failure. Scheduled
+  # separately once adapters are conformance-wired (M1+).

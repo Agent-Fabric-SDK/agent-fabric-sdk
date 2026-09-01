@@ -1,0 +1,154 @@
+import { Callout } from 'nextra/components'
+
+# Publishing to Exchange
+
+<Callout type="info">
+  **Planned design.** This documents SDK behaviour as designed in the build plan; platform contracts it depends on are being live-verified, and unverified paths raise `NotImplementedError("blocked on verification: …")` rather than guess. See [Verification policy](/concepts/verification).
+</Callout>
+
+Publishing is symmetric with [governance](/concepts/environments) by design:
+one declarative object, the same "declare in code, apply in CI, verify at
+runtime" discipline. Publication is lower risk than
+[provisioning](/provisioning) — Exchange has a well-trodden publish mechanism
+(the Exchange API, the Anypoint CLI, and the Exchange Maven plugin), not a
+possibly-UI-only wizard.
+
+## Scope: code-first assets only
+
+Publication exists for assets that **originate in the developer's code**:
+
+- an MCP server written in Python or TypeScript,
+- an agent written in one of the eight frameworks and exposed over A2A,
+- an agent exposed as a tool without an A2A surface.
+
+It does **not** exist for assets the platform already owns. If an MCP server
+was created by MCP Bridge from an existing API, that capability is already in
+Exchange — publishing a second, code-derived descriptor for it creates two
+catalog entries for one capability, which is exactly the failure a registry is
+supposed to prevent.
+
+### Collision check
+
+Before publishing, the SDK searches Exchange for an existing asset with the
+same endpoint, name, or derived tool signature. On a probable match, it
+refuses and prints the existing asset's coordinates. Override with an
+explicit `--allow-duplicate` flag, which logs at `WARNING`.
+
+## The `Publication` object
+
+```python
+from agent_fabric import Publication, AssetType, Contact
+
+pub = Publication(
+    asset_type=AssetType.MCP_SERVER,          # MCP_SERVER | A2A_AGENT | AGENT | API
+    group_id="${ANYPOINT_ORG_ID}",
+    asset_id="hr-tools-mcp",
+    version="1.3.0",                          # semver
+    name="HR Tools",
+    description="Employee lookup and leave-balance tools for HR agents.",
+
+    # Discovery metadata
+    tags=["hr", "internal", "agent-tool"],
+    categories={"Domain": "People", "Lifecycle": "Production"},
+    contact=Contact(team="People Platform", email="people-plat@acme.com"),
+
+    # Type-specific descriptor — exactly one, matching asset_type
+    descriptor="auto",                        # introspect the live server
+
+    # Documentation pages, published alongside the asset
+    docs=[
+        ("home", "docs/exchange/overview.md"),
+        ("getting-started", "docs/exchange/quickstart.md"),
+    ],
+
+    # Where it actually lives — metadata only
+    endpoint="https://hr-tools.internal.acme.com/mcp",
+    governance=gov,                           # optional link to the Governance object
+)
+```
+
+`asset_type` drives which descriptor is required and how it's generated:
+
+| `asset_type` | Descriptor | Generated from |
+|---|---|---|
+| `MCP_SERVER` | MCP tool manifest — server info, tool names, descriptions, JSON Schema inputs | live `tools/list` against the running server |
+| `A2A_AGENT` | A2A Agent Card | declared skills, endpoint, auth schemes, input/output modes |
+| `AGENT` | agent descriptor (no A2A surface) | framework-specific introspection, best-effort |
+| `API` | OpenAPI / AsyncAPI | user-supplied file; no generation |
+
+<Callout type="warning">
+  **M0 gate.** Whether Exchange exposes first-class asset types for MCP
+  servers and AI agents is unverified. Agent Fabric's Agent Registry is built
+  on Exchange, so this is likely — but if it does not, publication degrades to
+  a generic or custom asset type carrying tags, which weakens discoverability
+  and breaks `asset_types=["mcp"]` filtering in [Tool access](/tool-access).
+  The two features share this dependency; it's verified once, recorded once.
+</Callout>
+
+## `descriptor="auto"` — deriving the spec from code
+
+Hand-maintained catalog descriptors go stale within one sprint. Generation is
+the entire value of this object, exactly as `inputSchema: auto` is the value
+of [Provisioning](/provisioning).
+
+The key insight: **don't write a type-hint-to-JSON-Schema converter.** Every
+one of the eight frameworks already derives JSON Schema from function
+signatures, type hints, and docstrings, because that's how tool calling works
+at all — `@tool` in LangChain and Strands, `FunctionTool` in ADK and
+LlamaIndex, `@mcp.tool()` in the MCP Python SDK, and each of CrewAI, the
+OpenAI Agents SDK, and the Anthropic SDK's own tool-definition conventions.
+Each already builds a schema and attaches it to a tool object.
+
+The SDK's job is to **ask the framework for the schema it already computed**,
+not to re-derive it. Re-implementing type-hint inference would produce a
+second, subtly different schema from the one the model actually sees — worse
+than useless, because the catalog would document something other than the
+running behaviour.
+
+### Three derivation modes, ranked by fidelity
+
+```python
+descriptor="auto"          # object introspection — the default
+descriptor="auto:live"     # live protocol introspection — highest fidelity
+descriptor="auto:static"   # AST only — lowest fidelity, no code execution
+descriptor="auto:check"    # generate, diff against committed file, fail on mismatch
+```
+
+- **`auto:live`** starts the server, performs the MCP initialize handshake,
+  and calls `tools/list` (plus `resources/list` and `prompts/list`). Highest
+  fidelity — it's exactly what a client sees — but requires the server to
+  actually run, with whatever credentials and network that needs.
+- **`auto`** (the default) imports the user's module, locates the tool and
+  agent objects, and reads their already-computed schemas. No server, no
+  network, works in CI. Importing user code executes it, so tool definitions
+  must be import-safe — mitigated with an explicit entrypoint rather than
+  package-wide scanning:
+
+  ```toml
+  [publication.entrypoints]
+  "hr-tools-mcp" = "acme.hr.server:mcp"        # module:attribute
+  "hr-agent"     = "acme.hr.agent:build_agent" # a zero-arg factory is also accepted
+  ```
+
+- **`auto:static`** parses decorators, signatures, and docstrings via AST,
+  without executing anything. Useful only where importing user code is
+  unacceptable. It cannot see tools registered in a loop, from config or a
+  database, behind a feature flag, attached dynamically at startup, or built
+  from imported/generated pydantic models — so it emits a completeness warning
+  whenever it hits a pattern it can't resolve, and it is never the default.
+
+`agent-fabric publish --cross-check` runs `auto` and `auto:live` and diffs
+them; disagreement means either dynamic registration the object graph doesn't
+reflect, or a broken framework adapter.
+
+<Callout type="info">
+  Type hints give the **shape**, not the **meaning** — `department: str`
+  becomes `{"type": "string"}` and says nothing about which departments are
+  valid or when to use this tool over a similar one. `auto` fails publication
+  on a description that's tautological or missing, and `preview()` reports
+  description quality rather than a verdict.
+</Callout>
+
+---
+
+Target milestone: **M2.7 (0.3.5)**.

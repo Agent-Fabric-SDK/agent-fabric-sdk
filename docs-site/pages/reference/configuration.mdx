@@ -1,0 +1,61 @@
+import { Callout } from 'nextra/components'
+
+# Configuration
+
+`Fabric.from_env()` resolves configuration from, in precedence order: explicit
+kwargs → environment variables → `.agent-fabric.toml` → defaults.
+
+## Governed model access (Pillar 1)
+
+The three required values for the LLM proxy:
+
+| Env var | Meaning |
+|---|---|
+| `MULESOFT_LLM_PROXY_URL` | Proxy base URL: `https://<ingress-gw>/<instance>/` — **no `/v1`**. |
+| `MULESOFT_LLM_PROXY_CLIENT_ID` | Consumer client id (the per-agent identity). |
+| `MULESOFT_LLM_PROXY_CLIENT_SECRET` | Consumer client secret. |
+
+<Callout type="info">
+  Auth is a `client_id` / `client_secret` **header pair** (consumer auth), **not**
+  a bearer token, and separate from any Anypoint control-plane credential. The
+  OpenAI SDK still requires a non-empty `api_key` slot, which the proxy ignores.
+</Callout>
+
+Missing required fields are reported **all at once** with their env-var names, so
+you fix configuration in a single pass rather than one error per run.
+
+## Optional attribution
+
+| Env var | Meaning |
+|---|---|
+| `MULESOFT_APP_NAME` | Human-readable app name, surfaced on telemetry. |
+| `MULESOFT_BUSINESS_GROUP` | Business group for attribution. |
+
+## Anypoint control plane (used by later pillars)
+
+These match the Anypoint CLI's own variable names (CLI-verified):
+`ANYPOINT_CLIENT_ID`, `ANYPOINT_CLIENT_SECRET`, `ANYPOINT_ORG`, `ANYPOINT_ENV`,
+`ANYPOINT_BEARER`, and `ANYPOINT_HOST` (default `anypoint.mulesoft.com`).
+
+## Config file
+
+Instead of env vars you can use `.agent-fabric.toml` in your project. Secrets and
+local dev credentials belong in `.agent-fabric.local.toml` (git-ignored), never
+in the committed file.
+
+## Programmatic
+
+```python
+from agent_fabric import Fabric, FabricConfig
+
+# Explicit config (kwargs win over env):
+fabric = Fabric(FabricConfig(
+    llm_proxy_url="https://<ingress-gw>/<instance>/",
+    llm_proxy_client_id="…",
+    llm_proxy_client_secret="…",
+))
+
+# Or from the environment, with lifecycle:
+async with Fabric.from_env() as fabric:
+    ...
+```

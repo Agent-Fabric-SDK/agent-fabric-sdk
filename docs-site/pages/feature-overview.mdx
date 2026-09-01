@@ -1,0 +1,78 @@
+import { Callout } from 'nextra/components'
+
+# Feature overview
+
+What the SDK gives you today, all in service of **Pillar 1 — governed model
+access**. Everything here is wired to the live-verified proxy contract.
+
+## Native framework objects, not wrappers
+
+One call per framework returns the framework's **own** object, already pointed at
+the proxy with the verified `client_id`/`client_secret` headers, attribution, and
+retry policy injected:
+
+| Framework | Call | Returns |
+|---|---|---|
+| LangGraph | `fabric.langgraph.chat_model("gpt-4o")` | `langchain_openai.ChatOpenAI` |
+| Google ADK | `fabric.adk.model("gpt-4o")` | `google.adk … LiteLlm` |
+| Strands | `fabric.strands.model("gpt-4o")` | `strands … OpenAIModel` |
+| MS Agent Framework | `fabric.agent_framework.chat_client("gpt-4o")` | Agent Framework chat client |
+| LlamaIndex | `fabric.llamaindex.llm("gpt-4o")` | `OpenAILike` (`is_chat_model=True`) |
+| OpenAI Agents SDK | `fabric.openai.model("gpt-4o")` | `agents.OpenAIChatCompletionsModel` |
+| Anthropic SDK | `fabric.anthropic.client()` | `anthropic.AsyncAnthropic` (client, not model-bound) |
+| CrewAI | `fabric.crewai.llm("gpt-4o")` | `crewai.LLM` (LiteLLM-backed) |
+
+See [Model access](/frameworks) for each framework's page.
+
+## Three ways to construct — pick your ergonomics
+
+Every adapter offers the same governed connection three ways, from one source of
+truth:
+
+```python
+# 1. Factory method — shared client + explicit lifecycle
+async with Fabric.from_env() as fabric:
+    model = fabric.langgraph.chat_model("gpt-4o", temperature=0.2)
+
+# 2. Module-level factory — shortest; cached default from the environment
+from agent_fabric.integrations.langgraph import chat_model
+model = chat_model("gpt-4o", temperature=0.2)
+
+# 3. Governed-kwargs accessor — you build the native object yourself
+from langchain_openai import ChatOpenAI
+model = ChatOpenAI(model="gpt-4o", **fabric.langgraph.connection_kwargs())
+```
+
+Prefer the factory when you want shared-client reuse and lifecycle
+(`async with`); reach for the accessor when you want full control of the
+constructor.
+
+## Framework-free client
+
+`fabric.llm.client()` returns a native `AsyncOpenAI` aimed at the proxy — use the
+OpenAI SDK exactly as you normally would (Chat Completions or the Responses API,
+streaming included); the SDK adds the governance headers and retry policy.
+
+## A typed governed error taxonomy
+
+`classify()` maps the proxy's four live rejection shapes to typed exceptions —
+`AuthError` (401), `PIIDetected` (403), `TokenBudgetExceeded` (429), plus upstream
+passthrough — so you branch on governance outcomes instead of parsing bodies.
+See [Error taxonomy](/errors).
+
+## Model handles without a `/models` endpoint
+
+The governed proxy has **no** catalog endpoint (`GET /models` → `404`, verified).
+`fabric.llm.resolve("gpt-4o")` gives you a heuristic capability handle
+(function-calling / vision / json-output) from a known id, and
+`list_models(live=True)` raises a clear `ConfigError` explaining the absence
+rather than fabricating a path.
+
+<Callout type="warning">
+  **Honesty note (§0.3).** The proxy *contract* the adapters target is
+  live-verified, but the exact framework *constructor signatures* are still being
+  confirmed against installed versions ([§8](/concepts/verification)). Where a
+  name can't be resolved, the adapter raises `blocked on verification` rather
+  than guess. The [Verification policy](/concepts/verification) page tracks
+  current status.
+</Callout>

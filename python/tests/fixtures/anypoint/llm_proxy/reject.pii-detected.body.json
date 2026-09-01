@@ -1,0 +1,1 @@
+{"error":{"message":"Request contains PII data: [\n  {\n    \"pii_type\": \"Email\",\n    \"value\": \"john.doe@example.com\",\n    \"start\": 12,\n    \"end\": 32\n  }\n]","type":"pii_detected"}}
