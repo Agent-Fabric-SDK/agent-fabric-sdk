@@ -25,7 +25,13 @@ from .errors import (
     classify,
 )
 from .telemetry import current_correlation_id, new_correlation_id, run_context
-from .transport import FabricAsyncClient, attribution_headers, build_http_client
+from .transport import (
+    FabricAsyncClient,
+    FabricClient,
+    attribution_headers,
+    build_http_client,
+    build_sync_http_client,
+)
 
 __all__ = [
     "AnypointConnectedApp",
@@ -35,6 +41,7 @@ __all__ = [
     "ConfigError",
     "ContentSafetyBlocked",
     "FabricAsyncClient",
+    "FabricClient",
     "FabricConfig",
     "FabricError",
     "GovernanceDrift",
@@ -52,6 +59,7 @@ __all__ = [
     "UpstreamModelError",
     "attribution_headers",
     "build_http_client",
+    "build_sync_http_client",
     "classify",
     "current_correlation_id",
     "new_correlation_id",

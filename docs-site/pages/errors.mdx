@@ -70,6 +70,18 @@ except openai.APIConnectionError as e:
     print("could not reach the proxy:", e)
 ```
 
+The blocking client from `fabric.llm.client(sync=True)` behaves identically here
+— drop the `await`. It is the same OpenAI SDK raising the same
+`openai.APIStatusError`, and `classify()` reads the response the same way, so the
+taxonomy is not an async-only feature.
+
+One deliberate difference sits below the taxonomy, in the retry policy. Both
+clients retry 429/502/503/504 and treat other 4xx as terminal. The async client
+additionally refreshes its token and retries **once** on a 401, because it may
+carry an Anypoint control-plane credential. The blocking client holds no such
+credential — that refresh protocol is async-only — so a 401 there is terminal and
+surfaces immediately as `AuthError`.
+
 ## Not-yet-captured shapes
 
 Prompt-injection and content-safety rejection **bodies** are not yet captured, so

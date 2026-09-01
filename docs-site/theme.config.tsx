@@ -1,5 +1,8 @@
 import React from 'react'
-import type { DocsThemeConfig } from 'nextra-theme-docs'
+import { useRouter } from 'next/router'
+import { useConfig, type DocsThemeConfig } from 'nextra-theme-docs'
+
+const SITE_NAME = 'Agent Fabric SDK'
 
 const config: DocsThemeConfig = {
   logo: (
@@ -18,20 +21,25 @@ const config: DocsThemeConfig = {
     hue: 262,
     saturation: 90,
   },
-  head: (
-    <>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <meta
-        name="description"
-        content="An SDK for MuleSoft Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework."
-      />
-      <meta property="og:title" content="Agent Fabric SDK" />
-      <meta
-        property="og:description"
-        content="Governed model access, tool access, and provisioning-as-code for MuleSoft Agent Fabric."
-      />
-    </>
-  ),
+  head: function Head() {
+    const { frontMatter, title } = useConfig()
+    const { asPath } = useRouter()
+    const pageTitle =
+      asPath === '/' || !title ? SITE_NAME : `${title} — ${SITE_NAME}`
+    const description =
+      frontMatter.description ??
+      'An SDK for MuleSoft Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.'
+
+    return (
+      <>
+        <title>{pageTitle}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content={description} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={description} />
+      </>
+    )
+  },
   footer: {
     content: (
       <span>

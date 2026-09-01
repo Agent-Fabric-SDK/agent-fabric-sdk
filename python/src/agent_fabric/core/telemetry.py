@@ -57,10 +57,24 @@ def ensure_correlation_id() -> str:
     return rid
 
 
+def request_correlation_id() -> str:
+    """The bound run's correlation ID, or a fresh one that is deliberately *not*
+    bound.
+
+    For blocking callers. :func:`ensure_correlation_id` binds on first use, which
+    is right under ``asyncio.run`` — that runs in its own ``Context``, so the
+    binding dies with the run and one run shares one ID. A synchronous call has
+    no such boundary: binding there would pin the very first request's ID to the
+    ambient context for the rest of the process, so every later unrelated call
+    would report the same run. Grouping stays opt-in via :func:`run_context`.
+    """
+    return _correlation_id.get() or new_correlation_id()
+
+
 # --- Optional OpenTelemetry span helper -------------------------------------
 def _tracer() -> Any | None:
     try:
-        from opentelemetry import trace  # type: ignore
+        from opentelemetry import trace
     except ImportError:
         return None
     return trace.get_tracer("agent_fabric")

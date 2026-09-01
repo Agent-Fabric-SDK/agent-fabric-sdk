@@ -117,6 +117,28 @@ async def main():
 asyncio.run(main())
 ```
 
+Pass `sync=True` for the blocking `openai.OpenAI` instead. It is governed on
+identical terms — same base URL, same verified header pair, same correlation ID
+and retry policy — and needs no event loop:
+
+```python
+from agent_fabric import Fabric
+
+with Fabric.from_env() as fabric:
+    client = fabric.llm.client(sync=True)      # openai.OpenAI at the proxy
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Say hi in three words."}],
+    )
+    print(resp.choices[0].message.content)
+```
+
+The two forms are typed overloads, so the call site narrows to `OpenAI` or
+`AsyncOpenAI` rather than a union and editors keep completing on the result. The
+blocking transport takes no `AuthProvider` — that protocol is `async def` — which
+costs nothing on the proxy (it authenticates on the header pair, not a fetched
+token) but does keep the control-plane surfaces `registry` and `tools` async-only.
+
 ### 2. Native framework objects (§3.1) — one call per framework
 
 Each adapter returns the **framework's own object**, not a wrapper, already

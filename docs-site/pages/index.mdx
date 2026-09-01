@@ -1,18 +1,42 @@
-import { Callout, Cards, Tabs } from 'nextra/components'
+---
+description: An SDK for MuleSoft Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.
+---
 
-# What is the Agent Fabric SDK?
+import { Callout, Tabs } from 'nextra/components'
+import { Badge, Card, CardGrid, Figure, Hero } from '../components'
 
-The **Agent Fabric SDK** lets you consume **MuleSoft Agent Fabric** capabilities —
-governed model access, governed tool access, and provisioning-as-code — from
-**your own agent framework, in your own IDE, without adopting Mule**.
+<Hero
+  eyebrow="Pillar 1 live-verified"
+  title="Agent Fabric SDK"
+  tagline={
+    <>
+      Consume <strong>MuleSoft Agent Fabric</strong> capabilities — governed model
+      access, governed tool access, and provisioning-as-code — from your own agent
+      framework, in your own IDE, <strong>without adopting Mule</strong>.
+    </>
+  }
+  media={
+    <Figure
+      src="/img/omni-gateway-banner.jpg"
+      alt="MuleSoft Omni Gateway — AI Gateway, Federated Gateways, and API Gateway."
+      caption="Omni Gateway spans AI, federated, and API gateways. This SDK is the developer-side client for the AI lane — the one that is live-verified today."
+      width={1024}
+      height={682}
+      priority
+    />
+  }
+  actions={[
+    { label: 'Quickstart', href: '/quickstart', primary: true },
+    { label: 'Pick your framework', href: '/frameworks' },
+  ]}
+/>
 
 You keep writing LangGraph, Google ADK, Strands, LlamaIndex, CrewAI, the OpenAI
 Agents SDK, the Anthropic SDK, or Microsoft Agent Framework code exactly as you
-do today. The SDK wires
-those frameworks to your organisation's governed **Omni Gateway LLM proxy** so
-every model call is authenticated, attributed, and policy-checked — and it hands
-you back your framework's **own native objects**, never a wrapper you have to
-code around.
+do today. The SDK wires those frameworks to your organisation's governed **Omni
+Gateway LLM proxy** so every model call is authenticated, attributed, and
+policy-checked — and it hands you back your framework's **own native objects**,
+never a wrapper you have to code around.
 
 <Callout type="info">
   **"Agent Fabric" is a MuleSoft (Salesforce) product name**, not a generic
@@ -26,7 +50,7 @@ code around.
 
 `fabric.langgraph.chat_model("gpt-4o")` returns a real `langchain_openai.ChatOpenAI`.
 `fabric.llamaindex.llm("gpt-4o")` returns a real `OpenAILike`. You can hand these
-straight to `create_react_agent`, a LlamaIndex query engine, a Strands `Agent`,
+straight to `create_agent`, a LlamaIndex query engine, a Strands `Agent`,
 and so on. If you ever want to drop the SDK, you eject to three lines of native
 constructor code — every framework page shows you exactly which three.
 
@@ -37,7 +61,7 @@ the *same* governed proxy over its OpenAI-compatible HTTP API — the verified b
 URL plus the `client_id` / `client_secret` headers. (No first-party TypeScript
 SDK yet.)
 
-<Tabs items={['Python', 'TypeScript', 'cURL']}>
+<Tabs items={['Python (async)', 'Python (sync)', 'TypeScript', 'cURL']}>
 <Tabs.Tab>
 
 ```python
@@ -47,6 +71,22 @@ from agent_fabric.integrations.langgraph import chat_model
 model = chat_model("gpt-4o", temperature=0)
 reply = await model.ainvoke([("user", "Explain quantum computing in simple terms.")])
 print(reply.content)
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```python
+from agent_fabric import Fabric
+
+# A real openai.OpenAI, already pointed at your governed proxy — no event loop.
+with Fabric.from_env() as fabric:
+    client = fabric.llm.client(sync=True)
+    reply = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Explain quantum computing in simple terms."}],
+    )
+    print(reply.choices[0].message.content)
 ```
 
 </Tabs.Tab>
@@ -88,19 +128,38 @@ curl "${MULESOFT_LLM_PROXY_URL}chat/completions" \
 
 ## The three pillars
 
-<Cards>
-  <Cards.Card title="1 · Governed model access" href="/frameworks" arrow>
+<CardGrid>
+  <Card
+    title="Governed model access"
+    href="/frameworks"
+    icon="◆"
+    badge="Live"
+    badgeTone="live"
+  >
     Point any of eight frameworks at your governed proxy. Verified auth,
     attribution, retries, and a typed error taxonomy — injected for you.
-  </Cards.Card>
-  <Cards.Card title="2 · Governed tool access" href="/tool-access" arrow>
+  </Card>
+  <Card
+    title="Governed tool access"
+    href="/tool-access"
+    icon="◇"
+    badge="Roadmap"
+    badgeTone="roadmap"
+  >
     Discover and bind governed MCP tools across frameworks, with governed-only
-    filtering. (Roadmap — see the page for what's blocked and why.)
-  </Cards.Card>
-  <Cards.Card title="3 · Provisioning as code" href="/provisioning" arrow>
-    Declare gateways, policies, and published assets and apply them. (Roadmap.)
-  </Cards.Card>
-</Cards>
+    filtering. The page covers what's blocked and why.
+  </Card>
+  <Card
+    title="Provisioning as code"
+    href="/provisioning"
+    icon="◇"
+    badge="Roadmap"
+    badgeTone="roadmap"
+  >
+    Declare gateways, policies, and published assets in a spec file, then plan
+    and apply them like infrastructure.
+  </Card>
+</CardGrid>
 
 ## What is live today
 
@@ -122,17 +181,17 @@ unverified endpoint, header, or class name raise
 
 ## Next steps
 
-<Cards>
-  <Cards.Card title="Quickstart" href="/quickstart" arrow>
+<CardGrid>
+  <Card title="Quickstart" href="/quickstart" icon="→">
     Make your first governed model call in under five minutes.
-  </Cards.Card>
-  <Cards.Card title="Feature overview" href="/feature-overview" arrow>
+  </Card>
+  <Card title="Feature overview" href="/feature-overview" icon="☰">
     A tour of everything Pillar 1 gives you today.
-  </Cards.Card>
-  <Cards.Card title="Pick your framework" href="/frameworks" arrow>
+  </Card>
+  <Card title="Pick your framework" href="/frameworks" icon="⚙">
     Per-framework install, quickstart, and the manual equivalent.
-  </Cards.Card>
-  <Cards.Card title="Error taxonomy" href="/errors" arrow>
+  </Card>
+  <Card title="Error taxonomy" href="/errors" icon="!">
     Branch on governance outcomes instead of parsing error bodies.
-  </Cards.Card>
-</Cards>
+  </Card>
+</CardGrid>

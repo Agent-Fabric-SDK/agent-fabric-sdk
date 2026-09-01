@@ -1,4 +1,9 @@
-import { Callout, Cards } from 'nextra/components'
+---
+description: Pillar 3 — declare gateways, policies, and published assets in a spec, then plan and apply them.
+---
+
+import { Callout } from 'nextra/components'
+import { Card, CardGrid } from '../../components'
 
 # Provisioning as code (Pillar 3)
 
@@ -68,16 +73,16 @@ intact, because it's a local OAS/RAML transform, not a control-plane call.
 Target milestone: **M4 (0.5.0)** — with a possible Terraform-generation pivot
 depending on live verification.
 
-<Cards>
-  <Cards.Card title="Spec format" href="/provisioning/spec" arrow>
+<CardGrid>
+  <Card title="Spec format" href="/provisioning/spec">
     The `fabric.yaml` shape: mcpBridges, tools, policies, and the
     `inputSchema: auto` derivation.
-  </Cards.Card>
-  <Cards.Card title="Plan & apply" href="/provisioning/plan-apply" arrow>
+  </Card>
+  <Card title="Plan & apply" href="/provisioning/plan-apply">
     Read-before-write diffing, CI gating, drift detection, and policy ownership.
-  </Cards.Card>
-  <Cards.Card title="Governance lint" href="/provisioning/governance-lint" arrow>
+  </Card>
+  <Card title="Governance lint" href="/provisioning/governance-lint">
     Validate specs against rulesets before publish — ships early, no
     provisioning API required.
-  </Cards.Card>
-</Cards>
+  </Card>
+</CardGrid>

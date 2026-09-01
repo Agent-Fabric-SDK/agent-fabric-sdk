@@ -24,13 +24,14 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 
 import httpx
 
 from . import _verify
 from .auth import AuthProvider
 from .config import FabricConfig
-from .telemetry import ensure_correlation_id
+from .telemetry import ensure_correlation_id, request_correlation_id
 
 CORRELATION_HEADER = "X-Correlation-Id"
 # The OpenAI-compatible SDKs reject an empty ``api_key``. The governed proxy
@@ -88,6 +89,26 @@ def proxy_api_key(cfg: FabricConfig) -> str:
     return cfg.llm_proxy_key or PROXY_API_KEY_SENTINEL
 
 
+def _apply_base_headers(cfg: FabricConfig, request: httpx.Request, correlation_id: str) -> None:
+    """Correlation ID + attribution, i.e. everything both transports inject
+    without needing to await anything. The ID is passed in because the two
+    transports source it differently — see :func:`request_correlation_id`."""
+    request.headers[CORRELATION_HEADER] = correlation_id
+    for name, value in attribution_headers(cfg).items():
+        request.headers[name] = value
+
+
+def _retry_delay(attempt: int, response: httpx.Response) -> float:
+    retry_after = response.headers.get("retry-after")
+    if retry_after is not None:
+        try:
+            return min(float(retry_after), _BACKOFF_CAP_S)
+        except ValueError:
+            pass  # HTTP-date form not handled here; fall through to backoff
+    exp = min(_BACKOFF_BASE_S * (2.0**attempt), _BACKOFF_CAP_S)
+    return exp * (0.5 + random.random() / 2.0)  # full-ish jitter
+
+
 class FabricAsyncClient(httpx.AsyncClient):
     """An ``httpx.AsyncClient`` that injects attribution/correlation/auth headers
     and applies the SDK's retry policy. Every adapter that accepts a custom HTTP
@@ -110,9 +131,7 @@ class FabricAsyncClient(httpx.AsyncClient):
         )
 
     async def _inject_headers(self, request: httpx.Request) -> None:
-        request.headers[CORRELATION_HEADER] = ensure_correlation_id()
-        for name, value in attribution_headers(self._cfg).items():
-            request.headers[name] = value
+        _apply_base_headers(self._cfg, request, ensure_correlation_id())
         if self._token_provider is not None:
             token = await self._token_provider.token()
             # Control plane uses OAuth2 client_credentials → ``Authorization:
@@ -146,7 +165,7 @@ class FabricAsyncClient(httpx.AsyncClient):
                 continue
 
             if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
-                delay = self._backoff(attempt, response)
+                delay = _retry_delay(attempt, response)
                 await response.aclose()
                 await asyncio.sleep(delay)
                 continue
@@ -156,17 +175,64 @@ class FabricAsyncClient(httpx.AsyncClient):
         assert last_response is not None  # attempts >= 1
         return last_response
 
-    def _backoff(self, attempt: int, response: httpx.Response) -> float:
-        retry_after = response.headers.get("retry-after")
-        if retry_after is not None:
-            try:
-                return min(float(retry_after), _BACKOFF_CAP_S)
-            except ValueError:
-                pass  # HTTP-date form not handled here; fall through to backoff
-        exp = min(_BACKOFF_BASE_S * (2.0**attempt), _BACKOFF_CAP_S)
-        return exp * (0.5 + random.random() / 2.0)  # full-ish jitter
+
+class FabricClient(httpx.Client):
+    """The blocking twin of :class:`FabricAsyncClient`, for ``fabric.llm.client(
+    sync=True)``.
+
+    It injects the same correlation/attribution headers and applies the same
+    retry policy, so a synchronous caller is governed identically to an async
+    one. Without it, a sync caller would fall back to whatever bare client the
+    framework builds for itself and quietly lose both.
+
+    It takes **no** :class:`AuthProvider`: that protocol is async-only
+    (``async def token()``), and there is no correct way to await it from here.
+    That costs nothing on the LLM data plane, which authenticates with the
+    ``client_id``/``client_secret`` header pair (LIVE-VERIFIED §2/§3) rather than
+    a fetched token. It does mean the control-plane surfaces — ``registry`` and
+    ``tools`` — stay async-only; see §2.2 for why the two credentials are
+    deliberately not conflated.
+    """
+
+    def __init__(self, cfg: FabricConfig, **kw: object) -> None:
+        self._cfg = cfg
+        super().__init__(
+            timeout=cfg.timeout_s,
+            event_hooks={"request": [self._inject_headers]},
+            **kw,  # type: ignore[arg-type]
+        )
+
+    def _inject_headers(self, request: httpx.Request) -> None:
+        _apply_base_headers(self._cfg, request, request_correlation_id())
+
+    def send(self, request: httpx.Request, **kwargs: object) -> httpx.Response:
+        attempts = self._cfg.max_retries + 1
+        last_response: httpx.Response | None = None
+
+        for attempt in range(attempts):
+            response = super().send(request, **kwargs)  # type: ignore[arg-type]
+            last_response = response
+
+            # No 401-refresh branch: with no token provider there is nothing to
+            # refresh, so a 401 here is a real credential failure and terminal.
+            if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
+                delay = _retry_delay(attempt, response)
+                response.close()
+                time.sleep(delay)
+                continue
+
+            return response
+
+        assert last_response is not None  # attempts >= 1
+        return last_response
 
 
 def build_http_client(cfg: FabricConfig, auth: AuthProvider | None) -> FabricAsyncClient:
     """Factory for the shared client (§2.3)."""
     return FabricAsyncClient(cfg, auth)
+
+
+def build_sync_http_client(cfg: FabricConfig) -> FabricClient:
+    """Factory for the shared blocking client (§2.3). See :class:`FabricClient`
+    for why it takes no :class:`AuthProvider`."""
+    return FabricClient(cfg)

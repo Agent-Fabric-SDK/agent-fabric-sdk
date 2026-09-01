@@ -1,9 +1,22 @@
+---
+description: A tour of everything Pillar 1 — governed model access — gives you today.
+---
+
 import { Callout } from 'nextra/components'
+import { Figure } from '../components'
 
 # Feature overview
 
 What the SDK gives you today, all in service of **Pillar 1 — governed model
 access**. Everything here is wired to the live-verified proxy contract.
+
+<Figure
+  src="/img/omni-gateway-architecture.jpg"
+  alt="MuleSoft Omni Gateway, an AI-native API gateway: developers consume APIs through one gateway that fronts A2A agents, MCP servers, LLMs, and other APIs, providing unified access, enterprise security, intelligent routing, observability, rate limiting and quotas, transformation, developer experience, and governance and compliance across REST, GraphQL, gRPC, WebSocket, SSE, MCP, and A2A."
+  caption="Omni Gateway is the control point this SDK connects your agents to — one gateway for APIs, A2A agents, MCP servers, and models."
+  width={1024}
+  height={561}
+/>
 
 ## Native framework objects, not wrappers
 
@@ -53,12 +66,46 @@ constructor.
 OpenAI SDK exactly as you normally would (Chat Completions or the Responses API,
 streaming included); the SDK adds the governance headers and retry policy.
 
+Pass `sync=True` for the blocking `OpenAI` instead, governed on identical terms —
+same base URL, same verified `client_id` / `client_secret` headers, same
+correlation ID and retry policy:
+
+```python
+with Fabric.from_env() as fabric:
+    client = fabric.llm.client(sync=True)      # openai.OpenAI
+    reply = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Say hi in three words."}],
+    )
+    print(reply.choices[0].message.content)
+```
+
+The two forms are declared as typed overloads, so your editor narrows the result
+to `OpenAI` or `AsyncOpenAI` and keeps completing on it. Note the boundary: the
+blocking transport takes no `AuthProvider`, because that protocol is async-only.
+That costs nothing here — the proxy authenticates on the header pair, not a
+fetched token — but it does mean the control-plane surfaces (`registry`,
+`tools`) remain async.
+
 ## A typed governed error taxonomy
 
 `classify()` maps the proxy's four live rejection shapes to typed exceptions —
 `AuthError` (401), `PIIDetected` (403), `TokenBudgetExceeded` (429), plus upstream
 passthrough — so you branch on governance outcomes instead of parsing bodies.
 See [Error taxonomy](/errors).
+
+Those exception types are the client-side mirror of the policies the gateway
+enforces. The LLM lane below is the one this SDK targets today; the same control
+plane applies the equivalent policy sets to APIs, MCP tools, and A2A agents,
+which is what Pillars 2 and 3 grow into.
+
+<Figure
+  src="/img/omni-gateway-governance-layer.jpg"
+  alt="A unified governance layer across four asset types. APIs enforce OAuth 2.0/JWT validation, client-ID enforcement, rate limiting and SLA tiers, IP allowlisting, and tokenization. LLMs enforce token-based rate limits, semantic prompt guard, content moderation, PII detection and masking, and prompt decorators. MCP enforces global access control, attribute-based access control, payload optimization, PII detection, and tool mapping. Agents enforce token-based rate limits, PII detection, prompt decorators, in-task authorization codes, and OAuth 2.0 on-behalf-of credential injection."
+  caption="The policy sets behind the error taxonomy. Token rate limits and PII detection in the LLM column are the two the SDK already maps to TokenBudgetExceeded and PIIDetected."
+  width={1024}
+  height={575}
+/>
 
 ## Model handles without a `/models` endpoint
 

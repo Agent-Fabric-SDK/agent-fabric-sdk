@@ -51,7 +51,7 @@ export MULESOFT_BUSINESS_GROUP="payments"
   `client_secret` headers — see [Verification policy](/concepts/verification).
 </Callout>
 
-<Tabs items={['Python', 'TypeScript', 'cURL']}>
+<Tabs items={['Python (async)', 'Python (sync)', 'TypeScript', 'cURL']}>
 <Tabs.Tab>
 
 ```python
@@ -75,6 +75,45 @@ framework-free `AsyncOpenAI` client with `fabric.llm.client()`:
 from agent_fabric.integrations.langgraph import chat_model
 model = chat_model("gpt-4o", temperature=0)   # native ChatOpenAI at the proxy
 ```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+No event loop, no `await`. `fabric.llm.client(sync=True)` returns the blocking
+`openai.OpenAI`, governed on identical terms — same base URL, same verified
+header pair, same correlation ID and retry policy:
+
+```python
+from agent_fabric import Fabric
+
+with Fabric.from_env() as fabric:
+    client = fabric.llm.client(sync=True)      # a real openai.OpenAI
+    reply = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Say hi in three words."}],
+    )
+    print(reply.choices[0].message.content)
+```
+
+Streaming and the Responses API work the same way, just without `async for`:
+
+```python
+stream = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Count to five."}],
+    stream=True,
+)
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+<Callout type="info">
+  The sync surface covers **governed model access**. The control-plane surfaces
+  — `fabric.registry` and `fabric.tools` — stay async, because credential
+  refresh there is an `async` protocol customers can implement themselves. See
+  [Feature overview](/feature-overview#framework-free-client).
+</Callout>
 
 </Tabs.Tab>
 <Tabs.Tab>
@@ -147,6 +186,9 @@ except openai.APIStatusError as e:
     elif isinstance(governed, TokenBudgetExceeded):
         print("retry after", governed.retry_after, "s")
 ```
+
+This is identical on the sync client — drop the `await`. Both raise the same
+`openai.APIStatusError`, and `classify()` reads the response the same way.
 
 </Steps>
 

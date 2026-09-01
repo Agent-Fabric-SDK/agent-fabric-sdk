@@ -1,9 +1,13 @@
 """Deliverable #1.1 — the framework-free governed client (LIVE-VERIFIED).
 
 `fabric.llm.client()` returns a native `AsyncOpenAI` aimed at the governed Omni
-Gateway proxy. The SDK injects the verified `client_id`/`client_secret` header
-pair, attribution headers, and its retry policy — you use the OpenAI SDK exactly
-as you normally would.
+Gateway proxy; `fabric.llm.client(sync=True)` returns the blocking `OpenAI`. Both
+are governed on identical terms — the SDK injects the verified
+`client_id`/`client_secret` header pair, attribution headers, and its retry
+policy — so you use the OpenAI SDK exactly as you normally would.
+
+This demo runs the same three things through each surface, so you can see that
+the only difference is `await`.
 
 Run:
     export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # no /v1
@@ -30,6 +34,8 @@ from agent_fabric import Fabric, PIIDetected, TokenBudgetExceeded
 from agent_fabric.core.errors import classify
 
 MODEL = os.environ.get("DEMO_MODEL", "gpt-4o")
+PROMPT = "Say hi in exactly three words."
+STREAM_PROMPT = "Name three primary colors."
 
 
 def _configured() -> bool:
@@ -43,57 +49,98 @@ def _configured() -> bool:
     )
 
 
-async def main() -> None:
-    if not _configured():
-        print(__doc__)
-        print(">> Set the three MULESOFT_LLM_PROXY_* env vars to run this live demo.")
-        return
+def _describe(label: str, client: openai.OpenAI | openai.AsyncOpenAI) -> None:
+    print(f"\n=== {label} — {type(client).__name__} ===")
+    print(f"base_url        : {client.base_url}")
+    print(f"client_id hdr   : {'client_id' in client.default_headers}")
+    print(f"client_secret   : {'client_secret' in client.default_headers}")
+    print(f"model           : {MODEL}")
 
-    async with Fabric.from_env() as fabric:
-        client = fabric.llm.client()  # -> AsyncOpenAI, pointed at the proxy
-        print(f"base_url        : {client.base_url}")
-        print(f"client_id hdr   : {'client_id' in client.default_headers}")
-        print(f"client_secret   : {'client_secret' in client.default_headers}")
-        print(f"model           : {MODEL}\n")
+
+def _report(error: openai.APIStatusError) -> None:
+    """The RAW OpenAI client raises openai.* errors on HTTP failures — the SDK
+    does not silently re-map them. Bridge to the governed taxonomy with
+    classify() on the underlying response (§4/§8.2, same mapping as demo 03).
+    Identical for both clients: same exception, same classify() call."""
+
+    governed = classify(error.response)
+    if isinstance(governed, PIIDetected):
+        print("PII blocked; entities:", governed.entities)
+    elif isinstance(governed, TokenBudgetExceeded):
+        print("token budget hit; retry after", governed.retry_after, "s")
+    else:
+        print(
+            f"openai.{type(error).__name__} ({error.status_code}) "
+            f"-> {type(governed).__name__}: {governed}"
+        )
+
+
+def run_sync() -> None:
+    """The blocking surface: no event loop, no await."""
+
+    with Fabric.from_env() as fabric:
+        client = fabric.llm.client(sync=True)  # -> openai.OpenAI at the proxy
+        _describe("sync", client)
 
         try:
-            # --- Chat Completions -------------------------------------------
-            resp = await client.chat.completions.create(
+            resp = client.chat.completions.create(
                 model=MODEL,
-                messages=[{"role": "user", "content": "Say hi in exactly three words."}],
+                messages=[{"role": "user", "content": PROMPT}],
             )
             print("chat.completions ->", resp.choices[0].message.content)
 
-            # --- Responses API, streaming -----------------------------------
-            print("\nresponses (stream) -> ", end="", flush=True)
+            print("chat (stream)    -> ", end="", flush=True)
+            for chunk in client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": STREAM_PROMPT}],
+                stream=True,
+            ):
+                # The final usage chunk carries no choices.
+                if chunk.choices and chunk.choices[0].delta.content:
+                    print(chunk.choices[0].delta.content, end="", flush=True)
+            print()
+
+        except openai.APIStatusError as e:
+            _report(e)
+        except openai.APIConnectionError as e:
+            print("connection error (no response to classify):", e)
+
+
+async def run_async() -> None:
+    """The default surface. Same calls, same governance, with await."""
+
+    async with Fabric.from_env() as fabric:
+        client = fabric.llm.client()  # -> openai.AsyncOpenAI at the proxy
+        _describe("async", client)
+
+        try:
+            resp = await client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": PROMPT}],
+            )
+            print("chat.completions ->", resp.choices[0].message.content)
+
+            # The Responses API is the live-verified route on this proxy (§2).
+            print("responses (stream) -> ", end="", flush=True)
             stream = await client.responses.create(
-                model=MODEL, input="Name three primary colors.", stream=True,
+                model=MODEL, input=STREAM_PROMPT, stream=True,
             )
             async for event in stream:
-                # Print incremental text deltas as they arrive.
                 delta = getattr(event, "delta", None)
                 if isinstance(delta, str):
                     print(delta, end="", flush=True)
             print()
 
-        # The RAW OpenAI client raises openai.* errors on HTTP failures — the
-        # SDK does not silently re-map them. Bridge to the governed taxonomy
-        # with classify() on the underlying response (§4/§8.2, same mapping as
-        # demo 03). This is how you branch on PII / token-budget / auth outcomes.
         except openai.APIStatusError as e:
-            governed = classify(e.response)
-            if isinstance(governed, PIIDetected):
-                print("PII blocked; entities:", governed.entities)
-            elif isinstance(governed, TokenBudgetExceeded):
-                print("token budget hit; retry after", governed.retry_after, "s")
-            else:
-                print(
-                    f"openai.{type(e).__name__} ({e.status_code}) "
-                    f"-> {type(governed).__name__}: {governed}"
-                )
+            _report(e)
         except openai.APIConnectionError as e:
             print("connection error (no response to classify):", e)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if not _configured():
+        print(__doc__)
+        print(">> Set the three MULESOFT_LLM_PROXY_* env vars to run this live demo.")
+    else:
+        run_sync()
+        asyncio.run(run_async())

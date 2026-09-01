@@ -247,6 +247,23 @@ provisioning API. Exact REST calls behind the CLI are now recorded in §12
 | LlamaIndex | `llama_index.llms.openai_like.OpenAILike(is_chat_model=True)` | UNVERIFIED | — | — | — |
 | Strands | `strands.models.openai.OpenAIModel(client_args={...})` | UNVERIFIED | — | — | — |
 
+### 8.1 Known upstream incompatibilities (floors, not ceilings — §8.4)
+
+Per §8.4 the extras declare **floors and no ceilings**, so a fresh resolve always
+takes the newest release. That is deliberate: the nightly framework matrix exists
+to find breakage early rather than to pin it away. Recorded here so a red matrix
+run is diagnosable instead of surprising.
+
+| Dependency | Breaks at | Symptom | Status | Date |
+|---|---|---|---|---|
+| `openai` | `>=3.0` | The SDK passes its shared `FabricAsyncClient` (an `httpx.AsyncClient` subclass) into `AsyncOpenAI(http_client=…)`. openai 3.x retyped that parameter to `httpx2.AsyncClient`, a distinct class from a separate distribution, so `mypy --strict` fails in `llm/client.py` and `integrations/openai_agents.py`. Calls still succeed at runtime — openai duck-types the client — so this surfaces as a typecheck failure, not a test failure. | OPEN | 2026-09-01 |
+
+Resolving it means migrating `core/transport.py` off `httpx` onto `httpx2`, which
+also affects every adapter that accepts `http_async_client` / `client_args`. That
+is a core-layer change (§1.1) and should not be done implicitly as part of a
+dependency bump. Until then, `openai>=2,<3` is a **local development** constraint
+only — it is not encoded in `pyproject.toml`, by design.
+
 ## 9. MCP tool binding classes (§4.4) — verify each name
 
 | Framework | Binding class | Status | Source |

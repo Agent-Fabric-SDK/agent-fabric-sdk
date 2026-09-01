@@ -7,12 +7,36 @@ eight framework adapters.
 
 | Demo | Deliverable | Needs creds? | Network? |
 |------|-------------|--------------|----------|
-| [`01_framework_free_client.py`](01_framework_free_client.py) | Framework-free `fabric.llm.client()` — chat + streaming | ✅ | ✅ live |
+| [`01_framework_free_client.py`](01_framework_free_client.py) | Framework-free `fabric.llm.client()` — chat + streaming, run through **both** the async and the blocking (`sync=True`) client | ✅ | ✅ live |
 | [`02_native_framework_objects.py`](02_native_framework_objects.py) | Native objects for all 8 frameworks (`fabric.langgraph.chat_model`, …) | ✅ | ❌ builds objects only |
 | [`03_governed_error_taxonomy.py`](03_governed_error_taxonomy.py) | The 4 proxy rejections → typed exceptions via `classify()` | ❌ | ❌ uses committed live fixtures |
 | [`04_model_handles.py`](04_model_handles.py) | `resolve()` handles; honest `list_models(live=True)` | ❌ | ❌ |
 
 Demos **03** and **04** run offline with no setup — start there.
+
+## Recording demos
+
+Two short scripts for a screen recording — small enough to write live on camera,
+and they just print to the terminal.
+
+| Demo | Shows | Needs creds? |
+|------|-------|--------------|
+| [`demo_1_chat_completions.py`](demo_1_chat_completions.py) | Governed `chat.completions` + streaming with the plain OpenAI SDK, a live 404 becoming a typed exception, then the same call blocking via `sync=True` | ✅ live |
+| [`demo_2_langgraph_agent.py`](demo_2_langgraph_agent.py) | The same governance inside a live LangGraph tool-calling agent | ✅ live |
+
+[`DEMO.md`](DEMO.md) is the recording runbook: setup, a three-act structure
+covering the docs site plus both scripts, and a troubleshooting table.
+
+### Live-coding scratchpads
+
+Minimal versions to type on camera. Each is fully typed, so every `.` opens a
+real completion list.
+
+| File | Lines of code | Shape |
+|------|---------------|-------|
+| [`live_1_chat.py`](live_1_chat.py) | 9 | `chat.completions` through `AsyncOpenAI` |
+| [`live_1_chat_sync.py`](live_1_chat_sync.py) | 7 | the same call through the blocking `OpenAI` (`sync=True`) — no asyncio |
+| [`live_2_langgraph.py`](live_2_langgraph.py) | 3 | a governed `ChatOpenAI`, no asyncio either |
 
 ## Setup
 

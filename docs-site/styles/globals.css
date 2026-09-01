@@ -1,0 +1,503 @@
+/* Agent Fabric SDK docs — design layer on top of nextra-theme-docs.
+ *
+ * Nextra ships a functional but plain default. Everything here is presentation:
+ * a token set, typography and spacing refinements applied to the generated
+ * markup, and the styles for the custom components in ../components.
+ */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  --af-accent: #6d47d9;
+  --af-accent-strong: #5a35c4;
+  --af-accent-soft: rgba(109, 71, 217, 0.08);
+  --af-accent-border: rgba(109, 71, 217, 0.28);
+
+  --af-fg: #12131a;
+  --af-fg-muted: #5b6072;
+  --af-fg-subtle: #838a9c;
+
+  --af-surface: #ffffff;
+  --af-surface-raised: #fafafc;
+  --af-surface-sunken: #f5f5f8;
+  --af-border: #e6e7ec;
+  --af-border-strong: #d3d5dd;
+
+  --af-green: #197a4b;
+  --af-green-soft: rgba(25, 122, 75, 0.1);
+  --af-amber: #9a6209;
+  --af-amber-soft: rgba(154, 98, 9, 0.1);
+
+  --af-radius: 12px;
+  --af-radius-sm: 8px;
+}
+
+.dark {
+  --af-accent: #a68bff;
+  --af-accent-strong: #bda6ff;
+  --af-accent-soft: rgba(166, 139, 255, 0.12);
+  --af-accent-border: rgba(166, 139, 255, 0.3);
+
+  --af-fg: #f2f3f7;
+  --af-fg-muted: #a2a8ba;
+  --af-fg-subtle: #7d8496;
+
+  --af-surface: #0e0f14;
+  --af-surface-raised: #16171e;
+  --af-surface-sunken: #1b1d26;
+  --af-border: #262833;
+  --af-border-strong: #343747;
+
+  --af-green: #5fd39b;
+  --af-green-soft: rgba(95, 211, 155, 0.12);
+  --af-amber: #e0ab5f;
+  --af-amber-soft: rgba(224, 171, 95, 0.12);
+}
+
+html,
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ------------------------------------------------------------ typography */
+
+.nextra-content h1 {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  letter-spacing: -0.028em;
+  font-weight: 700;
+}
+
+.nextra-content h2 {
+  font-size: 1.55rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin-top: 3.25rem;
+  padding-bottom: 0.6rem;
+  border-color: var(--af-border);
+}
+
+.nextra-content h3 {
+  font-size: 1.2rem;
+  letter-spacing: -0.015em;
+  margin-top: 2.25rem;
+}
+
+.nextra-content h4 {
+  font-size: 1.02rem;
+  margin-top: 1.75rem;
+}
+
+.nextra-content p,
+.nextra-content li {
+  color: var(--af-fg-muted);
+  line-height: 1.72;
+}
+
+.nextra-content strong {
+  color: var(--af-fg);
+  font-weight: 650;
+}
+
+.nextra-content a:not(.nextra-card):not(.af-card):not(.af-button) {
+  color: var(--af-accent);
+  text-decoration-color: var(--af-accent-border);
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+.nextra-content a:not(.nextra-card):not(.af-card):not(.af-button):hover {
+  text-decoration-color: var(--af-accent);
+}
+
+/* Blockquotes read as "notes" throughout this content set, so give them the
+   same visual weight as a callout rather than the default thin grey rule. */
+.nextra-content blockquote {
+  border-left: 3px solid var(--af-accent-border);
+  background: var(--af-accent-soft);
+  border-radius: 0 var(--af-radius-sm) var(--af-radius-sm) 0;
+  padding: 0.9rem 1.15rem;
+  margin-top: 1.5rem;
+  font-style: normal;
+  color: var(--af-fg-muted);
+}
+
+.nextra-content blockquote p {
+  margin: 0;
+}
+
+.nextra-content blockquote p + p {
+  margin-top: 0.65rem;
+}
+
+/* ----------------------------------------------------------------- code */
+
+.nextra-content :not(pre) > code {
+  background: var(--af-surface-sunken);
+  border: 1px solid var(--af-border);
+  border-radius: 5px;
+  padding: 0.12em 0.38em;
+  font-size: 0.855em;
+  color: var(--af-fg);
+}
+
+.nextra-content pre {
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius);
+  background: var(--af-surface-raised) !important;
+  font-size: 0.87rem;
+  line-height: 1.65;
+}
+
+.dark .nextra-content pre {
+  background: #101118 !important;
+}
+
+.nextra-content .nextra-code > pre {
+  padding-block: 1rem;
+}
+
+/* Filename tab above a code block */
+.nextra-content div[data-filename] {
+  border-radius: var(--af-radius) var(--af-radius) 0 0;
+  border-color: var(--af-border);
+}
+
+/* ---------------------------------------------------------------- tables */
+
+.nextra-content table {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius);
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.nextra-content th {
+  background: var(--af-surface-sunken);
+  color: var(--af-fg);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 0;
+  border-bottom: 1px solid var(--af-border);
+  padding: 0.7rem 0.9rem;
+}
+
+.nextra-content td {
+  border: 0;
+  border-bottom: 1px solid var(--af-border);
+  padding: 0.7rem 0.9rem;
+  color: var(--af-fg-muted);
+  vertical-align: top;
+}
+
+.nextra-content tr:last-child td {
+  border-bottom: 0;
+}
+
+.nextra-content tbody tr:hover td {
+  background: var(--af-surface-raised);
+}
+
+/* -------------------------------------------------------------- callouts */
+
+.nextra-callout {
+  border-radius: var(--af-radius);
+  border-width: 1px;
+  align-items: flex-start;
+}
+
+.nextra-callout > div:last-child > :first-child {
+  margin-top: 0;
+}
+
+/* --------------------------------------------------------- chrome/layout */
+
+.nextra-content main {
+  padding-top: 1.5rem;
+}
+
+.nextra-sidebar-container,
+.nextra-toc {
+  font-size: 0.875rem;
+}
+
+.nextra-sidebar-container .nextra-focus[data-active='true'] {
+  background: var(--af-accent-soft);
+  color: var(--af-accent);
+  font-weight: 600;
+}
+
+/* Section separators in the sidebar carry the structure of this site, so make
+   them read as labels rather than as dimmed nav items. */
+.nextra-sidebar-container li.nextra-menu-separator {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--af-fg-subtle);
+  margin-top: 1.4rem;
+}
+
+.nextra-steps h3 {
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================ components */
+
+/* ------------------------------------------------------------------ hero */
+
+.af-hero {
+  margin-bottom: 1rem;
+  padding-bottom: 2.25rem;
+  border-bottom: 1px solid var(--af-border);
+}
+
+.af-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--af-accent);
+  background: var(--af-accent-soft);
+  border: 1px solid var(--af-accent-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+}
+
+.af-hero h1.af-hero-title {
+  font-size: 2.9rem;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  font-weight: 760;
+  margin-top: 1.1rem;
+  color: var(--af-fg);
+}
+
+.af-hero-tagline {
+  margin-top: 1.05rem;
+  font-size: 1.12rem;
+  line-height: 1.6;
+  color: var(--af-fg-muted);
+  max-width: 44rem;
+}
+
+/* Artwork sitting between the tagline and the call-to-action row. The hero owns
+   the rhythm here, so the figure's own vertical margins are handed back. */
+.af-hero-media .af-figure {
+  margin: 1.85rem 0 0;
+}
+
+.af-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.75rem;
+}
+
+.af-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: var(--af-radius-sm);
+  padding: 0.6rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.af-button:active {
+  transform: translateY(1px);
+}
+
+.af-button-primary {
+  background: var(--af-accent);
+  color: #fff !important;
+}
+
+.af-button-primary:hover {
+  background: var(--af-accent-strong);
+}
+
+.dark .af-button-primary {
+  color: #14101f !important;
+}
+
+.af-button-secondary {
+  background: var(--af-surface-raised);
+  border-color: var(--af-border-strong);
+  color: var(--af-fg) !important;
+}
+
+.af-button-secondary:hover {
+  border-color: var(--af-accent-border);
+  background: var(--af-accent-soft);
+}
+
+/* ----------------------------------------------------------------- cards */
+
+.af-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+}
+
+.af-card-grid[data-columns='2'] {
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+}
+
+.af-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  height: 100%;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius);
+  background: var(--af-surface);
+  color: inherit !important;
+  text-decoration: none !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+a.af-card:hover {
+  border-color: var(--af-accent-border);
+  box-shadow: 0 6px 22px -12px rgba(24, 20, 45, 0.28);
+  transform: translateY(-2px);
+}
+
+.dark a.af-card:hover {
+  box-shadow: 0 6px 22px -10px rgba(0, 0, 0, 0.7);
+}
+
+.af-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.af-card-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.af-card-title {
+  font-weight: 640;
+  font-size: 0.965rem;
+  letter-spacing: -0.011em;
+  color: var(--af-fg);
+}
+
+/* The arrow is an affordance, not decoration: only linked cards get one. */
+a.af-card .af-card-title::after {
+  content: '→';
+  display: inline-block;
+  margin-left: 0.4rem;
+  color: var(--af-fg-subtle);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+a.af-card:hover .af-card-title::after {
+  transform: translateX(3px);
+  color: var(--af-accent);
+}
+
+.af-card-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--af-fg-muted);
+}
+
+.af-card-body p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* ---------------------------------------------------------------- badges */
+
+.af-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.16rem 0.55rem;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.af-badge-live {
+  color: var(--af-green);
+  background: var(--af-green-soft);
+  border-color: var(--af-green-soft);
+}
+
+.af-badge-roadmap {
+  color: var(--af-amber);
+  background: var(--af-amber-soft);
+  border-color: var(--af-amber-soft);
+}
+
+.af-badge-neutral {
+  color: var(--af-fg-muted);
+  background: var(--af-surface-sunken);
+  border-color: var(--af-border);
+}
+
+.af-badge-accent {
+  color: var(--af-accent);
+  background: var(--af-accent-soft);
+  border-color: var(--af-accent-border);
+}
+
+.af-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: auto;
+  padding-top: 0.7rem;
+}
+
+/* --------------------------------------------------------------- figures */
+
+.af-figure {
+  margin: 2rem 0;
+}
+
+/* The diagrams are light-background artwork, so they need a surface of their
+   own in dark mode rather than bleeding into the page. */
+.af-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius);
+  background: #fff;
+}
+
+.af-figure figcaption {
+  margin-top: 0.7rem;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: var(--af-fg-subtle);
+  text-align: center;
+}

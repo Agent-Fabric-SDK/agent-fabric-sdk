@@ -2,7 +2,8 @@
 
 ``fabric.llm.client()`` returns an ``AsyncOpenAI`` pointed at the proxy, sharing
 the SDK's shared httpx client so attribution/correlation/auth headers and the
-retry policy apply. This is the framework-free surface; the per-framework
+retry policy apply. ``client(sync=True)`` returns the blocking ``OpenAI`` with
+the same governance. This is the framework-free surface; the per-framework
 adapters live in ``integrations/``.
 
 VERIFICATION NOTES (LIVE-VERIFIED 2026-08-28, docs/verified-apis.md §2/§3):
@@ -19,31 +20,68 @@ VERIFICATION NOTES (LIVE-VERIFIED 2026-08-28, docs/verified-apis.md §2/§3):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from ..core.config import FabricConfig
 from ..core.errors import ConfigError
-from ..core.transport import FabricAsyncClient, proxy_api_key, proxy_auth_headers
+from ..core.transport import (
+    FabricAsyncClient,
+    FabricClient,
+    build_sync_http_client,
+    proxy_api_key,
+    proxy_auth_headers,
+)
 from .catalog import ModelHandle, heuristic_capabilities
 
 if TYPE_CHECKING:
-    from openai import AsyncOpenAI
+    from openai import AsyncOpenAI, OpenAI
 
 
 class LLMClient:
     """The framework-free proxy client factory."""
 
-    def __init__(self, cfg: FabricConfig, http_client: FabricAsyncClient) -> None:
+    def __init__(
+        self,
+        cfg: FabricConfig,
+        http_client: FabricAsyncClient,
+        sync_http_client: Callable[[], FabricClient] | None = None,
+    ) -> None:
         self._cfg = cfg
         self._http = http_client
+        # ``Fabric`` passes its own accessor so it owns the blocking transport's
+        # lifecycle; standalone use falls back to one owned here.
+        self._sync_http = sync_http_client or self._own_sync_client
+        self._owned_sync: FabricClient | None = None
 
-    def client(self, **kw: Any) -> AsyncOpenAI:
-        """An ``AsyncOpenAI`` pointed at the LLM proxy, using our shared http
-        client so headers + retries apply."""
+    def _own_sync_client(self) -> FabricClient:
+        if self._owned_sync is None:
+            self._owned_sync = build_sync_http_client(self._cfg)
+        return self._owned_sync
+
+    @overload
+    def client(self, *, sync: Literal[False] = ..., **kw: Any) -> AsyncOpenAI: ...
+
+    @overload
+    def client(self, *, sync: Literal[True], **kw: Any) -> OpenAI: ...
+
+    def client(self, *, sync: bool = False, **kw: Any) -> AsyncOpenAI | OpenAI:
+        """An OpenAI client pointed at the LLM proxy, using our shared http client
+        so headers + retries apply.
+
+        Defaults to ``AsyncOpenAI``. Pass ``sync=True`` for the blocking
+        ``OpenAI``, which is governed identically — same base URL, same verified
+        ``client_id``/``client_secret`` headers, same correlation ID and retry
+        policy, via :class:`~agent_fabric.core.transport.FabricClient`.
+
+        The two are declared as overloads on ``Literal`` rather than returning a
+        union, so the call site narrows to one concrete class and editors keep
+        offering completions on the result.
+        """
 
         self._cfg.validated(need="llm")
         try:
-            from openai import AsyncOpenAI
+            from openai import AsyncOpenAI, OpenAI
         except ImportError as exc:  # pragma: no cover - install-time guidance
             raise ImportError(
                 "The raw LLM client needs the OpenAI SDK. Install it with:\n"
@@ -51,14 +89,16 @@ class LLMClient:
             ) from exc
 
         assert self._cfg.llm_proxy_url is not None  # validated() guarantees this
-        return AsyncOpenAI(
-            base_url=self._cfg.llm_proxy_url,  # no /v1 at ingress (§2) — verbatim
-            api_key=proxy_api_key(self._cfg),
-            default_headers=proxy_auth_headers(self._cfg),  # client_id/secret (§2/§3)
-            http_client=self._http,
-            max_retries=0,  # we retry in transport (§2.3)
+        shared: dict[str, Any] = {
+            "base_url": self._cfg.llm_proxy_url,  # no /v1 at ingress (§2) — verbatim
+            "api_key": proxy_api_key(self._cfg),
+            "default_headers": proxy_auth_headers(self._cfg),  # client_id/secret (§2/§3)
+            "max_retries": 0,  # we retry in transport (§2.3)
             **kw,
-        )
+        }
+        if sync:
+            return OpenAI(http_client=self._sync_http(), **shared)
+        return AsyncOpenAI(http_client=self._http, **shared)
 
     async def list_models(self, *, live: bool = False) -> list[ModelHandle]:
         """List logical models the proxy exposes.

@@ -1,4 +1,9 @@
-import { Callout, Cards } from 'nextra/components'
+---
+description: Pillar 2 — discover governed MCP tools and bind them into any framework as native tool objects.
+---
+
+import { Callout } from 'nextra/components'
+import { Card, CardGrid } from '../../components'
 
 # Tool access (Pillar 2)
 
@@ -53,11 +58,19 @@ governance is scoped per environment.
 
 ## In this section
 
-<Cards>
-  <Cards.Card title="Discovery, search & filter" href="/tool-access/discovery" arrow />
-  <Cards.Card title="Framework binding" href="/tool-access/binding" arrow />
-  <Cards.Card title="Pinning & lockfile" href="/tool-access/lockfile" arrow />
-  <Cards.Card title="A2A agent tools" href="/tool-access/a2a" arrow />
-</Cards>
+<CardGrid columns={2}>
+  <Card title="Discovery, search & filter" href="/tool-access/discovery">
+    Narrow the catalog by name, governance, domain, tags, and asset type.
+  </Card>
+  <Card title="Framework binding" href="/tool-access/binding">
+    Turn a `ToolSet` into each framework's own native tool objects.
+  </Card>
+  <Card title="Pinning & lockfile" href="/tool-access/lockfile">
+    Pin resolved versions and digests so a run is reproducible.
+  </Card>
+  <Card title="A2A agent tools" href="/tool-access/a2a">
+    Treat a governed agent-to-agent endpoint as another bindable tool.
+  </Card>
+</CardGrid>
 
 Target milestone: **M2 (0.2.0)**.

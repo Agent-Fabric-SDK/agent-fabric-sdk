@@ -1,4 +1,9 @@
-import { Callout, Cards } from 'nextra/components'
+---
+description: Governed model access from eight agent frameworks, each returning its own native object.
+---
+
+import { Callout } from 'nextra/components'
+import { Card, CardGrid } from '../../components'
 
 # Model access
 
@@ -24,16 +29,32 @@ Tiers reflect support depth (build plan §1.4), not quality:
 - **Tier 1** — full, conformance-gated, blocking CI.
 - **Tier 2** — supported, non-blocking CI.
 
-<Cards>
-  <Cards.Card title="LangGraph · Tier 1" href="/frameworks/langgraph" arrow />
-  <Cards.Card title="Google ADK · Tier 1" href="/frameworks/adk" arrow />
-  <Cards.Card title="Strands · Tier 1" href="/frameworks/strands" arrow />
-  <Cards.Card title="MS Agent Framework · Tier 1" href="/frameworks/agent-framework" arrow />
-  <Cards.Card title="OpenAI Agents SDK · Tier 1" href="/frameworks/openai" arrow />
-  <Cards.Card title="Anthropic SDK · Tier 1" href="/frameworks/anthropic" arrow />
-  <Cards.Card title="CrewAI · Tier 1" href="/frameworks/crewai" arrow />
-  <Cards.Card title="LlamaIndex · Tier 2" href="/frameworks/llamaindex" arrow />
-</Cards>
+<CardGrid>
+  <Card title="LangGraph" href="/frameworks/langgraph" badge="Tier 1" badgeTone="accent">
+    `chat_model()` → `langchain_openai.ChatOpenAI`
+  </Card>
+  <Card title="Google ADK" href="/frameworks/adk" badge="Tier 1" badgeTone="accent">
+    `model()` → `google.adk … LiteLlm`
+  </Card>
+  <Card title="Strands" href="/frameworks/strands" badge="Tier 1" badgeTone="accent">
+    `model()` → `strands … OpenAIModel`
+  </Card>
+  <Card title="MS Agent Framework" href="/frameworks/agent-framework" badge="Tier 1" badgeTone="accent">
+    `chat_client()` → Agent Framework chat client
+  </Card>
+  <Card title="OpenAI Agents SDK" href="/frameworks/openai" badge="Tier 1" badgeTone="accent">
+    `model()` → `agents.OpenAIChatCompletionsModel`
+  </Card>
+  <Card title="Anthropic SDK" href="/frameworks/anthropic" badge="Tier 1" badgeTone="accent">
+    `client()` → `anthropic.AsyncAnthropic`
+  </Card>
+  <Card title="CrewAI" href="/frameworks/crewai" badge="Tier 1" badgeTone="accent">
+    `llm()` → `crewai.LLM` (LiteLLM-backed)
+  </Card>
+  <Card title="LlamaIndex" href="/frameworks/llamaindex" badge="Tier 2" badgeTone="neutral">
+    `llm()` → `OpenAILike` (`is_chat_model=True`)
+  </Card>
+</CardGrid>
 
 ## The shape is the same everywhere
 

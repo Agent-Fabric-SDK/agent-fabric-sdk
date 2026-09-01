@@ -87,10 +87,14 @@ files = ["src/agent_fabric"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-# Optional framework deps may not expose stubs; do not fail base typecheck.
+# Optional deps may be absent (CI installs only [dev,llm,cli]) or ship no stubs;
+# neither should fail the base typecheck. opentelemetry IS typed when the [otel]
+# extra is present, so it is listed here for absence only — telemetry.py must not
+# carry an inline ignore that goes stale the moment someone installs it.
 module = [
     "langchain_openai.*",
     "langchain_core.*",
+    "opentelemetry.*",
     "google.adk.*",
     "agent_framework.*",
     "agents.*",
