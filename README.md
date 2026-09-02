@@ -4,20 +4,31 @@ An SDK for consuming **MuleSoft Agent Fabric** capabilities — governed model
 access, governed tool access, and provisioning-as-code — from your own agent
 framework, in your own IDE, without adopting Mule.
 
+> **Project status — alpha, pre-release.** This is `v0.1.0.dev0`
+> (`Development Status :: 3 - Alpha`). The **LLM data plane is live-verified**;
+> most other surfaces are verification-gated — see
+> [Status](#status-llm-data-plane-is-live-verified) below.
+> **Not yet published to PyPI** — [install from source](#install).
+> **Unofficial:** an independent project, **not** affiliated with or endorsed by
+> Salesforce or MuleSoft.
+
 > ### Support & trademark statement (please read — §0.4)
 >
 > **"Agent Fabric" is a MuleSoft (Salesforce) product name, not a generic
 > term.** `MuleSoft`, `Anypoint`, `Omni Gateway`, and `Agent Fabric` are
 > Salesforce trademarks.
 >
-> **Maintainer / support:** _TODO — state exactly who maintains this project and
-> the support expectations before any public release._ If this project is **not**
-> published with MuleSoft's endorsement, ship it under a distinct, org-scoped
-> distribution name and keep only the descriptive form ("an SDK for MuleSoft
-> Agent Fabric") in prose, so the package does not read as a first-party,
-> official-status SDK.
+> **Maintainer & support.** This is an **independent, community-maintained**
+> project, published under the org-scoped `Agent-Fabric-SDK` name — it is **not**
+> affiliated with, endorsed by, or supported by Salesforce or MuleSoft. It is
+> provided **as-is, without warranty of any kind**; the maintainers triage issues
+> and pull requests on a **best-effort basis, with no SLA**. Because it ships
+> under a distinct, org-scoped name, only the descriptive form ("an SDK for
+> MuleSoft Agent Fabric") appears in prose — the package does not represent itself
+> as a first-party, official-status SDK.
 >
-> See [`docs/unsupported-boundary.md`](docs/unsupported-boundary.md) for exactly
+> Licensed under [Apache-2.0](LICENSE). See
+> [`docs/unsupported-boundary.md`](docs/unsupported-boundary.md) for exactly
 > which platform APIs this SDK calls and their support classification.
 
 ## Status: LLM data plane is live-verified
@@ -50,6 +61,18 @@ This repository contains the **M0 scaffold + M1 foundation**:
 > [`docs/verified-apis.md`](docs/verified-apis.md).
 
 ## Install
+
+> **Not yet published to PyPI.** Until the first release is cut, install from
+> source:
+
+```bash
+git clone https://github.com/Agent-Fabric-SDK/agent-fabric-sdk.git
+cd agent-fabric-sdk/python
+pip install -e ".[llm,langgraph]"   # base + raw client + one framework
+```
+
+Once released, it will be installable directly (the line below is **planned —
+not yet on PyPI**):
 
 ```bash
 pip install "mulesoft-agent-fabric[llm,langgraph]"   # base + raw client + one framework
