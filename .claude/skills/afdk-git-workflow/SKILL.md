@@ -22,10 +22,13 @@ touching spec-governed behavior.
 Before editing a single file:
 
 1. There **must** be a GitHub issue describing the change.
-2. You **must** be on a branch named `<type>/<issue#>-<slug>`, cut from
+2. The issue **must** be assigned to you before you start work — an issue
+   nobody is assigned to is unclaimed, and we can't have merged/closed issues
+   with no assignee. Assign it as part of picking it up, not after.
+3. You **must** be on a branch named `<type>/<issue#>-<slug>`, cut from
    `develop`.
 
-If either is missing, stop and fix it before touching code.
+If any of these is missing, stop and fix it before touching code.
 
 ### Acceptable exception: `.claude/skills` edits on `develop`
 
@@ -73,6 +76,16 @@ before the change lands on `develop`.
    ```bash
    gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --milestone "<exact title>"
    ```
+
+   **Assign the issue to yourself.** Claiming the issue before you branch is
+   what keeps ownership honest — an unassigned issue that later merges/closes
+   leaves no record of who did the work. Assign as you pick it up, not after
+   the PR is open:
+   ```bash
+   gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --add-assignee @me
+   ```
+   If someone else is already assigned, that issue is claimed — coordinate
+   with them or pick a different one rather than assigning yourself on top.
 2. **Cut the branch from `develop`.**
    ```bash
    git fetch origin
@@ -218,6 +231,8 @@ red flag — `git checkout develop` first.
 | "I'm just exploring, I won't commit" | Then don't be on `develop` either. Cut a `chore/<#>-spike` branch or use a worktree. |
 | "The issue exists but the number isn't in the branch name" | Rename the branch (`git branch -m <new>`) before the first commit. The number is mandatory. |
 | "The user told me to fix it, that's authorization enough" | The user authorized the change, not the workflow shortcut. Issue + branch still required. |
+| "I'll assign the issue once the PR is up" | By then the work is already done under no one's name. Assign `@me` when you pick it up — an issue that closes unassigned has no owner of record. |
+| "It's obvious I'm the one working it, no need to assign" | Obvious to you now, invisible in the closed-issue history later. Assign it. |
 | "I'll branch from `main` because `develop` is behind" | `develop` being behind is a separate problem. Fix it (`git pull --ff-only`) — don't reroute around it. |
 | "There's already a branch open for something similar, I'll reuse it" | One issue = one branch. Reusing branches mixes scopes and breaks `Closes #<n>`. |
 | "I'll just `git checkout` the other branch quickly" | If another session is in this repo, that other session sees your checkout. Use a worktree. |
@@ -231,6 +246,7 @@ If any of these are true, you're about to violate the rule:
 - About to run `Edit`/`Write` and `git branch --show-current` returns
   `develop` or `main` (and the diff is not confined to `.claude/skills/**`).
 - About to run `git checkout -b` with no issue number in the name.
+- About to start work on an issue that isn't assigned to you (`@me`).
 - About to file an issue *after* having already made changes locally.
 - About to commit with a message that describes work but cites no issue.
 - Telling yourself "this one's small enough to skip the issue."
@@ -297,6 +313,7 @@ skill owns the smoke test (`pytest -q`, `mypy`, `ruff check .`,
 # Start a change
 gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk --search "<keywords>"
 # (file a new issue via the afdk-filing-issues skill if no match)
+gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --add-assignee @me
 git fetch origin
 git checkout develop && git pull --ff-only
 git checkout -b fix/<issue#>-<slug>
