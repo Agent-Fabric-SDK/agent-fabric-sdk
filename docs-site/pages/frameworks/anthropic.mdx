@@ -1,4 +1,5 @@
 import { Tabs } from 'nextra/components'
+import AdapterErrorTaxonomyNote from '../../components/adapter-error-taxonomy-note.mdx'
 
 # Anthropic SDK — governed model access
 
@@ -138,6 +139,4 @@ you can always drop the factory and construct `AsyncAnthropic` by hand.
 > flagging this gap rather than silently assuming the route works. Confirm
 > this against your own sandbox before depending on it in production.
 
-See the [error taxonomy](/errors) for how proxy rejections surface as typed
-exceptions, and the [verification policy](/concepts/verification) page for
-the current status of every constructor signature this adapter depends on.
+<AdapterErrorTaxonomyNote />

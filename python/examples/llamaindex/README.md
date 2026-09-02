@@ -15,6 +15,12 @@ does not attempt a live inference call, since guessing which one-line
 LlamaIndex call to use (`.chat`, `.achat`, `.complete`, ...) risks inventing
 an API.
 
+> 📖 **Prefer reading to running?** The canonical walkthrough — install,
+> configure, and the manual equivalent — is in the docs:
+> **[LlamaIndex](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/llamaindex)**.
+> This README duplicates the runnable essentials on purpose so you can run it in
+> place; if the two ever differ, the docs page is canonical.
+
 ## Run
 
 ```bash

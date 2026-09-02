@@ -13,6 +13,12 @@ model prefix and headers go via `extra_headers`. LiteLLM owns the transport, so
 the SDK's per-run correlation ID degrades to per-client — a documented
 conformance exemption (§8.1), the same one ADK has.
 
+> 📖 **Prefer reading to running?** The canonical walkthrough — install,
+> configure, and the manual equivalent — is in the docs:
+> **[CrewAI](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/crewai)**.
+> This README duplicates the runnable essentials on purpose so you can run it in
+> place; if the two ever differ, the docs page is canonical.
+
 ## Run
 
 ```bash

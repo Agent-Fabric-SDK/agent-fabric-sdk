@@ -1,4 +1,6 @@
 import { Tabs } from 'nextra/components'
+import OpenAiProxyTs from '../../components/openai-proxy-ts.mdx'
+import AdapterErrorTaxonomyNote from '../../components/adapter-error-taxonomy-note.mdx'
 
 # OpenAI Agents SDK — governed model access
 
@@ -40,24 +42,7 @@ official `openai` npm client at it — the same base URL and
 `client_id`/`client_secret` headers also drop into the **OpenAI Agents SDK for
 JS** (`@openai/agents`).
 
-```typescript
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
-  apiKey: "unused",                              // required slot; proxy uses the headers below
-  defaultHeaders: {
-    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
-  },
-});
-
-const reply = await client.chat.completions.create({
-  model: "gpt-4o",
-  messages: [{ role: "user", content: "Say hi in three words." }],
-});
-console.log(reply.choices[0].message.content);
-```
+<OpenAiProxyTs />
 
 </Tabs.Tab>
 </Tabs>
@@ -131,6 +116,4 @@ pre-built `AsyncOpenAI` instance.
 > OpenAI Python SDK. Installing `agent-fabric[openai]` pulls in
 > `openai-agents` for you.
 
-See the [error taxonomy](/errors) for how proxy rejections surface as typed
-exceptions, and the [verification policy](/concepts/verification) page for
-the current status of every constructor signature this adapter depends on.
+<AdapterErrorTaxonomyNote />

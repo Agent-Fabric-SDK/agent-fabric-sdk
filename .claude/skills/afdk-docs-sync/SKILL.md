@@ -1,6 +1,6 @@
 ---
 name: afdk-docs-sync
-description: Use when a PR touches a load-bearing SDK surface (core/errors.py, provisioning/*, tools/*, registry/*, integrations/*, docs/verified-apis.md, README.md) that the docs-site describes. Forces the contributor to either update the matching docs-site/pages/**.mdx page in the same PR or file a documentation-labeled follow-up issue. Companion to [[afdk-docs-authoring]].
+description: Use when a PR touches a load-bearing SDK surface (core/errors.py, provisioning/*, tools/*, registry/*, integrations/*, docs/verified-apis.md, README.md) that the docs-site, the in-repo contributor docs (ARCHITECTURE.md, CONTRIBUTING.md), or the python/examples/*/README.md files describe. Forces the contributor to update the matching page (a docs-site/pages/**.mdx page, the contributor doc, or the paired example README) in the same PR or file a documentation-labeled follow-up issue. Companion to [[afdk-docs-authoring]].
 ---
 
 # AFDK Docs Sync
@@ -69,6 +69,42 @@ If a PR touches a surface not on this list but you suspect a docs implication
 cost of asking is one PR comment; the cost of silent drift is an adopter
 filing a confused issue against a page that describes a different SDK than
 the one they installed.
+
+## Contributor docs are in scope too (ARCHITECTURE.md / CONTRIBUTING.md)
+
+The mapping above targets the consumer-facing `docs-site/`. Two in-repo
+contributor docs describe the SDK's *internals and workflow* and drift the same
+way when code changes underneath them — treat them as mapped surfaces, not
+"just Markdown." Both cite the build plan's `§N.N` sections and link into each
+other; a change that invalidates a claim they make must update them in the same
+PR (or record the divergence as an intentional decision).
+
+| Code / repo surface | Contributor doc + section | Why |
+| --- | --- | --- |
+| `core/_verify.py`, `docs/verified-apis.md` (guard mechanism, flip procedure) | `ARCHITECTURE.md` → *Verification discipline (§0.3)* | The narrative of `blocked(...)` vs `Unverified(...)` and how a row flips to `verified=True` lives here; a change to that mechanism dates the section. |
+| `core/errors.py` (taxonomy invariants, `classify()`) | `ARCHITECTURE.md` → *Error-taxonomy design (§2.4)* | Documents the two invariants (`PolicyViolation` never retried; every error carries `remediation`) and that `classify()` is fixture-driven. |
+| `pyproject.toml` `importlinter` config, or a new layer under `src/agent_fabric/` | `ARCHITECTURE.md` → *Layered architecture (§1.1)* | The 5-layer stack (`integrations → tools → registry → llm → core`) and the framework-free-core rule are described there. |
+| `tests/conformance/suite.py` `KNOWN_LIMITATIONS`, Tier-1/Tier-2 status | `ARCHITECTURE.md` → *Framework tiering* | Tier gating (blocking vs non-blocking CI) and its rationale. |
+| Branch/PR/release flow, CI gates (`.github/workflows/ci.yml`), pytest surfaces/markers (`pyproject.toml`), coding conventions | `CONTRIBUTING.md` (§1 workflow / §2 testing / §3 conventions) | This file is the human-readable distillation of the `afdk-*` skills; a workflow, CI-gate, test-surface, or convention change must move with it. |
+
+### The deliberate example-README duplication
+
+The **install + env-var Configure block** and each framework's **manual-equivalent
+snippet** are intentionally duplicated between the canonical docs page and the
+`python/examples/<fw>/README.md` files (and the `demos/README.md`
+harness): the docs page is for *reading*, the example README is for *running it
+in place* (CONTRIBUTING.md §4). Nothing enforces the correspondence, so it is a
+**manual-sync drift risk**.
+
+| Code / doc surface | Canonical (source of truth) | Paired copy to reconcile |
+| --- | --- | --- |
+| `integrations/<fw>.py` construction snippet | `docs-site/pages/frameworks/<fw>.mdx` | `python/examples/<fw>/README.md` "manual equivalent" |
+| install command / env-var names (`core/config.py`, extras in `pyproject.toml`) | `docs-site/pages/quickstart.mdx` (+ `reference/configuration.mdx`) | every `python/examples/<fw>/README.md` "Run" block + `demos/README.md` "Setup" |
+
+When you change an install command, an env-var name, or a framework's
+construction snippet, update the canonical docs page **and** the paired example
+README(s) in the same PR. When in doubt, the docs-site page wins and the example
+README is reconciled to it.
 
 ## The gate
 
@@ -167,6 +203,13 @@ When in doubt, update in the same PR — follow-ups decay.
 - About to add a new load-bearing surface (new module under `core/`,
   `provisioning/`, `tools/`, `registry/`, `integrations/`) without adding a
   row to this table.
+- About to change code underneath an `ARCHITECTURE.md` narrative (layering,
+  verification discipline, error taxonomy, framework tiering) or a
+  `CONTRIBUTING.md` workflow/testing/convention rule without updating the
+  contributor doc in lockstep.
+- About to change an install command, env-var name, or a framework's
+  construction snippet without updating **both** the canonical docs page and
+  the paired `python/examples/<fw>/README.md` copy.
 - About to change a `docs/verified-apis.md` status without checking whether
   `concepts/verification.mdx`, `reference/unsupported-boundary.mdx`, or the
   README status banner now contradict it.

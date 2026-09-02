@@ -11,6 +11,12 @@ headers, and the SDK's shared transport (retry/telemetry hooks). The returned
 object is the OpenAI Agents SDK's own class, not a wrapper, so it drops straight
 into `agents.Agent(model=...)`.
 
+> 📖 **Prefer reading to running?** The canonical walkthrough — install,
+> configure, and the manual equivalent — is in the docs:
+> **[OpenAI Agents SDK](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/openai)**.
+> This README duplicates the runnable essentials on purpose so you can run it in
+> place; if the two ever differ, the docs page is canonical.
+
 ## Run
 
 ```bash
