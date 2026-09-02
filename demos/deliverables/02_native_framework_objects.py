@@ -14,16 +14,19 @@ versions. So per framework you'll see one of:
 Run:
     export AGENT_FABRIC_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET   # see demo 01
     pip install "agent-fabric[langgraph]"   # + any frameworks you want
-    python examples-demos/02_native_framework_objects.py
+    python demos/deliverables/02_native_framework_objects.py
 
 No network calls are made — objects are only constructed.
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401
 
 from agent_fabric import Fabric

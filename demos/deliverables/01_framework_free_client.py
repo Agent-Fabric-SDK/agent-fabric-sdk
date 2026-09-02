@@ -14,18 +14,21 @@ Run:
     export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
     export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
     export DEMO_MODEL="gpt-4o"          # optional; a model your proxy routes
-    python examples-demos/01_framework_free_client.py
+    python demos/deliverables/01_framework_free_client.py
 
 This makes REAL calls against your proxy. With no credentials set it prints
 setup guidance and exits cleanly instead of failing.
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 from __future__ import annotations
 
 import asyncio
 import os
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401  (dev path shim; harmless with an editable install)
 
 import openai
