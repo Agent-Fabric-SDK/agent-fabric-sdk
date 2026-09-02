@@ -66,14 +66,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Single source of truth for this list: scripts/verify_frameworks.py
+        # FRAMEWORKS. Every key MUST have a matching pyproject extra AND an
+        # examples/<key>/main.py. The "reject unwired framework" guard step below
+        # fails fast (with a clear message) if a stray key is added here, so the
+        # list can't silently drift into permanently-red jobs again (#140).
+        # These are the eight supported frameworks (§8) — note the OpenAI Agents
+        # SDK key is `openai` (its extra and examples/ dir are both `openai`).
         framework:
           - langgraph
           - adk
           - strands
           - agent_framework
+          - openai
+          - anthropic
+          - crewai
           - llamaindex
-          - autogen
-          - semantic_kernel
     name: verify (${{ matrix.framework }})
     env:
       # Bind the matrix value to an env var so it is never interpolated into a
@@ -85,6 +93,16 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+
+      # Fail fast and loud if the matrix names a framework that isn't actually
+      # wired (no examples/<fw>/main.py) — a stray entry would otherwise die with
+      # a cryptic `pip install` exit 2 and read as an upstream break (#140).
+      - name: Reject unwired framework (matrix drift guard)
+        run: |
+          if [ ! -f "examples/${FRAMEWORK}/main.py" ]; then
+            echo "::error::'${FRAMEWORK}' has no examples/${FRAMEWORK}/main.py — not a wired framework. The matrix list must match the supported set (source of truth: scripts/verify_frameworks.py FRAMEWORKS + pyproject extras + examples/)."
+            exit 1
+          fi
 
       - name: Install SDK + framework extra
         run: pip install -e ".[dev,llm,${FRAMEWORK}]"
