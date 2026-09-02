@@ -67,8 +67,10 @@ failure):
 5. Draft, citing `§N.N` build-plan sections where relevant.
 6. Show draft to user.
 7. Wait for explicit confirmation.
-8. Create any missing labels (`gh label create … || true`).
-9. `gh issue create`.
+8. Assign the milestone — pick the one matching milestone (see Milestone); ask
+   the user once if the mapping is genuinely ambiguous.
+9. Create any missing labels (`gh label create … || true`).
+10. `gh issue create`.
 
 ## Brainstorm scope before drafting
 
@@ -200,9 +202,10 @@ checked ("No matching open or closed issues for `<keywords>`").
 
 ## Labels
 
-The repo does not ship a pre-defined label taxonomy or project board — create
-labels on first use with `gh label create ... || true` (idempotent) before
-`gh issue create`, since a missing label hard-errors the create call.
+The repo does not ship a pre-defined label taxonomy — create labels on first
+use with `gh label create ... || true` (idempotent) before `gh issue create`,
+since a missing label hard-errors the create call. Triage runs on **milestone +
+labels** together (see Milestone); there is no GitHub Projects v2 board.
 
 **Type label (apply exactly one):**
 
@@ -288,8 +291,63 @@ gh label create size/l             --repo Agent-Fabric-SDK/agent-fabric-sdk --co
 gh label create chore              --repo Agent-Fabric-SDK/agent-fabric-sdk --color fef2c0 --description "Build/tooling/refactor, no user-facing behavior change" 2>/dev/null || true
 ```
 
-The `2>/dev/null || true` makes re-runs idempotent. There is no project board
-to add the issue to after filing — labels alone drive triage.
+The `2>/dev/null || true` makes re-runs idempotent. There is no GitHub Projects
+v2 board to add the issue to after filing — milestone + labels drive triage.
+
+## Milestone
+
+**Every new issue MUST be assigned to exactly ONE milestone.** Milestones are
+the only roadmap axis this repo has (there is no Projects v2 board), so an issue
+without one is invisible to release planning. `gh` resolves `--milestone` by the
+exact title string, so **quote the title verbatim — never invent, reword, or
+renumber it** (§0.3 discipline applies with extra force to the skill that
+enforces it).
+
+The milestones, with the scope each owns:
+
+| Milestone title (verbatim) | Scope |
+| --- | --- |
+| `M0 — Verify` | §0.3/§6.7/§7.9 verify every endpoint/header/class name; `docs/verified-apis.md` is the deliverable. |
+| `M1 — Model access (0.1.0)` | core complete, llm client + catalog, Tier-1 adapters, conformance kit, lint, docs skeleton. First public release. |
+| `M2 — Tool access (0.2.0)` | registry + tools + ToolSet, bindings for all eight frameworks, lockfile, A2A handles, governed-only discovery + `explain()`. |
+| `M2.5 — Governance object (0.3.0)` | `Governance`, `GatewayTarget`, target profiles, `resolve()` drift detection, policy portability, `simulate()`. |
+| `M2.7 — Publication (0.3.5)` | `Publication`, `preview()`, `verify()` w/ drift diff, content digest + `--if-changed`, collision check, `agent-fabric status`. |
+| `M2.8 — Derivation (0.3.8)` | per-framework descriptor adapters, `auto`/`auto:live`/`auto:static`/`auto:check`, cross-check, quality report, `agent-fabric init`. |
+| `M2.9 — Fleet scanning (0.3.9)` | repo/org-wide scanning: `agent-fabric scan`, coverage report, autonomy tiers, propose PRs, cross-repo dedupe (§7.10). |
+| `M3 — TypeScript (0.4.0)` | TS core + adapters; shared conformance scenarios ported (§1.3). |
+| `M4 — Provisioning (0.5.0)` | `Spec`, plan/apply/drift, `inputSchema: auto`, policy allow-list, GitHub Action, `export()`. |
+| `M5 — Hardening (1.0.0)` | perf, telemetry polish, error-message pass, migration guide, examples for all eight, security review. |
+
+Note the em-dash (`—`) in every title, and that `M0 — Verify` has no version.
+
+**Picking heuristic** — key off the issue's build-plan `§N.N` and its primary
+area/surface:
+
+| Issue is about… | Milestone |
+| --- | --- |
+| verification / `_verify.py` guards / flipping a `docs/verified-apis.md` row | `M0 — Verify` |
+| core / llm / a framework adapter / conformance kit | `M1 — Model access (0.1.0)` |
+| registry / tools / `ToolSet` | `M2 — Tool access (0.2.0)` |
+| `Governance` object / `GatewayTarget` / `simulate()` | `M2.5 — Governance object (0.3.0)` |
+| `Publication` / `publish` / `preview()` | `M2.7 — Publication (0.3.5)` |
+| Derivation / descriptor / `auto:*` | `M2.8 — Derivation (0.3.8)` |
+| fleet / org-wide scanning | `M2.9 — Fleet scanning (0.3.9)` |
+| TypeScript parity (§1.3) | `M3 — TypeScript (0.4.0)` |
+| provisioning CLI / spec / plan / apply | `M4 — Provisioning (0.5.0)` |
+| hardening / perf / telemetry / security review | `M5 — Hardening (1.0.0)` |
+
+If the mapping is **genuinely ambiguous** (e.g. an issue that spans two
+milestones' scope with no clear primary), **ask the user once** which milestone
+to use rather than guessing — the same "ask once rather than guessing" rule the
+rest of this skill follows.
+
+Pass the milestone on the create call: `gh issue create --milestone "<exact
+title>"`. To set or change it on an already-filed issue: `gh issue edit <#>
+--milestone "<exact title>"`. To read an issue's milestone back:
+
+```bash
+gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> --jq '.milestone.title'
+```
 
 ## Title conventions
 
@@ -391,6 +449,7 @@ Use a heredoc for the body so multi-line markdown survives intact:
 gh issue create \
   --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --title "Classify PII rejection before token-budget rejection" \
+  --milestone "M1 — Model access (0.1.0)" \
   --label bug --label area/core --label priority/p1 --label size/s \
   --body "$(cat <<'EOF'
 ## Summary
@@ -452,6 +511,7 @@ If you find yourself about to run `gh issue create` and any of these are true,
   recorded the deferral in `## Out of scope` + a linked follow-up.
 - The issue has no `priority/*`, `size/*`, or type (`bug`/`enhancement`/
   `documentation`/`chore`) label.
+- The issue has no milestone assigned.
 - The issue touches more than one architecture layer but has only one
   `area/*` label.
 - The issue depends on another open issue, but the body has no `## Depends
@@ -479,6 +539,7 @@ If you find yourself about to run `gh issue create` and any of these are true,
 gh issue create \
   --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --title "<imperative title>" \
+  --milestone "M1 — Model access (0.1.0)" \
   --label <type> --label <area>... --label <priority> --label <size> \
   --body "$(cat <<'EOF'
 <template-filled body>

@@ -84,6 +84,29 @@ If the issue is already filed, edit its body with `gh issue edit <#> --body-file
 
 Reference the relevant build-plan §N.N when it clarifies *why* the dependency exists — e.g. "blocked by #N per §6.10 PolicyPlugin interface" is more useful to a future reader than the bare relationship.
 
+## Milestones
+
+Milestones are the coarse roadmap grouping that sits *above* sub-issues and
+blocked-by dependencies — exact titles only (never invent/reword/renumber),
+e.g. `"M1 — Model access (0.1.0)"`, `"M2 — Tool access (0.2.0)"`.
+
+A sub-issue normally **shares its parent's milestone**: a breakdown stays
+within one release unless a slice is intentionally deferred to a later
+milestone — if so, say that explicitly in the `## Depends on` note rather than
+leaving the mismatch silent.
+
+Flag a cross-milestone `blocked-by` as a **sequencing contradiction**: if A is
+scheduled for an *earlier* milestone but is blocked-by B in a *later*
+milestone, one of the two is mis-scheduled — realign rather than leaving it.
+
+```bash
+# Check an issue's current milestone
+gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> --jq '.milestone.title'
+
+# Realign to the exact milestone title
+gh issue edit <#> --milestone "<exact title>"
+```
+
 ## What NOT to do
 
 - Don't use **closing keywords** (`Closes #X`, `Fixes #X`) issue → issue. They only work in PR descriptions, where the linked issue auto-closes on merge. In an issue body they're misleading.

@@ -64,6 +64,15 @@ before the change lands on `develop`.
    ```
    If nothing matches, file one using the [[afdk-filing-issues]] skill — that
    skill owns issue creation; do not bypass it.
+
+   **Check the issue has a Milestone.** It should already carry one from
+   filing time (per [[afdk-filing-issues]]) — that milestone is the release
+   the branch targets. There is no Projects v2 board in this repo; triage is
+   milestone + labels only. If the issue has no milestone, assign one (or ask
+   the user which release it targets) before cutting the branch:
+   ```bash
+   gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --milestone "<exact title>"
+   ```
 2. **Cut the branch from `develop`.**
    ```bash
    git fetch origin

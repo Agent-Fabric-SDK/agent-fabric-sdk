@@ -105,6 +105,49 @@ runs the full matrix on `pull_request` and on `push` to `main` — so a release
 PR from `develop` into `main` is also the point where CI validates the
 promotion.
 
+### Milestone / version awareness
+
+Each `develop` → `main` release corresponds to **completing one GitHub
+Milestone** at its version. The milestone titles are the ground truth — quote
+them verbatim (note the em-dash `—`); `gh` resolves `--milestone` by this exact
+string. Triage in this repo is by **milestone + labels**; there is still no
+GitHub Projects v2 board.
+
+| Milestone (exact title) | Ships version |
+| --- | --- |
+| `M1 — Model access (0.1.0)` | 0.1.0 |
+| `M2 — Tool access (0.2.0)` | 0.2.0 |
+| `M2.5 — Governance object (0.3.0)` | 0.3.0 |
+| `M2.7 — Publication (0.3.5)` | 0.3.5 |
+| `M2.8 — Derivation (0.3.8)` | 0.3.8 |
+| `M2.9 — Fleet scanning (0.3.9)` | 0.3.9 |
+| `M3 — TypeScript (0.4.0)` | 0.4.0 |
+| `M4 — Provisioning (0.5.0)` | 0.5.0 |
+| `M5 — Hardening (1.0.0)` | 1.0.0 |
+
+`M0 — Verify` has **no release version** — it is the §0.3 verification gate, not
+a shipped release.
+
+**Release-ready signal:** a milestone reaching **0 open issues** is what
+indicates it's ready to promote. Check before opening the release PR:
+
+```bash
+gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
+  --milestone "M1 — Model access (0.1.0)" --state open
+```
+
+An empty result means the milestone's work has all landed on `develop`.
+
+**After the promotion merge lands,** close the milestone (this is separate from
+release **tagging**, which is still out of scope — though the milestone's
+version string is exactly what a tag would carry):
+
+```bash
+gh api -X PATCH \
+  repos/Agent-Fabric-SDK/agent-fabric-sdk/milestones/<number> \
+  -f state=closed
+```
+
 ### Approval gate
 
 **Always confirm with the user before promoting.** Promotion is a
@@ -127,10 +170,10 @@ Promotion uses a PR (`develop` → `main`) so the merge commit is reviewable,
 not a local `git merge` pushed straight to `main`.
 
 ```bash
-# 1. Open the release PR.
+# 1. Open the release PR. Title carries the milestone + its version.
 gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --base main --head develop \
-  --title "Release: <short description>" \
+  --title "Release: M1 — Model access (0.1.0)" \
   --body "$(cat <<'EOF'
 Promotion of `develop` → `main`.
 
@@ -147,8 +190,11 @@ EOF
 # 2. After user approval, merge with a merge commit (no fast-forward, no squash).
 gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --merge \
-  --subject "Release: <short description> (#<release-pr#>)"
+  --subject "Release: M1 — Model access (0.1.0) (#<release-pr#>)"
 # (do NOT pass --delete-branch — develop is not disposable)
+
+# 3. After the merge lands, close the completed milestone (see
+#    "Milestone / version awareness" above). Tagging remains out of scope.
 ```
 
 Notes:
@@ -232,12 +278,17 @@ gh pr merge <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
 git worktree remove <path-to-issue-worktree>
 git branch -D <branch-name>
 
-# develop → main (release PR, then merge commit)
+# develop → main (release PR, then merge commit). Title = milestone + version.
+# Promote when the milestone has 0 open issues; close the milestone after merge.
+gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
+  --milestone "M1 — Model access (0.1.0)" --state open   # expect empty
 gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --base main --head develop \
-  --title "Release: <short description>" --body "<notes>"
+  --title "Release: M1 — Model access (0.1.0)" --body "<notes>"
 gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
-  --merge --subject "Release: <short description> (#<release-pr#>)"
+  --merge --subject "Release: M1 — Model access (0.1.0) (#<release-pr#>)"
+gh api -X PATCH repos/Agent-Fabric-SDK/agent-fabric-sdk/milestones/<number> \
+  -f state=closed   # tagging still out of scope
 
 # Hotfix on main (squash), then cherry-pick onto develop
 gh pr merge <hotfix-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \

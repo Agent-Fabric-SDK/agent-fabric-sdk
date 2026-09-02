@@ -225,6 +225,18 @@ Forbidden rationalizations:
 | "Auto-close already fired, closing again is a no-op" | Still write the comment — the merge SHA needs to be on the issue record. |
 | "The user only said merge, not close" | On this repo, explicit close is the default behavior implied by merge. |
 
+**Milestone note:** milestone tracking rides on the linked issue, not the PR
+itself — the issue's milestone is set per [[afdk-filing-issues]]. Closing the
+issue above (with `Closes #N` on the merged PR) is what advances that
+milestone's closed-issue count, which is how release progress is tracked.
+Before handing a develop→main promotion to [[afdk-merge-strategy]], confirm
+the target milestone's open count is 0:
+
+```bash
+gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
+  --milestone "<exact title>" --state open
+```
+
 ## After merge — worktree teardown
 
 Once the issue is closed and the PR is merged, tear down the worktree used
