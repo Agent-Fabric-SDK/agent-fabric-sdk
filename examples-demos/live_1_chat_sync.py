@@ -11,7 +11,7 @@ call site narrows to one concrete class rather than a union:
     client.                        -> the whole OpenAI surface
 
 Drop the `_paths` line if you have already exported the three
-MULESOFT_LLM_PROXY_* variables in your shell.
+AGENT_FABRIC_LLM_PROXY_* variables in your shell.
 """
 
 # ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)

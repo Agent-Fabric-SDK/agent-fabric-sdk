@@ -8,7 +8,7 @@ description: Use when writing or editing pages under docs-site/pages/**.mdx (the
 ## Overview
 
 `docs-site/` is a Nextra 3 site (`next` + `nextra-theme-docs`) documenting the
-`mulesoft-agent-fabric` Python SDK for people who consume it, not people who
+`agent-fabric` Python SDK for people who consume it, not people who
 build it. It ships from `docs-site/pages/**.mdx`, ordered by `_meta.js` files,
 themed by `docs-site/theme.config.tsx`. This skill is the authoring runbook —
 what to read and obey *before* you write or rewrite a page. [[afdk-docs-sync]]
@@ -26,12 +26,12 @@ should trigger a doc update, and what happens if the docs lag.
 
 ## Audience contract
 
-The reader is a developer integrating `mulesoft-agent-fabric` into their own
+The reader is a developer integrating `agent-fabric` into their own
 agent code. They have:
 
-- Python and pip, and are willing to run `pip install "mulesoft-agent-fabric[...]"`.
+- Python and pip, and are willing to run `pip install "agent-fabric[...]"`.
 - No access to this repo's private planning doc
-  (`mulesoft-agent-fabric-sdk-build-plan.md`) or its issue tracker.
+  (`agent-fabric-sdk-build-plan.md`) or its issue tracker.
 - No need to know internal test layout, CI job names, or which milestone
   something shipped in.
 
@@ -42,7 +42,7 @@ Therefore rendered prose **must not**:
   path:line" below).
 - Reference internal-only concepts by their planning-doc shorthand without
   translating them: it is fine, even expected, to cite a `§N.N` section number
-  from `mulesoft-agent-fabric-sdk-build-plan.md` as **authority** (e.g. "See
+  from `agent-fabric-sdk-build-plan.md` as **authority** (e.g. "See
   Verification policy (§0.3)" — the site does this deliberately, see
   `docs-site/pages/concepts/verification.mdx`), but don't assume the reader has
   or needs the document itself to understand the page.
@@ -166,10 +166,10 @@ in the codebase.
 `MuleSoft`, `Anypoint`, `Omni Gateway`, and `Agent Fabric` are Salesforce
 trademarks; "Agent Fabric" names a specific MuleSoft product, not a generic
 term. This SDK is **descriptive, not first-party** — it is "an SDK *for*
-MuleSoft Agent Fabric," not a MuleSoft-branded product. `theme.config.tsx`
+Agent Fabric," not a MuleSoft-branded product. `theme.config.tsx`
 encodes this in the footer:
 
-> Agent Fabric SDK — an SDK *for* MuleSoft Agent Fabric. "Agent Fabric",
+> Agent Fabric SDK — an SDK *for* Agent Fabric. "Agent Fabric",
 > "Anypoint", and "Omni Gateway" are Salesforce trademarks; this project is
 > descriptive (§0.4).
 
@@ -179,14 +179,14 @@ When writing or reviewing prose:
   support unless that has actually been confirmed (§0.4 describes two
   workable paths — endorsed vs. unaffiliated — and this project currently
   reads as the unaffiliated path).
-- Keep the descriptive phrasing ("an SDK for MuleSoft Agent Fabric") rather
+- Keep the descriptive phrasing ("an SDK for Agent Fabric") rather
   than letting a page drift into first-party voice ("Agent Fabric's SDK",
   "our platform").
 - Don't add a support promise ("we'll fix this within X days") that isn't
   backed by an actual maintainer commitment; the trademark footer's job is
   precisely to keep the "who supports this" question honest.
 - `theme.config.tsx`'s `project.link` and `docsRepositoryBase` currently point
-  at a placeholder (`your-org/mulesoft-agent-fabric`) with a `TODO` — flag
+  at a placeholder (`your-org/agent-fabric`) with a `TODO` — flag
   this if you're doing a pre-publish pass, but don't silently "fix" it to a
   guessed URL; the real slug is `Agent-Fabric-SDK/agent-fabric-sdk` per repo
   facts, confirm with a maintainer before changing site chrome that affects
@@ -208,7 +208,7 @@ silently goes stale with no build failure to catch it. Instead:
   `core/_verify.py`" (from `concepts/verification.mdx`) — a path survives
   refactors inside the file; a line number does not.
 - Cite a **`§N.N` build-plan section** for design authority
-  (`mulesoft-agent-fabric-sdk-build-plan.md`), not a line range in that
+  (`agent-fabric-sdk-build-plan.md`), not a line range in that
   document either — sections are stable identifiers, line numbers aren't.
 - Cite a **command** the reader can run to reproduce a claim
   (`python scripts/verify_frameworks.py --live`) rather than describing what

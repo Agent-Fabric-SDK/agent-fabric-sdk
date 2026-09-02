@@ -2,7 +2,7 @@ import { Tabs } from 'nextra/components'
 
 # Microsoft Agent Framework — governed model access
 
-Microsoft Agent Framework gets a governed chat client at the MuleSoft LLM
+Microsoft Agent Framework gets a governed chat client at the Agent Fabric LLM
 proxy, plus first-class policy middleware for terminating a run cleanly on a
 governance rejection instead of letting the agent loop retry.
 
@@ -14,7 +14,7 @@ governance rejection instead of letting the agent loop retry.
 ## Install
 
 ```bash
-pip install "mulesoft-agent-fabric[agent_framework]"
+pip install "agent-fabric[agent_framework]"
 ```
 
 ## Quickstart
@@ -45,11 +45,11 @@ proxy with the official `openai` npm client:
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: process.env.MULESOFT_LLM_PROXY_URL,   // no /v1
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -102,7 +102,7 @@ from agent_framework.openai import OpenAIChatClient
 
 llm = OpenAIChatClient(
     model_id=...,        # UNVERIFIED kwarg name — confirm against your install
-    base_url=...,        # from MULESOFT_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,        # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,  # client_id / client_secret header pair
 )

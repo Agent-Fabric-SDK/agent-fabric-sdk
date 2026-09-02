@@ -188,7 +188,7 @@ which pytest's fixture model doesn't fit well.
 - `python scripts/verify_frameworks.py` — signature check (offline, all
   installed frameworks).
 - `--live` — also makes one real completion round-trip; needs the 3
-  `MULESOFT_LLM_PROXY_*` env vars.
+  `AGENT_FABRIC_LLM_PROXY_*` env vars.
 - `--only <fw> [<fw>...]` — restrict to specific frameworks.
 - `--emit-verified` — print §8 markdown rows to paste into
   `docs/verified-apis.md` after maintainer sign-off.

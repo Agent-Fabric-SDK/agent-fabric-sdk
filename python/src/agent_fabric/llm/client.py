@@ -85,7 +85,7 @@ class LLMClient:
         except ImportError as exc:  # pragma: no cover - install-time guidance
             raise ImportError(
                 "The raw LLM client needs the OpenAI SDK. Install it with:\n"
-                '    pip install "mulesoft-agent-fabric[llm]"'
+                '    pip install "agent-fabric[llm]"'
             ) from exc
 
         assert self._cfg.llm_proxy_url is not None  # validated() guarantees this

@@ -2,7 +2,7 @@ import { Tabs } from 'nextra/components'
 
 # LlamaIndex — governed model access
 
-LlamaIndex gets a governed `OpenAILike` LLM pointed at the MuleSoft LLM proxy,
+LlamaIndex gets a governed `OpenAILike` LLM pointed at the Agent Fabric LLM proxy,
 with the one flag that a chat-only gateway absolutely requires forced on for
 you.
 
@@ -12,7 +12,7 @@ you.
 ## Install
 
 ```bash
-pip install "mulesoft-agent-fabric[llamaindex]"
+pip install "agent-fabric[llamaindex]"
 ```
 
 ## Quickstart
@@ -41,11 +41,11 @@ official `openai` npm client at it — the same base URL and
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: process.env.MULESOFT_LLM_PROXY_URL,   // no /v1
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -95,7 +95,7 @@ from llama_index.llms.openai_like import OpenAILike
 
 model = OpenAILike(
     model="gpt-4o",
-    api_base=...,                     # from MULESOFT_LLM_PROXY_URL, no /v1 suffix
+    api_base=...,                     # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,              # client_id / client_secret header pair
     is_chat_model=True,               # see gotcha below — never omit this
@@ -108,7 +108,7 @@ model = OpenAILike(
 > **Gotcha: `OpenAILike` defaults `is_chat_model=False`.** Left at its
 > default, `OpenAILike` silently routes requests to the completions endpoint
 > instead of the chat endpoint — which fails against a chat-only proxy like
-> the MuleSoft LLM proxy. This is the single most common LlamaIndex-with-a-
+> the Agent Fabric LLM proxy. This is the single most common LlamaIndex-with-a-
 > gateway bug. The adapter's `connection_kwargs()` always forces
 > `is_chat_model=True` (and `is_function_calling_model=True`) so you don't
 > have to remember to set it — but if you ever construct `OpenAILike`

@@ -1,7 +1,7 @@
 """Anthropic SDK adapter example (§3.3). Tier 1.
 
 Demonstrates constructing a native ``anthropic.AsyncAnthropic`` client pointed
-at the governed MuleSoft LLM proxy with a single factory call:
+at the governed Agent Fabric LLM proxy with a single factory call:
 
     from agent_fabric.integrations.anthropic import client
     c = client()   # the model id is a per-call argument, not a constructor one
@@ -25,9 +25,9 @@ from agent_fabric.integrations.anthropic import client
 
 def _missing_env() -> list[str]:
     names = (
-        "MULESOFT_LLM_PROXY_URL",
-        "MULESOFT_LLM_PROXY_CLIENT_ID",
-        "MULESOFT_LLM_PROXY_CLIENT_SECRET",
+        "AGENT_FABRIC_LLM_PROXY_URL",
+        "AGENT_FABRIC_LLM_PROXY_CLIENT_ID",
+        "AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET",
     )
     return [n for n in names if not os.environ.get(n)]
 
@@ -36,16 +36,16 @@ def main() -> None:
     missing = _missing_env()
     if missing:
         print("Set the following environment variables and re-run:")
-        print('    export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"  # no /v1')
-        print('    export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"')
-        print('    export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"')
+        print('    export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"  # no /v1')
+        print('    export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"')
+        print('    export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"')
         return
 
     try:
         c = client()
     except ImportError:
         print("Anthropic SDK not installed. Install it with:")
-        print('    pip install "mulesoft-agent-fabric[anthropic]"')
+        print('    pip install "agent-fabric[anthropic]"')
         return
     except ConfigError as e:
         print(f"Config error: {e}")

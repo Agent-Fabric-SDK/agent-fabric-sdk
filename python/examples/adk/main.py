@@ -1,7 +1,7 @@
 """Google ADK adapter example (§3.3). Tier 1.
 
 Demonstrates constructing a native ``google.adk.models.lite_llm.LiteLlm``
-pointed at the governed MuleSoft LLM proxy with a single factory call:
+pointed at the governed Agent Fabric LLM proxy with a single factory call:
 
     from agent_fabric.integrations.adk import model
     m = model("gpt-4o")  # sent to LiteLLM as "openai/gpt-4o"
@@ -26,9 +26,9 @@ from agent_fabric.integrations.adk import model
 
 def _missing_env() -> list[str]:
     names = (
-        "MULESOFT_LLM_PROXY_URL",
-        "MULESOFT_LLM_PROXY_CLIENT_ID",
-        "MULESOFT_LLM_PROXY_CLIENT_SECRET",
+        "AGENT_FABRIC_LLM_PROXY_URL",
+        "AGENT_FABRIC_LLM_PROXY_CLIENT_ID",
+        "AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET",
     )
     return [n for n in names if not os.environ.get(n)]
 
@@ -37,9 +37,9 @@ def main() -> None:
     missing = _missing_env()
     if missing:
         print("Set the following environment variables and re-run:")
-        print('    export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"  # no /v1')
-        print('    export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"')
-        print('    export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"')
+        print('    export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"  # no /v1')
+        print('    export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"')
+        print('    export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"')
         return
 
     model_id = os.environ.get("DEMO_MODEL", "gpt-4o")
@@ -48,7 +48,7 @@ def main() -> None:
         m = model(model_id)
     except ImportError:
         print("Google ADK not installed. Install it with:")
-        print('    pip install "mulesoft-agent-fabric[adk]"')
+        print('    pip install "agent-fabric[adk]"')
         return
     except ConfigError as e:
         print(f"Config error: {e}")

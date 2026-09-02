@@ -3,7 +3,7 @@
 Tier 1.
 
 **What this shows.** A one-line factory call gets you a *native* `crewai.LLM`
-already pointed at the governed MuleSoft LLM proxy — correct base URL,
+already pointed at the governed Agent Fabric LLM proxy — correct base URL,
 `client_id`/`client_secret` header auth (not bearer), and attribution headers.
 The returned object is CrewAI's own class, not a wrapper, so it drops straight
 into a `crewai` `Agent`/`Crew`.
@@ -16,11 +16,11 @@ conformance exemption (§8.1), the same one ADK has.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[crewai]"
+pip install "agent-fabric[crewai]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/crewai/main.py
 ```
@@ -35,11 +35,11 @@ from crewai import LLM
 
 model = LLM(
     model="openai/gpt-4o",          # LiteLLM's OpenAI-compatible route
-    base_url=MULESOFT_LLM_PROXY_URL,
+    base_url=AGENT_FABRIC_LLM_PROXY_URL,
     api_key="unused",               # proxy enforces client_id/client_secret headers
     extra_headers={
-        "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-        "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
     },
 )
 ```

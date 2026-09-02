@@ -3,7 +3,7 @@
 Tier 1.
 
 **What this shows.** A one-line factory call gets you a *native*
-`strands.models.openai.OpenAIModel` pointed at the governed MuleSoft LLM
+`strands.models.openai.OpenAIModel` pointed at the governed Agent Fabric LLM
 proxy — correct `base_url`, `client_id`/`client_secret` header auth (not
 bearer), attribution headers, and the SDK's shared transport, all forwarded
 through Strands' `client_args`. Strands forwards `client_args` straight to
@@ -17,11 +17,11 @@ method call on the model.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[strands]"
+pip install "agent-fabric[strands]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/strands/main.py
 ```
@@ -38,11 +38,11 @@ from strands.models.openai import OpenAIModel
 m = OpenAIModel(
     model_id="gpt-4o",
     client_args={
-        "base_url": MULESOFT_LLM_PROXY_URL,
+        "base_url": AGENT_FABRIC_LLM_PROXY_URL,
         "api_key": "unused",  # the proxy enforces client_id/client_secret headers instead
         "default_headers": {
-            "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-            "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+            "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+            "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
         },
         "http_client": httpx.AsyncClient(...),
     },

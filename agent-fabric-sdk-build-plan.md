@@ -1,4 +1,4 @@
-# MuleSoft Agent Fabric SDK — Build Plan & Implementation Spec
+# Agent Fabric SDK — Build Plan & Implementation Spec
 
 **Audience:** an engineering agent (Claude Opus 4.8 / Sonnet 5) implementing the SDK, plus the human tech lead reviewing scope.
 **Status:** design spec, pre-implementation.
@@ -49,14 +49,14 @@ If any verification fails, **stop and report** rather than inventing an endpoint
 
 ### 0.4 Naming and legal
 
-`MuleSoft`, `Anypoint`, `Omni Gateway`, and `Agent Fabric` are Salesforce trademarks. **"Agent Fabric" is a specific MuleSoft product name, not a generic term**, so the project name "MuleSoft Agent Fabric SDK" reads as a first-party SDK for that product. That is fine — desirable, even — if this ships with MuleSoft's endorsement or as a MuleSoft-owned project. If it does not, the name will be read as an official-status claim, which is a real trademark exposure and will also confuse users about who supports it.
+`MuleSoft`, `Anypoint`, `Omni Gateway`, and `Agent Fabric` are Salesforce trademarks. **"Agent Fabric" is a specific MuleSoft product name, not a generic term**, so the project name "Agent Fabric SDK" reads as a first-party SDK for that product. That is fine — desirable, even — if this ships with MuleSoft's endorsement or as a MuleSoft-owned project. If it does not, the name will be read as an official-status claim, which is a real trademark exposure and will also confuse users about who supports it.
 
 Two workable paths:
 
 1. **Endorsed.** Confirm with MuleSoft (see the week-1 conversation in §10) and use the name as-is.
-2. **Unaffiliated.** Keep the descriptive form in the docs — "an SDK for MuleSoft Agent Fabric" — but ship under a distinct, org-scoped project name so the package itself does not read as first-party.
+2. **Unaffiliated.** Keep the descriptive form in the docs — "an SDK for Agent Fabric" — but ship under a distinct, org-scoped project name so the package itself does not read as first-party.
 
-Working names in this document — `mulesoft-agent-fabric` (import `agent_fabric`) / `@yourorg/agent-fabric`, CLI `agent-fabric` — assume path 1. Under path 2, rename the distributions and keep the import name. Either way, put a support statement in the README stating exactly who maintains the project and what the support expectations are.
+Working names in this document — `agent-fabric` (import `agent_fabric`) / `@yourorg/agent-fabric`, CLI `agent-fabric` — assume path 1. Under path 2, rename the distributions and keep the import name. Either way, put a support statement in the README stating exactly who maintains the project and what the support expectations are.
 
 ---
 
@@ -95,7 +95,7 @@ Working names in this document — `mulesoft-agent-fabric` (import `agent_fabric
 Monorepo, two publishable trees.
 
 ```
-mulesoft-agent-fabric-sdk/
+agent-fabric-sdk/
 ├── python/
 │   ├── pyproject.toml                 # hatchling; optional extras per framework
 │   ├── src/agent_fabric/
@@ -217,12 +217,12 @@ class FabricConfig:
     base_url: str | None = None           # override; else derived from region
 
     # --- LLM proxy (data plane) ---
-    llm_proxy_url: str | None = None      # env: MULESOFT_LLM_PROXY_URL
-    llm_proxy_key: str | None = None      # env: MULESOFT_LLM_PROXY_KEY
+    llm_proxy_url: str | None = None      # env: AGENT_FABRIC_LLM_PROXY_URL
+    llm_proxy_key: str | None = None      # env: AGENT_FABRIC_LLM_PROXY_KEY
 
     # --- Attribution (see §0.3 for real header names) ---
-    application_name: str | None = None   # env: MULESOFT_APP_NAME
-    business_group: str | None = None     # env: MULESOFT_BUSINESS_GROUP
+    application_name: str | None = None   # env: AGENT_FABRIC_APP_NAME
+    business_group: str | None = None     # env: AGENT_FABRIC_BUSINESS_GROUP
 
     # --- Behaviour ---
     timeout_s: float = 60.0
@@ -372,7 +372,7 @@ fabric.llamaindex.llm("gpt-4o")
 ```
 
 Accessing an adapter whose extra is not installed raises `ImportError` with the exact install command:
-`pip install "mulesoft-agent-fabric[langgraph]"`. Implement via `__getattr__` on `Fabric` with a lazy import and a curated message. Do not let a bare `ModuleNotFoundError` escape.
+`pip install "agent-fabric[langgraph]"`. Implement via `__getattr__` on `Fabric` with a lazy import and a curated message. Do not let a bare `ModuleNotFoundError` escape.
 
 Every adapter accepts `**kwargs` forwarded verbatim to the underlying constructor, so users are never blocked by the SDK lagging a framework feature.
 

@@ -13,7 +13,7 @@ own native model object pointed at your Omni Gateway proxy.
 Install the base SDK plus the raw LLM client and one framework extra:
 
 ```bash
-pip install "mulesoft-agent-fabric[llm,langgraph]"
+pip install "agent-fabric[llm,langgraph]"
 ```
 
 One extra per framework is available: `langgraph`, `adk`, `strands`,
@@ -26,13 +26,13 @@ Governed model access needs three values. The proxy authenticates on a
 token, and separate from any Anypoint control-plane credential.
 
 ```bash
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 # Optional attribution, surfaced on telemetry
-export MULESOFT_APP_NAME="checkout-agent"
-export MULESOFT_BUSINESS_GROUP="payments"
+export AGENT_FABRIC_APP_NAME="checkout-agent"
+export AGENT_FABRIC_BUSINESS_GROUP="payments"
 ```
 
 <Callout type="info">
@@ -126,11 +126,11 @@ for chunk in stream:
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: process.env.MULESOFT_LLM_PROXY_URL,   // ends in "/", note: no /v1
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // ends in "/", note: no /v1
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -150,10 +150,10 @@ format instead? See the **cURL** tab.
 <Tabs.Tab>
 
 ```bash
-curl "${MULESOFT_LLM_PROXY_URL}chat/completions" \
+curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
   -H "content-type: application/json" \
-  -H "client_id: ${MULESOFT_LLM_PROXY_CLIENT_ID}" \
-  -H "client_secret: ${MULESOFT_LLM_PROXY_CLIENT_SECRET}" \
+  -H "client_id: ${AGENT_FABRIC_LLM_PROXY_CLIENT_ID}" \
+  -H "client_secret: ${AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET}" \
   -d '{
     "model": "gpt-4o",
     "messages": [{"role": "user", "content": "Say hi in three words."}]

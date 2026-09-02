@@ -7,7 +7,7 @@ implicitly — see core/config.py):
    the demos run straight from a checkout. (An editable install is preferred:
    ``pip install -e python``.)
 2. Load ``.env.local`` then ``.env`` from the repo root into ``os.environ`` so
-   ``export``-ing the MULESOFT_LLM_PROXY_* vars by hand is optional. Values
+   ``export``-ing the AGENT_FABRIC_LLM_PROXY_* vars by hand is optional. Values
    already present in the environment win — an explicit shell ``export`` is
    never overridden.
 

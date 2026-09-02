@@ -16,7 +16,7 @@ Two independent checks per framework:
      script then confirms the object's real ``module.ClassName`` matches the
      value recorded in §8, so a silently-renamed class is caught too.
 
-  B. LIVE ROUND-TRIP (``--live``, needs the 3 MULESOFT_LLM_PROXY_* env vars):
+  B. LIVE ROUND-TRIP (``--live``, needs the 3 AGENT_FABRIC_LLM_PROXY_* env vars):
      make one real completion through the framework's *own* native call and
      confirm a governed response comes back. Only LangGraph's call API is
      exercised directly here (``ChatOpenAI.ainvoke``); for the others the
@@ -69,9 +69,9 @@ FRAMEWORKS: list[tuple[str, str, str, str]] = [
 ]
 
 PROXY_ENV = (
-    "MULESOFT_LLM_PROXY_URL",
-    "MULESOFT_LLM_PROXY_CLIENT_ID",
-    "MULESOFT_LLM_PROXY_CLIENT_SECRET",
+    "AGENT_FABRIC_LLM_PROXY_URL",
+    "AGENT_FABRIC_LLM_PROXY_CLIENT_ID",
+    "AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET",
 )
 MODEL = os.environ.get("DEMO_MODEL", "gpt-4o")
 
@@ -108,9 +108,9 @@ def _ensure_proxy_env_for_offline() -> bool:
     exercised offline. Returns True if REAL creds are present (live is possible)."""
     have_real = all(os.environ.get(v) for v in PROXY_ENV)
     if not have_real:
-        os.environ.setdefault("MULESOFT_LLM_PROXY_URL", "https://placeholder.invalid/proxy/")
-        os.environ.setdefault("MULESOFT_LLM_PROXY_CLIENT_ID", "placeholder-cid")
-        os.environ.setdefault("MULESOFT_LLM_PROXY_CLIENT_SECRET", "placeholder-secret")
+        os.environ.setdefault("AGENT_FABRIC_LLM_PROXY_URL", "https://placeholder.invalid/proxy/")
+        os.environ.setdefault("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "placeholder-cid")
+        os.environ.setdefault("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "placeholder-secret")
     return have_real
 
 
@@ -221,7 +221,9 @@ async def run(only: list[str] | None, live: bool) -> list[Result]:
         obj = check_signature(res, import_path, factory)
         if live and obj is not None and res.class_matches:
             if not have_real:
-                res.live = "skipped: set the 3 MULESOFT_LLM_PROXY_* env vars for a live round-trip"
+                res.live = (
+                    "skipped: set the 3 AGENT_FABRIC_LLM_PROXY_* env vars for a live round-trip"
+                )
             else:
                 await check_live(res, obj)
         results.append(res)

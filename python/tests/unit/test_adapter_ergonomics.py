@@ -69,9 +69,9 @@ def test_adk_connection_kwargs_use_litellm_names() -> None:
 
 
 def test_default_adapter_is_cached_per_class(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MULESOFT_LLM_PROXY_URL", "https://proxy")
-    monkeypatch.setenv("MULESOFT_LLM_PROXY_CLIENT_ID", "cid")
-    monkeypatch.setenv("MULESOFT_LLM_PROXY_CLIENT_SECRET", "csecret")
+    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_URL", "https://proxy")
+    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "cid")
+    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "csecret")
     _base._DEFAULT_ADAPTERS.clear()
 
     a1 = default_adapter(LangGraphAdapter)
@@ -82,9 +82,9 @@ def test_default_adapter_is_cached_per_class(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_module_level_factory_matches_method(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("langchain_openai")
-    monkeypatch.setenv("MULESOFT_LLM_PROXY_URL", "https://proxy")
-    monkeypatch.setenv("MULESOFT_LLM_PROXY_CLIENT_ID", "cid")
-    monkeypatch.setenv("MULESOFT_LLM_PROXY_CLIENT_SECRET", "csecret")
+    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_URL", "https://proxy")
+    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "cid")
+    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "csecret")
     _base._DEFAULT_ADAPTERS.clear()
 
     from agent_fabric.integrations.langgraph import chat_model
