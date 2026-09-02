@@ -14,6 +14,12 @@ deliberately does not attempt a live inference call, since Strands models
 are normally driven through a `strands.Agent` session rather than a simple
 method call on the model.
 
+> 📖 **Prefer reading to running?** The canonical walkthrough — install,
+> configure, and the manual equivalent — is in the docs:
+> **[Strands Agents](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/strands)**.
+> This README duplicates the runnable essentials on purpose so you can run it in
+> place; if the two ever differ, the docs page is canonical.
+
 ## Run
 
 ```bash

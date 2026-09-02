@@ -1,0 +1,32 @@
+{/*
+  Shared partial: the governed-proxy TypeScript example (official `openai` npm client).
+
+  Rendered on every OpenAI-compatible framework page (langgraph, adk, strands,
+  llamaindex, crewai, openai, agent-framework) and on the quickstart TypeScript
+  tab, via `import OpenAiProxyTs from '.../components/openai-proxy-ts.mdx'`.
+
+  anthropic.mdx intentionally does NOT use this — the Anthropic SDK needs the
+  `@anthropic-ai/sdk` client shape, so it keeps its own bespoke block (a
+  documented exemption, not an oversight). Keep this in sync with the verified
+  proxy contract: base URL with no `/v1`, and the client_id / client_secret
+  header pair rather than a bearer token.
+*/}
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
+  apiKey: "unused",                              // required slot; proxy uses the headers below
+  defaultHeaders: {
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
+  },
+});
+
+const reply = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Say hi in three words." }],
+});
+console.log(reply.choices[0].message.content);
+```

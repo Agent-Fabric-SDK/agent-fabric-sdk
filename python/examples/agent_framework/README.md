@@ -16,6 +16,12 @@ does not attempt a live inference call, since Agent Framework drives chat
 clients through its own `Agent` object rather than a method on the client
 itself.
 
+> 📖 **Prefer reading to running?** The canonical walkthrough — install,
+> configure, and the manual equivalent — is in the docs:
+> **[Microsoft Agent Framework](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/agent-framework)**.
+> This README duplicates the runnable essentials on purpose so you can run it in
+> place; if the two ever differ, the docs page is canonical.
+
 ## Run
 
 ```bash
