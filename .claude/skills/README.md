@@ -18,8 +18,8 @@ of living only in a human's head or a scroll-past section of `CLAUDE.md`.
 | [`afdk-merge-strategy`](afdk-merge-strategy/SKILL.md) | Merging a PR into `develop` or promoting `develop` to `main` — merge method per direction, approval gates, hotfix handling, revert recipes. |
 | [`afdk-filing-issues`](afdk-filing-issues/SKILL.md) | Filing, opening, or reporting a new GitHub issue (bug or enhancement) against this repo. |
 | [`afdk-issue-relationships`](afdk-issue-relationships/SKILL.md) | Linking issues that already exist — sub-issues, blocked-by/blocking, cross-link "related" comments. Runs after filing, not as part of it. |
-| [`afdk-docs-authoring`](afdk-docs-authoring/SKILL.md) | Writing or substantially rewriting a page under `docs-site/pages/**.mdx` — layout, `_meta.js` ordering, the SDK-developer audience contract, VERIFICATION-STATUS framing, trademark/support boundary, "cite a symbol, not path:line". |
-| [`afdk-docs-sync`](afdk-docs-sync/SKILL.md) | A PR touches a load-bearing surface (`core/errors.py`, `provisioning/*`, `tools/*`, `registry/*`, `integrations/*`, `docs/verified-apis.md`, `README.md`) that the docs site describes — forces a matching docs-site update in the same PR or a documentation-labeled follow-up issue. |
+| [`afdk-docs-authoring`](afdk-docs-authoring/SKILL.md) | Writing or substantially rewriting a page under `website/pages/**.mdx` — layout, `_meta.js` ordering, the SDK-developer audience contract, VERIFICATION-STATUS framing, trademark/support boundary, "cite a symbol, not path:line". |
+| [`afdk-docs-sync`](afdk-docs-sync/SKILL.md) | A PR touches a load-bearing surface (`core/errors.py`, `provisioning/*`, `tools/*`, `registry/*`, `integrations/*`, `docs/verified-apis.md`, `README.md`) that the docs site describes — forces a matching website update in the same PR or a documentation-labeled follow-up issue. |
 | [`afdk-verification-discipline`](afdk-verification-discipline/SKILL.md) | Touching any Anypoint endpoint, header, class name, or kwarg — before adding/removing a `_verify.blocked` guard or `Unverified` placeholder, flipping a `docs/verified-apis.md` row, or reviewing a claim that a surface is "verified". Enforces §0.3, "never invent an endpoint, header, or class name." |
 
 ## How they fit together
@@ -34,7 +34,7 @@ The lifecycle of a change runs roughly:
    **`afdk-verification-discipline`** governs any claim about a MuleSoft
    endpoint/header/class name. **`afdk-testing`** governs what you write to
    prove it. **`afdk-docs-sync`** (paired with **`afdk-docs-authoring`` for the
-   actual prose) governs whether docs-site must move in lockstep.
+   actual prose) governs whether website must move in lockstep.
 3. **`afdk-pr-workflow`** opens the PR once the branch is ready;
    **`afdk-pr-review`** is the checklist a reviewer (human or agent) runs
    against it, re-checking the same invariants from the outside.

@@ -36,7 +36,7 @@ Trigger this skill when about to:
 - Touch `pyproject.toml` extras, mypy, ruff, or the import-linter contracts.
 - Review a PR diff that touches any of the above (see [[afdk-pr-review]]).
 
-If the change is docs-only (`docs-site/**`, `docs/**`, `*.md`), see
+If the change is docs-only (`website/**`, `docs/**`, `*.md`), see
 [[afdk-docs-authoring]] instead. If the change invents or confirms an endpoint,
 header, or class name, [[afdk-verification-discipline]] is the more specific
 rulebook.

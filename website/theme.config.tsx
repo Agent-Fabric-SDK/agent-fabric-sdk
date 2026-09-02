@@ -14,7 +14,7 @@ const config: DocsThemeConfig = {
     link: 'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk',
   },
   docsRepositoryBase:
-    'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/tree/main/docs-site',
+    'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/tree/main/website',
   // Violet accent, close to the reference docs look.
   color: {
     hue: 262,

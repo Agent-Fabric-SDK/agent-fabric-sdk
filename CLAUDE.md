@@ -122,7 +122,7 @@ python scripts/verify_frameworks.py --live     # + one real proxy round-trip
 python scripts/verify_frameworks.py --emit-verified   # print §8 markdown rows to paste
 ```
 
-The docs site (`docs-site/`, Nextra/Next.js): `cd docs-site && npm install && npm run dev`.
+The docs site (`website/`, Nextra/Next.js): `cd website && npm install && npm run dev`.
 
 ## Conventions
 
@@ -144,9 +144,9 @@ The docs site (`docs-site/`, Nextra/Next.js): `cd docs-site && npm install && np
 - **Docs cite a symbol, not path:line.** Line numbers drift as soon as
   anything above them changes; reference the file plus the symbol name instead
   (function, class, config key). Applies to `docs/verified-apis.md`, the build
-  plan's `§`-anchors, and every page under `docs-site/`.
+  plan's `§`-anchors, and every page under `website/`.
 - **Cross-surface lockstep.** A capability that lives on more than one surface
-  (Python SDK / planned TypeScript / `docs-site/` / `docs/verified-apis.md` /
+  (Python SDK / planned TypeScript / `website/` / `docs/verified-apis.md` /
   README exemptions) changes on all of them together, or the divergence is a
   recorded, intentional decision — never a silent omission on one surface.
 - **The issue is the plan.** Plan content for a change lives in the GitHub
@@ -172,8 +172,8 @@ One line per skill:
 - **`afdk-merge-strategy`** — merging into `develop`, promoting to `main`.
 - **`afdk-filing-issues`** — filing a new GitHub issue.
 - **`afdk-issue-relationships`** — linking issues that already exist.
-- **`afdk-docs-authoring`** — writing/rewriting a `docs-site/pages/**.mdx` page.
-- **`afdk-docs-sync`** — deciding whether a code change needs a matching docs-site update.
+- **`afdk-docs-authoring`** — writing/rewriting a `website/pages/**.mdx` page.
+- **`afdk-docs-sync`** — deciding whether a code change needs a matching website update.
 - **`afdk-verification-discipline`** — touching any Anypoint endpoint, header, class name, or kwarg.
 
 If a phrasing slips past the matcher, invoke the skill (or read its doc)

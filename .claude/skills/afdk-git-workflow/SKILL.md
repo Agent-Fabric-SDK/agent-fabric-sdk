@@ -42,7 +42,7 @@ This exception applies **only** when:
 
 - The diff touches nothing outside `.claude/skills/**`.
 - It's a content edit to existing skills or a new skill — not a change to
-  repo policy, CI, `python/`, `docs-site/`, or the build plan itself.
+  repo policy, CI, `python/`, `website/`, or the build plan itself.
 
 Anything else (even `.claude/README.md`, `.claude/settings*.json`,
 `.claude/hooks/`, `spec/agent-fabric-sdk-build-plan.md`, or a mixed diff
@@ -131,7 +131,7 @@ Format: `<type>/<issue#>-<short-kebab-slug>`
 | --- | --- |
 | `feat` | New user-visible capability or API surface |
 | `fix` | Bug fix — something that was supposed to work and didn't |
-| `docs` | README, CLAUDE.md, build-plan updates, docs-site content, comments |
+| `docs` | README, CLAUDE.md, build-plan updates, website content, comments |
 | `chore` | Tooling, deps, refactors, build/CI config |
 
 Slug rules:
