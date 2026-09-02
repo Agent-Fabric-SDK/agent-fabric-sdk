@@ -116,6 +116,11 @@ mulesoft-agent-fabric-sdk/
 │   │   │   ├── publication.py         # Publication, AssetType, descriptors
 │   │   │   └── introspect.py          # descriptor='auto' generation
 │   │   │   └── models.py              # AssetRef, McpServerHandle, AgentHandle
+│   │   ├── policies/                  # §6.10 — NOT core/; import-linter keeps it out
+│   │   │   ├── base.py                # PolicyPlugin protocol, PolicyRef, RequestContext
+│   │   │   ├── registry.py            # discovery, activation, ordering, collision checks
+│   │   │   ├── attestation.py         # §6.9.2 client half: canonical JSON, HMAC, codec
+│   │   │   └── builtin/               # plugins for the four §6.9 companion policies
 │   │   ├── tools/
 │   │   │   ├── session.py             # MCP streamable-HTTP session mgmt
 │   │   │   └── filter.py             # allow/deny, tag + domain filtering
@@ -134,6 +139,7 @@ mulesoft-agent-fabric-sdk/
 │   │       ├── applier.py
 │   │       ├── lint.py                # governance ruleset preflight
 │   │       ├── publish.py             # Exchange publication, digest, --if-changed
+│   │       ├── policy.py              # `agent-fabric policy new|check` (§6.10.5)
 │   │       └── cli.py                 # `agent-fabric` typer CLI
 │   └── tests/
 │       ├── unit/
@@ -311,6 +317,8 @@ Two design points that matter:
 2. **`remediation` is a required field.** "Token budget exceeded for business group `finance`; limit resets in 42m; request an increase in API Manager" is worth more than a stack trace.
 
 The concrete mapping from HTTP response → exception class lives in one function, `errors.classify(response)`, driven by a table populated from real captured fixtures (§8.2). Do not hand-write guesses into the table.
+
+`classify()` consults activated policy plugins (§6.10.3) before that table, so a custom policy can map its own rejection shape without an edit to `core/`. A plugin declines by returning `None`; it can never turn a rejection into a success (§6.10.4). With no plugins installed — the default, and a tested configuration — behaviour is exactly the fixture-driven table described above.
 
 ### 2.5 Telemetry
 
@@ -732,6 +740,8 @@ Applying policies from application code inverts the ownership model platform tea
 
 Ship the allow-list mechanism in v1 even if nobody asks for it. Its absence is what gets the SDK banned in a security review.
 
+**A policy plugin (§6.10) is not an approval.** Installing and enabling a plugin teaches the SDK to speak a custom policy's wire contract — emit its headers, type its rejections, validate its config. It grants nothing. A policy absent from `policy-catalog.yaml` is still refused by `agent-fabric apply`, plugin or no plugin. Keep the two mechanisms in separate files with separate owners, and say so in the docs, because the first reviewer to mistake one for the other will conclude the allow-list is bypassable.
+
 ### 5.5 Fallback if there is no provisioning API
 
 If §0.3 finds MCP Bridge is wizard-only:
@@ -886,6 +896,8 @@ base_url = "https://gw.internal.acme.com"
 environment = "Production"
 gateway_name = "prod-k8s-omni"
 ```
+
+`PolicyBinding` takes any policy, stock or custom. When an activated plugin (§6.10) matches the `assetId`, construction additionally runs that plugin's `validate_config`, so a bad config fails on the laptop rather than at `agent-fabric apply`. With no matching plugin the binding is still valid — the SDK does not require a plugin to declare a policy, only to speak its wire contract.
 
 This part of the request is sound and maps cleanly onto a pattern developers already know from Terraform workspaces and Kustomize overlays. Build it as specified.
 
@@ -1138,7 +1150,7 @@ A custom policy that consumes any of those is, by construction, useless without 
 
 Three rules follow, and none of them is negotiable:
 
-- **No Rust in this repository.** If a PR to this repo contains a `.rs` file or a `Cargo.toml`, it is in the wrong repo. The SDK's entire contribution is a signed header on the way out and a typed exception on the way back.
+- **No Rust in this repository.** If a PR to this repo adds a buildable Rust crate, it is in the wrong repo. The SDK's entire contribution is a signed header on the way out and a typed exception on the way back. The one permitted exception is the inert scaffolding templates behind `agent-fabric policy new` (§6.10.5), which are never compiled here.
 - **The wire format is a published spec, not an implementation detail.** Version it in the header value itself (`x-agent-run: v1.…`) so the SDK and the policies release independently. Maintain a compatibility matrix in the companion repo; the SDK must tolerate a gateway running the previous major version.
 - **§5.4 and working instruction #11 still apply.** These policies are applied by the platform team in CI. Nothing in the SDK's runtime path applies, mutates, or requests a policy. The SDK emits headers and reads decisions.
 
@@ -1187,12 +1199,14 @@ What it buys, in order of value:
 
 **Ship the free version first.** The stock `llm-token-rate-limit` policy takes a DataWeave `keySelector`, verified in §4 as `#[attributes.headers['client_id']]`. The moment the SDK emits a plain `x-agent-run-id` header, that becomes `#[attributes.headers['x-agent-run-id']]` and stock rate limiting is run-scoped with **zero custom code**. Do that in M1. The custom policy earns its keep only when you need signing, replay protection, and step/depth counting — do not let it block the 80% that is a one-line config change.
 
-SDK side, all of it in `core/`:
+SDK side. Note the split: run *state* is core, because the correlation contextvar already is; the attestation *codec* is a plugin (§6.10), because `core/` must not know this policy exists.
 
-- `core/attestation.py` — canonical JSON serialisation (key order is part of the signature; get this wrong and every request fails verification), HMAC, and the header codec. Framework-free.
-- `core/transport.py` — emit in `_apply_base_headers`, alongside the existing correlation header. Both `FabricAsyncClient` and `FabricClient`.
+- `policies/attestation.py` — canonical JSON serialisation (key order is part of the signature; get this wrong and every request fails verification), HMAC, and the header codec. Exposed as a `PolicyPlugin` whose `contribute_headers` emits `x-agent-run`.
 - `core/telemetry.py` — `step` and `depth` counters on the run contextvar, incremented per governed call.
+- `core/transport.py` — no policy-specific code at all. The header arrives through the plugin hook in `_apply_base_headers` (§6.10.3), which both `FabricAsyncClient` and `FabricClient` already call.
 - `Fabric.run_context(run_id=…)` gains `parent_run_id=` so an A2A delegation continues the chain rather than starting a new one.
+
+The plain `x-agent-run-id` header from the paragraph above is the exception: it is core, unconditional, and needs no plugin, because it is just the existing correlation ID under a second name that a `keySelector` can read.
 
 #### 6.9.3 `agent-run-budget` — the runaway-loop killer
 
@@ -1287,6 +1301,141 @@ None of this is buildable until the PDK's actual capabilities are known. Each ro
 | Can a policy make an outbound call (Exchange manifest lookup), and with what latency budget? | §6.9.5 digest resolution | Ship the manifest in policy config; accept staleness |
 | Is policy execution order controllable and readable per API instance? | §6.9.6 ordering, drift detection | Order becomes convention, unassertable by `resolve()` |
 | Do custom WASM policies genuinely run in Local Mode as §6.4 claims? | the entire local dev-loop argument | Falls back to the `connected` rung; needs an org |
+
+### 6.10 `PolicyPlugin` — the interface custom policies implement
+
+§6.9 specifies four policies. This section specifies the **interface** they implement, and the reason it exists is that the SDK must not know about those four.
+
+Custom policies already exist in the wild. §6.4's own `simulate()` output shows `acme-custom-redaction 0.2.0 (WASM)` sitting alongside the stock set — a customer policy this project will never see. If the SDK hard-codes §6.9's four into `transport.py` and `errors.py`, then every customer with their own PDK policy is locked out of header emission, typed rejections, drift verification, and local simulation, and the four become a permanent maintenance tax on `core/`. One extension point costs less than four special cases and serves an unbounded set.
+
+#### 6.10.1 The protocol
+
+A plugin teaches the SDK three things about one policy: what to send, how to read its rejection, and how to declare it. Every method is optional — a plugin that only classifies errors is a legitimate plugin.
+
+```python
+# src/agent_fabric/policies/base.py — framework-free (§1.1)
+
+@dataclass(frozen=True)
+class PolicyRef:
+    asset_id: str                       # Exchange assetId, e.g. "agent-run-attestation"
+    versions: str                       # range this plugin speaks, e.g. ">=1.0,<2.0"
+    group_id: str | None = None         # None = the stock-policy org
+
+Surface = Literal["llm", "mcp", "a2a", "control_plane"]
+
+@dataclass(frozen=True)
+class RequestContext:
+    cfg: FabricConfig
+    run: RunContext                     # run_id, parent_run_id, step, depth (§6.9.2)
+    surface: Surface
+
+class PolicyPlugin(Protocol):
+    ref: PolicyRef
+    surfaces: frozenset[Surface]        # where this policy applies; nothing else calls it
+    portability: Literal["both", "connected_only"]   # feeds the §6.4 table
+
+    def contribute_headers(self, ctx: RequestContext) -> Mapping[str, str]:
+        """Request headers this policy needs. Called per request, on the hot path —
+        keep it pure, synchronous, and allocation-light. MUST NOT do I/O."""
+
+    def classify(self, response: httpx.Response) -> FabricError | None:
+        """This policy's rejection -> a typed exception, or None for 'not mine'.
+        None is the ONLY way to decline. A plugin cannot turn a rejection into a
+        success (§6.10.4)."""
+
+    def validate_config(self, config: Mapping[str, object]) -> None:
+        """Raise ConfigError on an invalid PolicyBinding config, at construction
+        time rather than at apply time. Also drives `agent-fabric lint` (§5.3)."""
+
+    def export_fragment(self, binding: PolicyBinding) -> Mapping[str, object]:
+        """The `policies[]` entry this binding compiles to in fabric.yaml
+        (§5.1), used by Governance.export() (§6.3)."""
+
+    def simulate_fragment(self, binding: PolicyBinding) -> Mapping[str, object] | None:
+        """Declarative Local Mode config, or None meaning connected-only — which
+        is what puts the policy in simulate()'s non-suppressible SKIPPED report
+        (§6.4). Returning a fragment for a connected-only policy is a bug that
+        makes a developer trust a green local run."""
+```
+
+`PolicyBinding` is unchanged from §6.2. What changes is that constructing one now looks for a plugin matching its `assetId` and calls `validate_config`, so a typo in a policy config fails on the developer's laptop instead of in the CI apply step.
+
+#### 6.10.2 Discovery is automatic; activation is not
+
+Plugins are found through the `agent_fabric.policies` entry-point group, so a companion package registers itself by being installed and this SDK never depends on it.
+
+**Discovery does not imply activation.** Auto-loading an installed package that can inject headers into every governed request and intercept error classification is a supply-chain hole, and this plan is already careful about exactly that class of risk in §7.10.3. So a discovered plugin is inert until it is named:
+
+```toml
+# .agent-fabric.toml — committed, reviewable
+[policies]
+enabled = ["agent-run-attestation", "acme-pii-redaction"]
+```
+
+Also accept `Fabric(policies=[...])` for programmatic use and tests. Discovered-but-not-enabled plugins are logged once at INFO with the line needed to enable them — discoverable, not silent, not automatic.
+
+Three determinism rules, all enforced at `Fabric` construction and never at request time:
+
+- **Ordering is explicit.** Plugins run in the order listed in `enabled`. Never rely on entry-point iteration order.
+- **Header collisions are fatal.** A plugin may not write a header another plugin or the core set (§2.3) already writes. Raise `ConfigError` naming both plugins at startup. Silent last-writer-wins on an attribution header is a bug nobody will find.
+- **Version mismatch is fatal.** If a plugin's `ref.versions` does not cover the version `resolve()` reports as applied on the gateway, that is `GovernanceDrift` (§6.3), not a warning. A v1 client signing for a v2 policy fails every request; better to fail at startup with the reason.
+
+#### 6.10.3 Where the SDK calls it
+
+Five hooks, five existing call sites. No new machinery.
+
+| Hook | Call site | Notes |
+|---|---|---|
+| `contribute_headers` | `_apply_base_headers`, both transports (§2.3) | After core headers; collision-checked at startup, not here |
+| `classify` | `errors.classify()` (§2.4) | Plugins first, in order; built-in table is the fallback |
+| `validate_config` | `PolicyBinding.__init__`, `agent-fabric lint` (§5.3) | Fails on the laptop, not in CI |
+| `export_fragment` | `Governance.export()` (§6.3) | Compiles to the §5.1 spec format |
+| `simulate_fragment` | `Governance.simulate()` (§6.5) | `None` → the §6.4 SKIPPED report |
+
+`classify()` inverting to plugins-first is the one behavioural change to shipped code, and it is what §6.9.4 needs: the envelope parser is just a plugin that returns `None` when the response carries no envelope, leaving today's verified heuristic table (§4) untouched as the fallback. Both paths keep working, forever, on an instance with no companion policies at all.
+
+#### 6.10.4 A plugin must not be able to break a governed call
+
+This is the part to get right, because a governance SDK whose extension point can silently disable governance is worse than one with no extension point.
+
+- **A plugin cannot suppress a rejection.** `classify` returning `None` means "not mine" and falls through. There is no return value meaning "treat this 403 as success". If a plugin raises, log it and fall through to the built-in table — never swallow the response.
+- **A plugin cannot make a call ungoverned.** `contribute_headers` adds; it cannot remove or overwrite core headers. The core set in §2.3 is written last and wins by construction.
+- **No I/O on the request path.** `contribute_headers` is synchronous and pure. A plugin needing remote data fetches it at construction and caches it; the alternative is a policy plugin adding a network round-trip to every model call.
+- **Failure is loud and early.** Every validation above happens at `Fabric` construction. Nothing about plugin resolution may fail for the first time on request number four hundred.
+- **Zero plugins is a supported, tested configuration.** The base test job (working instruction #9) runs with none installed.
+
+**A plugin is not an approval.** §5.4's allow-list catalog is what says a policy may be applied to a shared gateway, and it is owned by the platform team in a different repo. Installing a plugin only teaches the SDK to *speak* to a policy; if the policy is not in the allow-list, `agent-fabric apply` still refuses. Keep those two mechanisms visibly separate — conflating them hands the app team the platform team's job, which is precisely the failure §5.4 exists to prevent.
+
+#### 6.10.5 `agent-fabric policy` — scaffolding, not authoring
+
+The interface above creates a synchronisation problem: a custom policy now has three artifacts that must agree — the PDK config schema on the gateway, the plugin's `validate_config`, and the `fabric.yaml` fragment. Hand-maintaining three copies of one schema guarantees drift.
+
+```
+$ agent-fabric policy new acme-pii-redaction --surface llm
+  created  policies/acme-pii-redaction/policy.yaml       # one declaration: config schema + metadata
+  created  policies/acme-pii-redaction/plugin.py         # PolicyPlugin stub, schema generated
+  created  policies/acme-pii-redaction/test_plugin.py    # the §8.1 plugin scenarios, parametrised
+  created  policies/acme-pii-redaction/pdk/              # PDK project skeleton + generated JSON schema
+  next     implement the Rust handler in pdk/src/lib.rs — the SDK does not generate policy logic (§0.2)
+```
+
+One declaration, three generated artifacts, and the last line of output states the boundary. **This does not author policy logic** — §0.2 stands, the Rust handler body is written by a human. What is generated is the schema in three representations and the client-side plumbing, which is exactly the mechanical part.
+
+The scaffold lands in the **user's** working directory, which is where the §6.9.1 "no Rust in this repository" rule and a generator that emits a `pdk/` skeleton stop contradicting each other: this repo ships the generator and its templates, never a compiled policy. A team may keep the generated `pdk/` beside their plugin or move it to a dedicated policy repo; `policy check` works either way, because it reads the deployed schema from the control plane rather than from the neighbouring directory.
+
+```
+$ agent-fabric policy check --target sandbox
+  ✓ acme-pii-redaction 0.2.0   plugin schema matches the deployed policy
+  ✗ agent-run-attestation 1.1.0  plugin declares maxTokenAgeSeconds; gateway does not
+```
+
+`check` is grounded in something already verified: `api-mgr:policy:describe <interface> --policyVersion <v> -o json` returns the policy's `configuration[]` (§4), so the deployed schema is readable and diffable against the plugin's declared one. That turns "the policy was upgraded and nobody told the SDK team" from a production incident into a CI failure. Wire it into `agent-fabric lint` (§5.3) and run it on the schedule that already runs `agent-fabric drift` (§5.2).
+
+#### 6.10.6 Scope
+
+In: the protocol, discovery and activation, the five call sites, the safety rules, `policy new` / `policy check`. Ships with §6.9's four as the first four plugins — in `policies/`, **not** in `core/`, so the import-linter rule (§1.1) keeps them out of the framework-free layer and proves the extension point is real rather than a facade over four hard-coded cases.
+
+Out: policy logic (§0.2), a Python→WASM compiler (§0.2), and any runtime path that applies a policy (§5.4, working instruction #11).
 
 ---
 
@@ -1760,6 +1909,10 @@ CONFORMANCE_SCENARIOS = [
     "attestation_step_increments", # step/depth advance across a run's model + tool calls
     "attestation_chain_preserved", # A2A delegation continues parent_run_id, no new root
     "error_envelope_preferred",    # §6.9.4 envelope parsed when present, heuristic when not
+    "no_plugins_is_supported",     # §6.10.4 zero plugins installed -> full base behaviour
+    "plugin_cannot_suppress",      # a plugin returning None/raising still yields PolicyViolation
+    "plugin_header_collision",     # two plugins claiming one header -> ConfigError at startup
+    "plugin_version_drift",        # plugin range excludes the applied version -> GovernanceDrift
 ]
 ```
 
@@ -1804,7 +1957,7 @@ Pin floors, not ceilings, in `pyproject.toml`. Never `<` pin a framework — it 
 | **M1 — Model access** | `core` complete. `llm` client + catalog. Adapters for Tier 1 (LangGraph, ADK, Strands, Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI). Conformance kit. `lint` command. Docs site skeleton. **First public release, 0.1.0.** | 4 weeks |
 | **M2 — Tool access** | `registry` + `tools` + `ToolSet`. Bindings for all eight. Lockfile. A2A agent handles. LlamaIndex (Tier 2) adapter. Governed-only discovery, name/glob `search` + filters, and `explain()` (§6.1). **0.2.0.** | 6 weeks |
 | **M2.5 — Governance object** | `Governance`, `GatewayTarget`, target profiles, `resolve()` with drift detection, policy portability table, `simulate()` across all three fidelity rungs incl. the self-managed Connected Mode local gateway and its dev-instance lifecycle (§6.2–§6.6, §6.8). **0.3.0.** | 5 weeks |
-| **M2.6 — Attestation (client half)** | `core/attestation.py`, header emission in both transports, step/depth counters, `parent_run_id` on `run_context()`, envelope-aware `classify()`, the four §8.1 attestation scenarios (§6.9.2–§6.9.4). **Off the critical path** — see below. **0.3.2.** | 2 weeks |
+| **M2.6 — Policy interface** | `policies/`: the `PolicyPlugin` protocol, discovery + activation, the five call sites, plugin-first `classify()`, `agent-fabric policy new\|check` (§6.10). Then the client half of §6.9: canonical JSON + HMAC codec, header emission in both transports, step/depth counters, `parent_run_id` on `run_context()`, and the four §6.9 policies as the first four plugins. **0.3.2.** | 3 weeks |
 | **M2.7 — Publication** | `Publication`, `preview()`, `verify()` with drift diff, digest + `--if-changed`, collision check, `agent-fabric status` (§7). **0.3.5.** | 3 weeks |
 | **M2.8 — Derivation** | Per-framework descriptor adapters (§7.3.1), `auto` / `auto:live` / `auto:static` / `auto:check`, cross-check, quality report, asset detection + `agent-fabric init` (§7.8). **0.3.8.** | 4 weeks |
 | **M2.9 — Fleet scanning** | `agent-fabric scan` (single repo, non-interactive), coverage report, fleet enumeration, autonomy tiers, `propose` PRs, cross-repo dedupe, scheduled re-scan (§7.10). **0.3.9.** | 3 weeks |
@@ -1814,7 +1967,9 @@ Pin floors, not ceilings, in `pyproject.toml`. Never `<` pin a framework — it 
 
 `export()` — for both the governance and publication objects — lands with M4, since it emits the M4 spec format. Ship M2.5 and M2.7 with their local and runtime verbs only, and document `export()` as coming.
 
-**M2.6 is deliberately fenced.** It is the SDK's half of the §6.9 contract only, it depends on the companion policy repo existing and on §6.9.7 being answered, and it is excluded from the total below — a milestone that blocks on a different team's Rust has no business sitting on this plan's critical path. What is *not* fenced is the one-line version: emit a plain `x-agent-run-id` header in M1 so a platform team can point the stock `llm-token-rate-limit` `keySelector` at it and get run-scoped budgets with no custom policy at all (§6.9.2). Do that in M1 regardless of whether M2.6 is ever funded.
+**M2.6 splits into two halves with very different dependencies, and only one of them is fenced.** The `PolicyPlugin` interface (§6.10) depends on nothing outside this repo, is worth building for customers who already have their own PDK policies — §6.4's `acme-custom-redaction` is not hypothetical — and is the thing that keeps `core/` from accreting special cases. Build it. The four builtin plugins are the SDK's half of the §6.9 contract: they depend on the companion policy repo existing and on §6.9.7 being answered, so they are excluded from the total below. A deliverable that blocks on a different team's Rust has no business on this plan's critical path.
+
+What is fenced off from both is the one-line version: emit a plain `x-agent-run-id` header in M1 so a platform team can point the stock `llm-token-rate-limit` `keySelector` at it and get run-scoped budgets with no custom policy and no plugin at all (§6.9.2). Do that in M1 regardless of whether the rest of M2.6 is ever funded.
 
 Roughly ten to eleven months for two engineers, up from six. M2.9 depends entirely on M2.8 — a scanner is only as good as the derivation underneath it — but its coverage report (§7.10.7) is read-only and needs no write path, so that one piece can ship alongside M2.7 as a platform-team on-ramp. M2.8 is the single highest-leverage block in the plan after M1 — it is what makes the catalog self-maintaining instead of self-rotting — but it is also the block most exposed to upstream framework churn, so it needs the nightly matrix in place before it starts. Ship M1 publicly rather than waiting — the LLM proxy adapters are useful alone, and early feedback will reorder M2–M4.
 
@@ -1850,6 +2005,11 @@ Link it from the README above the fold. Enterprise buyers will ask; having the a
 | A2A delegation cycle (A→B→A) with no depth guard | Medium | Medium — unbounded spend, no client-side fix | Client-side depth counting is defeated by the first non-SDK participant. `maxDepth` in §6.9.3 is the only real guard. |
 | Companion policy contract drifts from the SDK's emitted header | Medium | High — every governed call rejects at once | Versioned wire format (`v1.…`), compat matrix in the companion repo, SDK tolerates the previous major, `observe` mode default (§6.9.1, §6.9.6). |
 | Custom policies do not actually run in Local Mode as §6.4 claims | Medium | Medium — kills the §6.9.6 local dev-loop argument | M0 gate (§6.9.7). Falls back to the `connected` rung, which needs an org. |
+| **A third-party policy plugin weakens governance** — suppresses a rejection, overwrites an attribution header | Medium | **High — the extension point disables the product** | `classify` can only decline, never succeed; core headers written last and win; collisions fatal at startup; conformance `plugin_cannot_suppress` (§6.10.4). |
+| Auto-loaded plugin becomes a supply-chain vector | Medium | High — installed code injecting headers into every governed call | Discovery is automatic, **activation is not**: inert until named in a committed `.agent-fabric.toml` (§6.10.2). |
+| Policy plugin mistaken for policy approval | Medium | High — reviewer concludes the §5.4 allow-list is bypassable | Separate files, separate owners, stated in §5.4 and §6.10.4; `apply` refuses a non-allow-listed policy regardless of plugins. |
+| Policy config schema drifts from the plugin after a gateway upgrade | High over time | Medium — every apply fails, cause non-obvious | `agent-fabric policy check` diffs the plugin schema against `api-mgr:policy:describe` output; wired into `lint` and the scheduled drift run (§6.10.5). |
+| The plugin interface is a facade over four hard-coded policies | Medium | Medium — customers with their own PDK policies stay locked out | The four §6.9 policies ship **as plugins in `policies/`**, under the same import-linter rule as any third party (§6.10.6). |
 | Framework churn breaks adapters | Certain | Medium | Nightly matrix (§8.4). Native-object design (§3.1) minimises blast radius. |
 | Anthropic-native proxy route unavailable | Medium | Medium — Anthropic adapter cannot reach a working upstream | M0 gate (§3.3). One-time `UnverifiedValueWarning`; `base_url` overridable; the seven other adapters are unaffected. |
 | CrewAI/ADK LiteLLM transport blocks per-run correlation | Certain | Low | Documented, asserted conformance exemption (§8.1); LiteLLM logger callback may recover it later. |
@@ -1897,3 +2057,4 @@ Link it from the README above the fold. Enterprise buyers will ask; having the a
 9. **Optional extras are genuinely optional.** CI must include a job that installs only the base package and runs the base test suite, to catch accidental top-level framework imports.
 10. **When a framework's idiom conflicts with SDK consistency, the framework wins.** Users came from the framework, not from us.
 11. **Nothing in the runtime path mutates shared state.** `resolve()` and `verify()` read. `simulate()` touches only ephemeral local resources. Every mutation of a gateway or the catalog happens in CI, from a reviewed spec, under platform-controlled credentials. If you find yourself writing a network call that creates or updates a control-plane or Exchange resource outside `provisioning/`, stop — it is in the wrong module.
+12. **An extension point may add governance, never remove it.** The `PolicyPlugin` interface (§6.10) exists so `core/` does not accrete a special case per custom policy. It is not a hook for changing what the SDK enforces. A plugin can contribute a header, type a rejection, validate a config; it cannot overwrite a core header, cannot turn a rejection into a success, and cannot do I/O on the request path. If you find yourself adding a plugin return value that means "allow this," stop — you are building a governance bypass with a plugin API on the front of it.
