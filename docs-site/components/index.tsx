@@ -9,6 +9,12 @@ import NextImage from 'next/image'
  * replace it and cover the other repeated patterns (hero, status pills,
  * diagrams). Styles live in ../styles/globals.css. */
 
+// GitHub Pages serves the site under a project sub-path (e.g. /agent-fabric-sdk).
+// next/link auto-prepends basePath, but next/image's unoptimized loader does not
+// apply it to /public assets — so <Figure> prefixes root-absolute srcs itself.
+// Empty locally and on a custom domain, so it's a no-op there.
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+
 type Tone = 'live' | 'roadmap' | 'neutral' | 'accent'
 
 export function Badge({
@@ -126,10 +132,11 @@ export function Figure({
   height: number
   priority?: boolean
 }) {
+  const resolvedSrc = src.startsWith('/') ? `${BASE_PATH}${src}` : src
   return (
     <figure className="af-figure">
       <NextImage
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         width={width}
         height={height}
