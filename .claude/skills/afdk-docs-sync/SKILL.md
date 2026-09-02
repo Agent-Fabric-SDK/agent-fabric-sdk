@@ -62,7 +62,7 @@ tree and the real `docs-site/pages/` tree, not guessed.
 | `docs/unsupported-boundary.md` | `docs-site/pages/reference/unsupported-boundary.mdx` | That page explicitly defers to the repo file as the authoritative, maintained list — keep them in lockstep. |
 | `docs/verified-apis.md` (status legend, any row flipping status) | `docs-site/pages/concepts/verification.mdx` + `docs-site/pages/reference/unsupported-boundary.mdx` | Both pages assert specific verification claims (live-verified LLM data plane, attribution, rejection shapes) that must track the real status table. |
 | `README.md` (install steps, Status section, extras) | `docs-site/pages/quickstart.mdx`, `docs-site/pages/index.mdx` | The README's install/quickstart narrative and the site's landing/quickstart pages must not diverge on install command, extras, or verified-status claims. |
-| `agent-fabric-sdk-build-plan.md` (any §N.N a docs page cites) | whichever page cites that §N.N | Pages cite build-plan sections as authority (e.g. `verification.mdx` → §0.3, `errors.mdx` → the rejection-shape sections); if the cited section's content changes meaning, the citing page is now wrong even if no code changed. |
+| `spec/agent-fabric-sdk-build-plan.md` (any §N.N a docs page cites) | whichever page cites that §N.N | Pages cite build-plan sections as authority (e.g. `verification.mdx` → §0.3, `errors.mdx` → the rejection-shape sections); if the cited section's content changes meaning, the citing page is now wrong even if no code changed. |
 
 If a PR touches a surface not on this list but you suspect a docs implication
 (new public API, new env var, new CLI flag), default to surfacing it — the
