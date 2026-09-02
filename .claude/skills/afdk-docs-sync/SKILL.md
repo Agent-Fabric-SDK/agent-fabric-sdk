@@ -91,7 +91,7 @@ PR (or record the divergence as an intentional decision).
 
 The **install + env-var Configure block** and each framework's **manual-equivalent
 snippet** are intentionally duplicated between the canonical docs page and the
-`python/examples/<fw>/README.md` files (and the `examples-demos/README.md`
+`python/examples/<fw>/README.md` files (and the `demos/README.md`
 harness): the docs page is for *reading*, the example README is for *running it
 in place* (CONTRIBUTING.md §4). Nothing enforces the correspondence, so it is a
 **manual-sync drift risk**.
@@ -99,7 +99,7 @@ in place* (CONTRIBUTING.md §4). Nothing enforces the correspondence, so it is a
 | Code / doc surface | Canonical (source of truth) | Paired copy to reconcile |
 | --- | --- | --- |
 | `integrations/<fw>.py` construction snippet | `docs-site/pages/frameworks/<fw>.mdx` | `python/examples/<fw>/README.md` "manual equivalent" |
-| install command / env-var names (`core/config.py`, extras in `pyproject.toml`) | `docs-site/pages/quickstart.mdx` (+ `reference/configuration.mdx`) | every `python/examples/<fw>/README.md` "Run" block + `examples-demos/README.md` "Setup" |
+| install command / env-var names (`core/config.py`, extras in `pyproject.toml`) | `docs-site/pages/quickstart.mdx` (+ `reference/configuration.mdx`) | every `python/examples/<fw>/README.md` "Run" block + `demos/README.md` "Setup" |
 
 When you change an install command, an env-var name, or a framework's
 construction snippet, update the canonical docs page **and** the paired example

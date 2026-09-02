@@ -56,6 +56,11 @@ real completion list.
 
 ## Setup
 
+> The canonical install + configure walkthrough is on the docs site —
+> **[Quickstart](https://agent-fabric-sdk.github.io/agent-fabric-sdk/quickstart)**.
+> The setup below is the demo-harness variant (repo-root paths, `DEMO_MODEL`); the
+> docs page is the source of truth for the install command and env-var names.
+
 ```bash
 # From the repo root. Editable install is preferred; the demos also fall back to
 # a dev path shim (_paths.py) so they run straight from a checkout.
