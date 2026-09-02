@@ -26,6 +26,9 @@ node_modules/
 # OS
 .DS_Store
 
+# Editors
+.vscode/
+
 # Local fabric config (secrets / dev creds — never commit)
 .agent-fabric.local.toml
 fabric.lock.local
