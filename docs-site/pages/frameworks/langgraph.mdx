@@ -118,7 +118,7 @@ you can always drop the factory and construct `ChatOpenAI` by hand.
 > the SDK's transport (retries, correlation IDs) both reach every request.
 
 > `max_retries=0` is intentional — retry logic lives in the SDK's transport
-> layer (§2.3), not in the OpenAI client, so the two don't double-retry.
+> layer, not in the OpenAI client, so the two don't double-retry.
 
 The proxy is OpenAI-compatible but is **not** a full OpenAI API surface: there
 is no `/v1` prefix on the base URL and no `/models` endpoint, and auth is a

@@ -136,7 +136,7 @@ control plane — anything control-plane-dependent is unavailable locally.
 | Control-plane analytics, token usage reporting | no | yes |
 
 If LLM Proxy and MCP Bridge turn out to be Connected-Mode-only — the single
-most important thing M0 has to confirm — `simulate()` still validates routing,
+most important thing verification has to confirm — `simulate()` still validates routing,
 auth, rate limiting, custom policies, and request/response shape. Real value
 for the dev loop. But LLM traffic is served by a **local mock proxy** the SDK
 ships: an OpenAI-compatible stub that replays fixtures and simulates policy
@@ -205,11 +205,6 @@ gateway logs, so a test can assert a policy actually fired.
   `simulate()` at all) is a verification item — see
   [Verification policy](/concepts/verification).
 </Callout>
-
-Design details worth knowing: port allocation is dynamic so parallel test
-workers don't collide; the fixture prefers config hot-reload over container
-restart between test cases; and it's gated behind a `@pytest.mark.local_gateway`
-marker that's off by default, not run in plain unit tests.
 
 ## MCP servers written in Python or TypeScript
 

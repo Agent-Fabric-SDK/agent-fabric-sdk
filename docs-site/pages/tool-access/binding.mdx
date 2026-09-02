@@ -49,10 +49,10 @@ filtered = tools.filter(predicate=lambda t: t.name.startswith("get_"))
 |---|---|
 | LangGraph | `langchain_mcp_adapters.client.MultiServerMCPClient({...}).get_tools()` — the SDK builds the connection dict from your handles, transport `"streamable_http"`, headers injected. |
 | Google ADK | `McpToolset(connection_params=StreamableHTTPConnectionParams(url=..., headers=...), tool_filter=[...])`, passed straight into `LlmAgent(tools=[...])`. |
-| MS Agent Framework | its MCP client/tool class for streamable HTTP (name pending live verification — §9); the framework's own docs reference hosted MCP tools and MCP clients for tool integration. |
-| OpenAI Agents SDK | `agents.mcp.MCPServerStreamableHttp(params={"url": ..., "headers": ...})`, passed into `Agent(mcp_servers=[...])` (pending live verification — §9). |
-| Anthropic SDK | no native client-side MCP binding in the `anthropic` SDK itself; bind via the MCP Python SDK's streamable-HTTP client and pass the resulting tool schemas to `messages.create(tools=...)` (pending live verification — §9). |
-| CrewAI | its MCP adapter for streamable-HTTP servers (name pending live verification — §9), yielding native `crewai` tool objects for a `Crew`/`Agent`. |
+| MS Agent Framework | its MCP client/tool class for streamable HTTP (name pending live verification); the framework's own docs reference hosted MCP tools and MCP clients for tool integration. |
+| OpenAI Agents SDK | `agents.mcp.MCPServerStreamableHttp(params={"url": ..., "headers": ...})`, passed into `Agent(mcp_servers=[...])` (pending live verification). |
+| Anthropic SDK | no native client-side MCP binding in the `anthropic` SDK itself; bind via the MCP Python SDK's streamable-HTTP client and pass the resulting tool schemas to `messages.create(tools=...)` (pending live verification). |
+| CrewAI | its MCP adapter for streamable-HTTP servers (name pending live verification), yielding native `crewai` tool objects for a `Crew`/`Agent`. |
 | LlamaIndex | `llama_index.tools.mcp.BasicMCPClient` + `McpToolSpec(...).to_tool_list_async()`. |
 | Strands | `MCPClient(lambda: streamablehttp_client(url, headers=...))` — implements `ToolProvider`, so it can be passed directly into `Agent(tools=[...])` with automatic lifecycle management. |
 

@@ -175,7 +175,7 @@ curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
 What is **not** yet unblocked — and why the SDK raises a clear error instead of
 guessing — is covered honestly on the [Verification policy](/concepts/verification)
 page. In short: Pillar 2, Pillar 3, and the exact framework *constructor
-signatures* (§8) still need live confirmation, and code paths that depend on an
+signatures* still need live confirmation, and code paths that depend on an
 unverified endpoint, header, or class name raise
 `NotImplementedError("blocked on verification: …")` rather than fabricate one.
 
