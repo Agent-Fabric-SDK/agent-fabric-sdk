@@ -32,11 +32,14 @@ class OpenAIAgentsAdapter(Adapter):
         conn = self._openai_connection()
         from openai import AsyncOpenAI
 
+        # openai 3.x retyped http_client to httpx2.AsyncClient (a distinct class from a
+        # separate distribution); our FabricAsyncClient is an httpx subclass, duck-typed
+        # at runtime. Typecheck-only mismatch — docs/verified-apis.md (openai >=3.0 row).
         return AsyncOpenAI(
             base_url=conn["base_url"],
             api_key=conn["api_key"],
             default_headers=conn["default_headers"],
-            http_client=self._http_client(),
+            http_client=self._http_client(),  # type: ignore[arg-type]
             max_retries=0,  # we retry in transport (§2.3)
         )
 

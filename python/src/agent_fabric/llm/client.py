@@ -96,9 +96,13 @@ class LLMClient:
             "max_retries": 0,  # we retry in transport (§2.3)
             **kw,
         }
+        # openai 3.x retyped http_client to httpx2.AsyncClient (a distinct class from
+        # a separate distribution); our FabricClient/FabricAsyncClient are httpx
+        # subclasses, duck-typed fine at runtime. Typecheck-only mismatch — see
+        # docs/verified-apis.md (openai >=3.0 row); no upper pin, by design (§8.4).
         if sync:
-            return OpenAI(http_client=self._sync_http(), **shared)
-        return AsyncOpenAI(http_client=self._http, **shared)
+            return OpenAI(http_client=self._sync_http(), **shared)  # type: ignore[arg-type]
+        return AsyncOpenAI(http_client=self._http, **shared)  # type: ignore[arg-type]
 
     async def list_models(self, *, live: bool = False) -> list[ModelHandle]:
         """List logical models the proxy exposes.
