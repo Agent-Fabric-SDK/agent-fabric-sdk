@@ -12,8 +12,9 @@ This is the most important thing to understand about the SDK's trustworthiness.
 Every platform fact the SDK relies on is either **verified against a real
 Anypoint sandbox / an installed framework**, or it is **not used** — the code
 path that would need it raises `NotImplementedError("blocked on verification: …")`
-or a clear `ConfigError` instead of guessing. The engineering source of truth is
-[`docs/verified-apis.md`](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/docs/verified-apis.md).
+or a clear `ConfigError` instead of guessing. How each value is confirmed — and
+how a blocked value flips to verified — is documented for contributors in
+[ARCHITECTURE.md → Verification discipline](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/ARCHITECTURE.md#verification-discipline-03).
 
 ## What is verified today
 
@@ -34,34 +35,13 @@ or a clear `ConfigError` instead of guessing. The engineering source of truth is
 | MCP tool discovery + binding (Pillar 2, §9) | Unverified | `fabric.tools.discover` and the binding classes raise `blocked on verification`. |
 | Provisioning control plane (Pillar 3) | Reshaped + unverified | The real flow is CLI + Maven, not REST CRUD; the design is pending, not guessed. |
 | Prompt-injection / content-safety bodies | Not captured | Fall through to a generic `PolicyViolation` — no invented discriminator. |
-| First-party **TypeScript SDK** | Planned (M3) | TypeScript examples reach the proxy over its OpenAI-compatible API via the `openai` / `@anthropic-ai/sdk` clients; no first-party TS package is implied until M3 ships. |
+| First-party **TypeScript SDK** | Planned | TypeScript examples reach the proxy over its OpenAI-compatible API via the `openai` / `@anthropic-ai/sdk` clients; no first-party TS package is implied until it ships. |
 
-## How framework signatures get verified
+## What this means for you
 
-The constructor signatures (§8) are confirmed with an executable harness,
-`python/scripts/verify_frameworks.py`. Per framework it runs:
-
-1. **Signature check (offline).** It constructs the native object via the
-   adapter's factory — importing the exact class we name and passing the exact
-   kwargs. A wrong class path or kwarg raises, and it then confirms the object is
-   an instance of the class imported from its **recorded** path (so a rename or
-   re-export is caught).
-2. **Live round-trip (`--live`).** One real completion through the framework's
-   own call, against the sandbox proxy.
-
-```bash
-cd python
-python scripts/verify_frameworks.py            # signature check
-python scripts/verify_frameworks.py --live      # + a real proxy round-trip
-python scripts/verify_frameworks.py --emit-verified   # prints §8 rows to paste
-```
-
-The [nightly framework matrix](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/.github/workflows/nightly-matrix.yml)
-runs this every night so an upstream framework rename turns CI red **before** it
-reaches you.
-
-<Callout type="info">
-  A signature is only marked verified after the harness is green **and** a
-  maintainer signs off on scope — then the `docs/verified-apis.md` §8 row flips
-  and the code's unverified note is relaxed.
-</Callout>
+As a consumer you don't have to track any of this. Any platform fact the SDK
+hasn't confirmed raises `blocked on verification` rather than guessing, so a
+governed call either works against the verified contract or fails loudly — it
+never silently reaches an unconfirmed endpoint. The mechanism behind that and
+the full verified-versus-blocked ledger are documented for contributors in
+[ARCHITECTURE.md → Verification discipline](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/ARCHITECTURE.md#verification-discipline-03).

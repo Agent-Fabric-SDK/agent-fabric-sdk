@@ -32,10 +32,9 @@ and `project build` invokes a bundled JVM toolchain (`./mvnw`).
 
 That means the SDK's declarative `fabric.yaml` plan/apply will either **wrap
 this CLI/Maven toolchain** or **emit its project layout** — it will not invent
-a REST provisioning API. The exact REST calls behind the CLI are recorded
-(from static analysis of the official plugin) but need live confirmation
-before any guard is removed. See
-[`docs/verified-apis.md` §12](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/docs/verified-apis.md).
+a REST provisioning API. The exact REST calls behind the CLI are recorded but
+need live confirmation before any guard is removed — see
+[Verification policy](/concepts/verification).
 
 ## One schema, three producers
 
@@ -70,8 +69,8 @@ intact, because it's a local OAS/RAML transform, not a control-plane call.
 - `Governance.export()` and `Publication.export()` emitting fragments of this
   same spec.
 
-Target milestone: **M4 (0.5.0)** — with a possible Terraform-generation pivot
-depending on live verification.
+**Status: planned — not yet shipped**, with a possible Terraform-generation
+pivot depending on live verification.
 
 <CardGrid>
   <Card title="Spec format" href="/provisioning/spec">

@@ -29,8 +29,8 @@ project without touching the centralized ruleset itself.
   SDK.
 </Callout>
 
-Because of that independence, `agent-fabric lint` targets **M1**, well ahead
-of the rest of [provisioning](/provisioning), which targets M4. It also
+Because of that independence, `agent-fabric lint` is planned to ship well ahead
+of the rest of [provisioning](/provisioning). It also
 survives the [Terraform-generation fallback](/provisioning#the-fallback-generate-terraform-instead)
 unchanged if the plan/apply engine ends up cut from v1 — lint has nothing to
 do with how (or whether) the spec gets applied.
