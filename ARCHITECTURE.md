@@ -3,15 +3,15 @@
 This document is the contributor-facing map of how the SDK is built — the layer
 boundaries, the design invariants, and the discipline that keeps the package
 trustworthy. It is a distillation, not the spec: the authoritative specification
-is [`agent-fabric-sdk-build-plan.md`](agent-fabric-sdk-build-plan.md), and every
+is [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md), and every
 `§N.N` reference below points into it. When a rule here feels arbitrary, read the
 cited section — the constraints are deliberate.
 
-For *using* the SDK, see the consumer docs site (`docs-site/`). For *working in*
+For *using* the SDK, see the consumer docs site (`website/`). For *working in*
 the repo — branch/PR flow, testing surfaces, coding conventions — see
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-![Agent Fabric SDK — from your framework, through the SDK's config/native-object/transport/classify stages, to the governed Omni Gateway and upstream model providers.](docs-site/public/img/sdk-architecture.png)
+![Agent Fabric SDK — from your framework, through the SDK's config/native-object/transport/classify stages, to the governed Omni Gateway and upstream model providers.](website/public/img/sdk-architecture.png)
 
 The SDK is a thin, framework-native client for a **governed gateway**. Your agent
 code stays in whatever framework you already use; the SDK's only job is to build
@@ -186,13 +186,13 @@ Anthropic-native Messages API route, an open verification item, §0.3).
 
 ## Related documents
 
-- [`agent-fabric-sdk-build-plan.md`](agent-fabric-sdk-build-plan.md) — the
+- [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md) — the
   authoritative specification; every `§N.N` here points into it.
 - [`docs/verified-apis.md`](docs/verified-apis.md) — the §0.3 verification ledger
   (source of truth for what is verified vs. blocked).
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch/PR/release flow, testing surfaces,
   coding conventions.
-- `docs-site/` — the consumer "how to use the SDK" documentation.
+- `website/` — the consumer "how to use the SDK" documentation.
 
 ---
 

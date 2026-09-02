@@ -19,6 +19,12 @@ route** is an open M0 verification item. Until confirmed, `client()` emits a
 one-time warning and no live call is made. Once a real route is confirmed,
 override `base_url` if needed.
 
+> 📖 **Prefer reading to running?** The canonical walkthrough — install,
+> configure, and the manual equivalent — is in the docs:
+> **[Anthropic SDK](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/anthropic)**.
+> This README duplicates the runnable essentials on purpose so you can run it in
+> place; if the two ever differ, the docs page is canonical.
+
 ## Run
 
 ```bash

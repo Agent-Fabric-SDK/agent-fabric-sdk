@@ -7,7 +7,7 @@ tested and linted, and the conventions that keep the package trustworthy.
 For *how the SDK is built* — the layer boundaries, the verification discipline,
 the error taxonomy, the framework tiers — read [`ARCHITECTURE.md`](ARCHITECTURE.md)
 first; this guide assumes it. The authoritative specification behind both is
-[`agent-fabric-sdk-build-plan.md`](agent-fabric-sdk-build-plan.md), and every
+[`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md), and every
 `§N.N` reference in this repo points into it — when a rule here feels arbitrary,
 read the cited section.
 
@@ -36,7 +36,7 @@ scratch files.
 
 The one exception: edits scoped **entirely** to `.claude/skills/**` may be
 committed directly to `develop` after a recap, since skills are agent tooling
-rather than SDK code. Anything touching `python/`, `docs-site/`, CI, the build
+rather than SDK code. Anything touching `python/`, `website/`, CI, the build
 plan, or repo policy follows the full flow below.
 
 ### Branch model
@@ -66,7 +66,7 @@ find yourself on `main` about to start work, `git checkout develop` first.
    ```
    Branch name format is `<type>/<issue#>-<slug>` — the issue number is
    mandatory. `<type>` is one of `feat` (new capability), `fix` (something that
-   should have worked), `docs` (README, docs-site, comments), or `chore`
+   should have worked), `docs` (README, website, comments), or `chore`
    (tooling, deps, refactors). The slug is 2–5 kebab-case words describing *what*
    changes, e.g. `fix/42-proxy-url-trailing-slash`.
 3. **Re-confirm the boundaries before writing code** (see
@@ -315,7 +315,7 @@ Self-review before pushing = the pre-PR gate in §1 (`mypy`, `ruff check .`,
 
 ## 4. Docs-sync rule
 
-`docs-site/` (Nextra) describes how the SDK behaves from a consumer's
+`website/` (Nextra) describes how the SDK behaves from a consumer's
 perspective. When code changes what the SDK does — or which platform facts it
 depends on — the docs must change *with it*, or the drift is discovered by a
 confused adopter instead of at review time. There is no automated drift detector;
@@ -359,11 +359,11 @@ The install + env-var *Configure* block and the per-framework "manual equivalent
 snippet are intentionally duplicated between the consumer docs pages and the
 `python/examples/<fw>/README.md` files: the docs page is for *reading*, the
 example README is for *running it in place*, and that redundancy is a deliberate
-definition-of-done item, not an accident. **The docs-site page is canonical**;
+definition-of-done item, not an accident. **The website page is canonical**;
 the example READMEs cross-link to it. Because nothing enforces this
 correspondence automatically, it is a **manual-sync drift risk**: when you change
 an install command, an env-var name, or a framework's construction snippet in one
-place, update the paired copy in the same PR. When in doubt, treat the docs-site
+place, update the paired copy in the same PR. When in doubt, treat the website
 page as the source of truth and reconcile the example README to it.
 
 ---

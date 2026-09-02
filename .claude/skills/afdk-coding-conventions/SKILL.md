@@ -13,7 +13,7 @@ authoritative contract for *what the code must look like* is split across two
 sources you should keep open:
 
 - **`CLAUDE.md`** (repo root) — the short version of every rule below.
-- **`agent-fabric-sdk-build-plan.md`** (repo root, ~156KB) — the spec.
+- **`spec/agent-fabric-sdk-build-plan.md`** (~156KB) — the spec.
   Every `§N.N` reference in code, docstrings, tests, and commits points into it.
   When a docstring says "blocked on verification (§6.7)" or "floors, never
   ceilings (§8.4)", read that section before changing the behavior — the
@@ -36,7 +36,7 @@ Trigger this skill when about to:
 - Touch `pyproject.toml` extras, mypy, ruff, or the import-linter contracts.
 - Review a PR diff that touches any of the above (see [[afdk-pr-review]]).
 
-If the change is docs-only (`docs-site/**`, `docs/**`, `*.md`), see
+If the change is docs-only (`website/**`, `docs/**`, `*.md`), see
 [[afdk-docs-authoring]] instead. If the change invents or confirms an endpoint,
 header, or class name, [[afdk-verification-discipline]] is the more specific
 rulebook.

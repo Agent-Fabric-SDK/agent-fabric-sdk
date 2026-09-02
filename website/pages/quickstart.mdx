@@ -1,4 +1,5 @@
 import { Callout, Steps, Tabs } from 'nextra/components'
+import OpenAiProxyTs from '../components/openai-proxy-ts.mdx'
 
 # Quickstart
 
@@ -118,28 +119,7 @@ for chunk in stream:
 </Tabs.Tab>
 <Tabs.Tab>
 
-```typescript
-// No first-party Agent Fabric TS SDK yet — but the proxy is OpenAI-compatible,
-// so point the official `openai` npm client at it and you get the same native,
-// typed SDK experience as Python's fabric.llm.client(). Auth is the
-// client_id / client_secret header pair (not a bearer token).
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // ends in "/", note: no /v1
-  apiKey: "unused",                              // required slot; proxy uses the headers below
-  defaultHeaders: {
-    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
-  },
-});
-
-const reply = await client.chat.completions.create({
-  model: "gpt-4o",
-  messages: [{ role: "user", content: "Say hi in three words." }],
-});
-console.log(reply.choices[0].message.content);
-```
+<OpenAiProxyTs />
 
 The same base URL + headers drop into any OpenAI-compatible TS SDK — LangChain.js
 `ChatOpenAI`, the Vercel AI SDK, or the OpenAI Agents SDK for JS — giving you a

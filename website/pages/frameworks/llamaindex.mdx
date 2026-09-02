@@ -1,4 +1,6 @@
 import { Tabs } from 'nextra/components'
+import OpenAiProxyTs from '../../components/openai-proxy-ts.mdx'
+import AdapterErrorTaxonomyNote from '../../components/adapter-error-taxonomy-note.mdx'
 
 # LlamaIndex — governed model access
 
@@ -37,24 +39,7 @@ There's no first-party Agent Fabric TypeScript SDK yet (it's on the
 official `openai` npm client at it — the same base URL and
 `client_id`/`client_secret` headers also drop into **LlamaIndex.TS**.
 
-```typescript
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
-  apiKey: "unused",                              // required slot; proxy uses the headers below
-  defaultHeaders: {
-    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
-  },
-});
-
-const reply = await client.chat.completions.create({
-  model: "gpt-4o",
-  messages: [{ role: "user", content: "Say hi in three words." }],
-});
-console.log(reply.choices[0].message.content);
-```
+<OpenAiProxyTs />
 
 </Tabs.Tab>
 </Tabs>
@@ -117,6 +102,4 @@ model = OpenAILike(
 > LlamaIndex uses `api_base` rather than `base_url` for its endpoint kwarg;
 > `connection_kwargs()` already translates for you.
 
-See the [error taxonomy](/errors) for how proxy rejections surface as typed
-exceptions, and the [verification policy](/concepts/verification) page for
-the current status of every constructor signature this adapter depends on.
+<AdapterErrorTaxonomyNote />

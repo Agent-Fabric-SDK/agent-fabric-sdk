@@ -9,7 +9,7 @@ description: Use when reviewing an agent-fabric-sdk pull request — checks this
 
 `agent-fabric` (import package `agent_fabric`) rests on a small set of
 architectural invariants documented in `CLAUDE.md` and the build plan
-(`agent-fabric-sdk-build-plan.md`, the authoritative spec — every `§N.N`
+(`spec/agent-fabric-sdk-build-plan.md`, the authoritative spec — every `§N.N`
 points into it). Most are easy to violate in a way that passes a casual read but
 breaks the layered/framework-free-core rule, invents an unverified endpoint, or
 misclassifies a gateway rejection. This skill is the review-time checklist for
@@ -134,7 +134,7 @@ constraints**, not encoded as pins. Keep the Python 3.10 floor
 ### 5. §N.N citation hygiene
 
 Every `§N.N` in code, docstrings, tests, and commit messages points into
-`agent-fabric-sdk-build-plan.md`. When the diff adds or moves a citation:
+`spec/agent-fabric-sdk-build-plan.md`. When the diff adds or moves a citation:
 
 - Spot-check that the cited section actually covers the claim — a `§`-cited guard
   must not be removed without reading its section (CLAUDE.md).
