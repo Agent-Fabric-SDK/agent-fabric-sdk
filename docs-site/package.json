@@ -2,7 +2,7 @@
   "name": "agent-fabric-docs",
   "version": "0.1.0",
   "private": true,
-  "description": "Documentation site for the MuleSoft Agent Fabric SDK",
+  "description": "Documentation site for the Agent Fabric SDK",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

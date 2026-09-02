@@ -15,17 +15,17 @@ editor. Both scripts run against a real Anypoint sandbox — nothing is mocked.
 # Dependencies (once)
 pip install -e "python[llm,langgraph]" langgraph langchain
 
-# Credentials — examples-demos/.env.local, git-ignored, loaded by _paths.py
-#   MULESOFT_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET
+# Credentials — demos/.env.local, git-ignored, loaded by _paths.py
+#   AGENT_FABRIC_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET
 
 # Docs site
 cd docs-site && npm install && npm run dev      # http://localhost:3000
 
 # Smoke test everything before recording
-python examples-demos/demo_1_chat_completions.py
-python examples-demos/demo_2_langgraph_agent.py
-python examples-demos/live_1_chat.py
-python examples-demos/live_2_langgraph.py
+python demos/recordings/demo_1_chat_completions.py
+python demos/recordings/demo_2_langgraph_agent.py
+python demos/scratchpads/live_1_chat.py
+python demos/scratchpads/live_2_langgraph.py
 ```
 
 ## Typing it live
@@ -90,7 +90,7 @@ Open `http://localhost:3000`.
 ## Act 2 — Governed `chat.completions`
 
 ```bash
-python examples-demos/demo_1_chat_completions.py
+python demos/recordings/demo_1_chat_completions.py
 ```
 
 Five things print, in order:
@@ -111,7 +111,7 @@ Five things print, in order:
 ## Act 3 — The same governance in LangGraph
 
 ```bash
-python examples-demos/demo_2_langgraph_agent.py
+python demos/recordings/demo_2_langgraph_agent.py
 ```
 
 - **The model** is a genuine `langchain_openai.ChatOpenAI`. Not a wrapper.
@@ -132,6 +132,6 @@ until those APIs are confirmed.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `ConfigError` listing the three env vars | `.env.local` missing or misplaced | It must sit in `examples-demos/` or the repo root |
+| `ConfigError` listing the three env vars | `.env.local` missing or misplaced | It must sit in `demos/` or the repo root |
 | `ImportError` on `langchain.agents` | `langchain` meta-package missing | `pip install langchain` |
 | Docs site on a different port | Port 3000 taken | Next.js prints the real port at startup |

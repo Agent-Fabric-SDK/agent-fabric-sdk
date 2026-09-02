@@ -11,11 +11,10 @@ const config: DocsThemeConfig = {
     </span>
   ),
   project: {
-    // TODO: point at the real repository before publishing (§0.4).
-    link: 'https://github.com/your-org/mulesoft-agent-fabric',
+    link: 'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk',
   },
   docsRepositoryBase:
-    'https://github.com/your-org/mulesoft-agent-fabric/tree/main/docs-site',
+    'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/tree/main/docs-site',
   // Violet accent, close to the reference docs look.
   color: {
     hue: 262,
@@ -28,7 +27,7 @@ const config: DocsThemeConfig = {
       asPath === '/' || !title ? SITE_NAME : `${title} — ${SITE_NAME}`
     const description =
       frontMatter.description ??
-      'An SDK for MuleSoft Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.'
+      'An SDK for Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.'
 
     return (
       <>
@@ -43,7 +42,7 @@ const config: DocsThemeConfig = {
   footer: {
     content: (
       <span>
-        Agent Fabric SDK — an SDK <em>for</em> MuleSoft Agent Fabric. “Agent
+        Agent Fabric SDK — an SDK <em>for</em> Agent Fabric. “Agent
         Fabric”, “Anypoint”, and “Omni Gateway” are Salesforce trademarks; this
         project is descriptive (§0.4).
       </span>

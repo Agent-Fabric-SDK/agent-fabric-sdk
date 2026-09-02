@@ -4,7 +4,7 @@ Tier 1.
 
 **What this shows.** A one-line factory call attempts to build a native
 Agent Framework OpenAI-compatible chat client pointed at the governed
-MuleSoft LLM proxy. The proxy *contract* (base URL, `client_id`/
+Agent Fabric LLM proxy. The proxy *contract* (base URL, `client_id`/
 `client_secret` header auth, attribution headers) is live-verified. The
 chat-client class name/path itself — `agent_framework.openai.OpenAIChatClient`
 — and its base-URL kwarg (`model_id`) are **UNVERIFIED** (§8): Agent
@@ -19,11 +19,11 @@ itself.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[agent_framework]"
+pip install "agent-fabric[agent_framework]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/agent_framework/main.py
 ```
@@ -40,11 +40,11 @@ from agent_framework.openai import OpenAIChatClient
 
 client = OpenAIChatClient(
     model_id="gpt-4o",  # kwarg name UNVERIFIED
-    base_url=MULESOFT_LLM_PROXY_URL,
+    base_url=AGENT_FABRIC_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     default_headers={
-        "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-        "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
     },
 )
 ```

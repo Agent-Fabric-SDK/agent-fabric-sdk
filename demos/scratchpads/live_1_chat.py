@@ -7,13 +7,16 @@ Type this out on camera. Every `.` gives full IntelliSense:
     client.        -> the whole AsyncOpenAI surface (chat, responses, embeddings…)
 
 Drop the `_paths` line if you have already exported the three
-MULESOFT_LLM_PROXY_* variables in your shell.
+AGENT_FABRIC_LLM_PROXY_* variables in your shell.
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 import asyncio
+import sys
+from pathlib import Path
 
-import _paths  # noqa: F401  (loads examples-demos/.env.local into the environment)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
+import _paths  # noqa: F401  (loads demos/.env.local into the environment)
 
 from agent_fabric import Fabric
 

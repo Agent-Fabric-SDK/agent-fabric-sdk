@@ -11,9 +11,9 @@ The three required values for the LLM proxy:
 
 | Env var | Meaning |
 |---|---|
-| `MULESOFT_LLM_PROXY_URL` | Proxy base URL: `https://<ingress-gw>/<instance>/` — **no `/v1`**. |
-| `MULESOFT_LLM_PROXY_CLIENT_ID` | Consumer client id (the per-agent identity). |
-| `MULESOFT_LLM_PROXY_CLIENT_SECRET` | Consumer client secret. |
+| `AGENT_FABRIC_LLM_PROXY_URL` | Proxy base URL: `https://<ingress-gw>/<instance>/` — **no `/v1`**. |
+| `AGENT_FABRIC_LLM_PROXY_CLIENT_ID` | Consumer client id (the per-agent identity). |
+| `AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET` | Consumer client secret. |
 
 <Callout type="info">
   Auth is a `client_id` / `client_secret` **header pair** (consumer auth), **not**
@@ -28,8 +28,8 @@ you fix configuration in a single pass rather than one error per run.
 
 | Env var | Meaning |
 |---|---|
-| `MULESOFT_APP_NAME` | Human-readable app name, surfaced on telemetry. |
-| `MULESOFT_BUSINESS_GROUP` | Business group for attribution. |
+| `AGENT_FABRIC_APP_NAME` | Human-readable app name, surfaced on telemetry. |
+| `AGENT_FABRIC_BUSINESS_GROUP` | Business group for attribution. |
 
 ## Anypoint control plane (used by later pillars)
 

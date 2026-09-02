@@ -3,7 +3,7 @@ import { Tabs } from 'nextra/components'
 # Anthropic SDK — governed model access
 
 The Anthropic SDK gets a governed `AsyncAnthropic` client pointed at the
-MuleSoft LLM proxy, with the SDK's shared transport and verified headers
+Agent Fabric LLM proxy, with the SDK's shared transport and verified headers
 injected directly into the client constructor.
 
 > **Tier 1 — full conformance-gated**, with one important divergence from
@@ -13,7 +13,7 @@ injected directly into the client constructor.
 ## Install
 
 ```bash
-pip install "mulesoft-agent-fabric[anthropic]"
+pip install "agent-fabric[anthropic]"
 ```
 
 ## Quickstart
@@ -54,11 +54,11 @@ needed before relying on this path.
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({
-  baseURL: process.env.MULESOFT_LLM_PROXY_URL,   // UNVERIFIED: needs an Anthropic-native route
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // UNVERIFIED: needs an Anthropic-native route
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -108,7 +108,7 @@ async with Fabric.from_env() as fabric:
 from anthropic import AsyncAnthropic
 
 llm = AsyncAnthropic(
-    base_url=...,          # from MULESOFT_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,          # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,   # client_id / client_secret header pair
     http_client=...,       # the SDK's shared httpx client
@@ -128,7 +128,7 @@ you can always drop the factory and construct `AsyncAnthropic` by hand.
 > therefore takes no model argument at all; you supply the model id yourself
 > on every call.
 
-> **UNVERIFIED: the proxy's Anthropic-native Messages route (open M0 item).**
+> **UNVERIFIED: the proxy's Anthropic-native Messages route.**
 > The governed proxy's contract has been live-verified for its
 > OpenAI-compatible `chat/completions` surface (see the
 > [verification policy](/concepts/verification)); pointing `AsyncAnthropic` at

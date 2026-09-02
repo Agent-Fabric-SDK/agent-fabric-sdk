@@ -43,17 +43,17 @@ class FabricConfig:
     # --- LLM proxy (data plane) — SEPARATE credential from the control plane ---
     # Auth is a client_id/client_secret REQUEST-header pair (client-id-enforcement),
     # LIVE-VERIFIED — docs/verified-apis.md §2/§3. NOT a bearer token.
-    llm_proxy_url: str | None = None            # env: MULESOFT_LLM_PROXY_URL
-    llm_proxy_client_id: str | None = None      # env: MULESOFT_LLM_PROXY_CLIENT_ID
-    llm_proxy_client_secret: str | None = None  # env: MULESOFT_LLM_PROXY_CLIENT_SECRET
+    llm_proxy_url: str | None = None            # env: AGENT_FABRIC_LLM_PROXY_URL
+    llm_proxy_client_id: str | None = None      # env: AGENT_FABRIC_LLM_PROXY_CLIENT_ID
+    llm_proxy_client_secret: str | None = None  # env: AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET
     # Optional: fills the OpenAI SDK's mandatory ``api_key`` slot only. The proxy
     # authenticates on the client_id/secret headers above and ignores the bearer,
     # so this is rarely needed; leave unset to use a sentinel.
-    llm_proxy_key: str | None = None            # env: MULESOFT_LLM_PROXY_KEY
+    llm_proxy_key: str | None = None            # env: AGENT_FABRIC_LLM_PROXY_KEY
 
     # --- Attribution (real header names: see docs/verified-apis.md §3) ---
-    application_name: str | None = None   # env: MULESOFT_APP_NAME
-    business_group: str | None = None     # env: MULESOFT_BUSINESS_GROUP
+    application_name: str | None = None   # env: AGENT_FABRIC_APP_NAME
+    business_group: str | None = None     # env: AGENT_FABRIC_BUSINESS_GROUP
 
     # --- Behaviour ---
     timeout_s: float = 60.0
@@ -89,22 +89,22 @@ class FabricConfig:
             environment=str(pick("ANYPOINT_ENV", "environment", "Sandbox")),
             region=cast(Region, region),
             base_url=_opt(pick("ANYPOINT_BASE_URL", "base_url", None)),
-            llm_proxy_url=_opt(pick("MULESOFT_LLM_PROXY_URL", "llm_proxy_url", None)),
+            llm_proxy_url=_opt(pick("AGENT_FABRIC_LLM_PROXY_URL", "llm_proxy_url", None)),
             llm_proxy_client_id=_opt(
-                pick("MULESOFT_LLM_PROXY_CLIENT_ID", "llm_proxy_client_id", None)
+                pick("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "llm_proxy_client_id", None)
             ),
             llm_proxy_client_secret=_opt(
-                pick("MULESOFT_LLM_PROXY_CLIENT_SECRET", "llm_proxy_client_secret", None)
+                pick("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "llm_proxy_client_secret", None)
             ),
-            llm_proxy_key=_opt(pick("MULESOFT_LLM_PROXY_KEY", "llm_proxy_key", None)),
-            application_name=_opt(pick("MULESOFT_APP_NAME", "application_name", None)),
-            business_group=_opt(pick("MULESOFT_BUSINESS_GROUP", "business_group", None)),
-            timeout_s=_as_float(pick("MULESOFT_TIMEOUT_S", "timeout_s", 60.0)),
-            max_retries=_as_int(pick("MULESOFT_MAX_RETRIES", "max_retries", 3)),
+            llm_proxy_key=_opt(pick("AGENT_FABRIC_LLM_PROXY_KEY", "llm_proxy_key", None)),
+            application_name=_opt(pick("AGENT_FABRIC_APP_NAME", "application_name", None)),
+            business_group=_opt(pick("AGENT_FABRIC_BUSINESS_GROUP", "business_group", None)),
+            timeout_s=_as_float(pick("AGENT_FABRIC_TIMEOUT_S", "timeout_s", 60.0)),
+            max_retries=_as_int(pick("AGENT_FABRIC_MAX_RETRIES", "max_retries", 3)),
             registry_cache_ttl_s=_as_int(
-                pick("MULESOFT_REGISTRY_CACHE_TTL_S", "registry_cache_ttl_s", 300)
+                pick("AGENT_FABRIC_REGISTRY_CACHE_TTL_S", "registry_cache_ttl_s", 300)
             ),
-            telemetry=_as_bool(pick("MULESOFT_TELEMETRY", "telemetry", True)),
+            telemetry=_as_bool(pick("AGENT_FABRIC_TELEMETRY", "telemetry", True)),
         )
 
     # --------------------------------------------------------------- derived
@@ -136,12 +136,12 @@ class FabricConfig:
                 missing.append("org_id (env ANYPOINT_ORG_ID)")
         elif need == "llm":
             if not self.llm_proxy_url:
-                missing.append("llm_proxy_url (env MULESOFT_LLM_PROXY_URL)")
+                missing.append("llm_proxy_url (env AGENT_FABRIC_LLM_PROXY_URL)")
             if not self.llm_proxy_client_id:
-                missing.append("llm_proxy_client_id (env MULESOFT_LLM_PROXY_CLIENT_ID)")
+                missing.append("llm_proxy_client_id (env AGENT_FABRIC_LLM_PROXY_CLIENT_ID)")
             if not self.llm_proxy_client_secret:
                 missing.append(
-                    "llm_proxy_client_secret (env MULESOFT_LLM_PROXY_CLIENT_SECRET)"
+                    "llm_proxy_client_secret (env AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET)"
                 )
         else:
             raise ConfigError(f"Unknown capability {need!r} passed to validated().")

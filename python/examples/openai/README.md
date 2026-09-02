@@ -3,7 +3,7 @@
 Tier 1.
 
 **What this shows.** A one-line factory call gets you a *native*
-`agents.OpenAIChatCompletionsModel` already pointed at the governed MuleSoft LLM
+`agents.OpenAIChatCompletionsModel` already pointed at the governed Agent Fabric LLM
 proxy. Because the adapter builds the underlying `AsyncOpenAI` client itself,
 header **and** transport injection are both available (full injection) — correct
 base URL, `client_id`/`client_secret` header auth (not bearer), attribution
@@ -14,11 +14,11 @@ into `agents.Agent(model=...)`.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[openai]"
+pip install "agent-fabric[openai]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/openai/main.py
 ```
@@ -36,11 +36,11 @@ from agents import OpenAIChatCompletionsModel
 m = OpenAIChatCompletionsModel(
     model="gpt-4o",
     openai_client=AsyncOpenAI(
-        base_url=MULESOFT_LLM_PROXY_URL,
+        base_url=AGENT_FABRIC_LLM_PROXY_URL,
         api_key="unused",  # proxy enforces client_id/client_secret headers
         default_headers={
-            "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-            "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+            "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+            "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
         },
         http_client=httpx.AsyncClient(...),  # your own transport, retries, hooks
         max_retries=0,

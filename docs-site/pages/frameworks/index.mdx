@@ -13,7 +13,7 @@ Gateway proxy with verified auth, attribution, and retries injected.
 
 <Callout type="info">
   **Language support.** Python is the only first-party SDK today; a TypeScript
-  SDK is planned (build plan §1.3, milestone M3). Until then, every framework
+  SDK is planned. Until then, every framework
   page's **TypeScript** tab reaches the same governed proxy over its
   OpenAI-compatible API with the official `openai` npm client (or
   `@anthropic-ai/sdk` for Anthropic) — a real, typed native integration, with no
@@ -24,7 +24,7 @@ Gateway proxy with verified auth, attribution, and retries injected.
 
 ## Frameworks by tier
 
-Tiers reflect support depth (build plan §1.4), not quality:
+Tiers reflect support depth, not quality:
 
 - **Tier 1** — full, conformance-gated, blocking CI.
 - **Tier 2** — supported, non-blocking CI.
@@ -59,8 +59,8 @@ Tiers reflect support depth (build plan §1.4), not quality:
 ## The shape is the same everywhere
 
 ```bash
-pip install "mulesoft-agent-fabric[<framework>]"
-export MULESOFT_LLM_PROXY_URL=…  MULESOFT_LLM_PROXY_CLIENT_ID=…  MULESOFT_LLM_PROXY_CLIENT_SECRET=…
+pip install "agent-fabric[<framework>]"
+export AGENT_FABRIC_LLM_PROXY_URL=…  AGENT_FABRIC_LLM_PROXY_CLIENT_ID=…  AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET=…
 ```
 
 ```python
@@ -85,7 +85,7 @@ each framework exposes:
 | LlamaIndex | ✅ | ✅ | `is_chat_model=True` forced (avoids the completions-endpoint gotcha). |
 | OpenAI Agents SDK | ✅ | ✅ | We build the `AsyncOpenAI` client ourselves. |
 | Anthropic SDK | ✅ | ✅ | Returns a bare `client()`, not a model-bound object — see the [divergence note](/frameworks/anthropic). |
-| MS Agent Framework | ✅ | ✅ | Class name/kwarg **unverified** (§8). |
+| MS Agent Framework | ✅ | ✅ | Class name/kwarg **unverified**. |
 | Google ADK | ✅ (`extra_headers`) | ❌ | LiteLLM owns the transport — correlation-ID is per-client, a documented exemption. |
 | CrewAI | ✅ (`extra_headers`) | ❌ | LiteLLM-backed `LLM`; same correlation-ID exemption as Google ADK. |
 

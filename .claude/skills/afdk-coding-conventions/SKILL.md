@@ -1,19 +1,19 @@
 ---
 name: afdk-coding-conventions
-description: Use when authoring or reviewing any Python code in the mulesoft-agent-fabric SDK (python/src/agent_fabric/**) — typing under mypy --strict, ruff rules, the import-linter layering + framework-free core rule, lazy framework imports in adapters, the §N.N build-plan citation habit, the "floors never ceilings" extras rule, the 3.10 floor, and trademark-descriptive language. This is the read-the-doc backstop for the trigger-based matcher.
+description: Use when authoring or reviewing any Python code in the agent-fabric SDK (python/src/agent_fabric/**) — typing under mypy --strict, ruff rules, the import-linter layering + framework-free core rule, lazy framework imports in adapters, the §N.N build-plan citation habit, the "floors never ceilings" extras rule, the 3.10 floor, and trademark-descriptive language. This is the read-the-doc backstop for the trigger-based matcher.
 ---
 
 # AFDK Coding Conventions
 
 ## Overview
 
-`mulesoft-agent-fabric` (import package `agent_fabric`) is a Python SDK for
-consuming **MuleSoft Agent Fabric** from any of eight agent frameworks. The
+`agent-fabric` (import package `agent_fabric`) is a Python SDK for
+consuming **Agent Fabric** from any of eight agent frameworks. The
 authoritative contract for *what the code must look like* is split across two
 sources you should keep open:
 
 - **`CLAUDE.md`** (repo root) — the short version of every rule below.
-- **`mulesoft-agent-fabric-sdk-build-plan.md`** (repo root, ~156KB) — the spec.
+- **`agent-fabric-sdk-build-plan.md`** (repo root, ~156KB) — the spec.
   Every `§N.N` reference in code, docstrings, tests, and commits points into it.
   When a docstring says "blocked on verification (§6.7)" or "floors, never
   ceilings (§8.4)", read that section before changing the behavior — the
@@ -104,7 +104,7 @@ Walk this against the build plan before writing code:
       adapter.
 - [ ] **Trademark-descriptive language (§0.4)** — "Agent Fabric", "Anypoint",
       "Omni Gateway", "MuleSoft" are Salesforce trademarks. Write the package as
-      a descriptive third-party SDK ("an SDK for consuming MuleSoft Agent
+      a descriptive third-party SDK ("an SDK for consuming Agent
       Fabric"), never as a first-party / official Salesforce product.
 
 ## Post-write self-review

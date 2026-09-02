@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mulesoft-agent-fabric"
+name = "agent-fabric"
 version = "0.1.0.dev0"
-description = "An SDK for consuming MuleSoft Agent Fabric capabilities (governed model access, governed tools, provisioning-as-code) from your own agent framework."
+description = "An SDK for consuming Agent Fabric capabilities (governed model access, governed tools, provisioning-as-code) from your own agent framework."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [{ name = "See README for maintainer + support statement" }]
-keywords = ["mulesoft", "anypoint", "agent", "llm", "mcp", "gateway"]
+keywords = ["agent-fabric", "mulesoft", "anypoint", "agent", "llm", "mcp", "gateway"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
@@ -57,7 +57,7 @@ cli = ["typer>=0.12", "pyyaml>=6.0", "rich>=13.0"]
 
 # --- Everything, for convenience ---
 all = [
-    "mulesoft-agent-fabric[llm,langgraph,adk,strands,agent_framework,openai,anthropic,crewai,llamaindex,mcp,otel,cli]",
+    "agent-fabric[llm,langgraph,adk,strands,agent_framework,openai,anthropic,crewai,llamaindex,mcp,otel,cli]",
 ]
 
 dev = [

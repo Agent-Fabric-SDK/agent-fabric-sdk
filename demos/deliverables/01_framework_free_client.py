@@ -10,22 +10,25 @@ This demo runs the same three things through each surface, so you can see that
 the only difference is `await`.
 
 Run:
-    export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # no /v1
-    export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-    export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+    export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # no /v1
+    export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+    export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
     export DEMO_MODEL="gpt-4o"          # optional; a model your proxy routes
-    python examples-demos/01_framework_free_client.py
+    python demos/deliverables/01_framework_free_client.py
 
 This makes REAL calls against your proxy. With no credentials set it prints
 setup guidance and exits cleanly instead of failing.
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 from __future__ import annotations
 
 import asyncio
 import os
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401  (dev path shim; harmless with an editable install)
 
 import openai
@@ -42,9 +45,9 @@ def _configured() -> bool:
     return all(
         os.environ.get(v)
         for v in (
-            "MULESOFT_LLM_PROXY_URL",
-            "MULESOFT_LLM_PROXY_CLIENT_ID",
-            "MULESOFT_LLM_PROXY_CLIENT_SECRET",
+            "AGENT_FABRIC_LLM_PROXY_URL",
+            "AGENT_FABRIC_LLM_PROXY_CLIENT_ID",
+            "AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET",
         )
     )
 
@@ -140,7 +143,7 @@ async def run_async() -> None:
 if __name__ == "__main__":
     if not _configured():
         print(__doc__)
-        print(">> Set the three MULESOFT_LLM_PROXY_* env vars to run this live demo.")
+        print(">> Set the three AGENT_FABRIC_LLM_PROXY_* env vars to run this live demo.")
     else:
         run_sync()
         asyncio.run(run_async())

@@ -3,7 +3,7 @@
 Tier 1.
 
 **What this shows.** A one-line factory call gets you a *native*
-`google.adk.models.lite_llm.LiteLlm` pointed at the governed MuleSoft LLM
+`google.adk.models.lite_llm.LiteLlm` pointed at the governed Agent Fabric LLM
 proxy — correct `api_base`, `client_id`/`client_secret` auth via
 `extra_headers` (not bearer), and the model id auto-prefixed with `openai/`
 so LiteLLM routes it correctly. The returned object is ADK's own class, not
@@ -17,11 +17,11 @@ machinery rather than a simple method call.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[adk]"
+pip install "agent-fabric[adk]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/adk/main.py
 ```
@@ -36,11 +36,11 @@ from google.adk.models.lite_llm import LiteLlm
 
 m = LiteLlm(
     model="openai/gpt-4o",  # LiteLLM's OpenAI-compatible route needs this prefix
-    api_base=MULESOFT_LLM_PROXY_URL,
+    api_base=AGENT_FABRIC_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     extra_headers={
-        "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-        "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
     },
 )
 ```

@@ -12,18 +12,21 @@ versions. So per framework you'll see one of:
   * blocked on verification — Tier-1 adapter refused to guess a class name
 
 Run:
-    export MULESOFT_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET   # see demo 01
-    pip install "mulesoft-agent-fabric[langgraph]"   # + any frameworks you want
-    python examples-demos/02_native_framework_objects.py
+    export AGENT_FABRIC_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET   # see demo 01
+    pip install "agent-fabric[langgraph]"   # + any frameworks you want
+    python demos/deliverables/02_native_framework_objects.py
 
 No network calls are made — objects are only constructed.
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401
 
 from agent_fabric import Fabric
@@ -50,9 +53,9 @@ def _configured() -> bool:
     return all(
         os.environ.get(v)
         for v in (
-            "MULESOFT_LLM_PROXY_URL",
-            "MULESOFT_LLM_PROXY_CLIENT_ID",
-            "MULESOFT_LLM_PROXY_CLIENT_SECRET",
+            "AGENT_FABRIC_LLM_PROXY_URL",
+            "AGENT_FABRIC_LLM_PROXY_CLIENT_ID",
+            "AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET",
         )
     )
 
@@ -60,7 +63,7 @@ def _configured() -> bool:
 def main() -> None:
     if not _configured():
         print(__doc__)
-        print(">> Set the three MULESOFT_LLM_PROXY_* env vars to construct adapters.")
+        print(">> Set the three AGENT_FABRIC_LLM_PROXY_* env vars to construct adapters.")
         return
 
     fabric = Fabric.from_env()
@@ -74,7 +77,7 @@ def main() -> None:
             obj = factory(MODEL) if takes_model else factory()  # build the native object
             print(f"{label}  OK  {type(obj).__module__}.{type(obj).__name__}")
         except ImportError:
-            print(f"{label}  not installed  (pip install 'mulesoft-agent-fabric[{attr}]')")
+            print(f"{label}  not installed  (pip install 'agent-fabric[{attr}]')")
         except NotImplementedError as e:
             print(f"{label}  blocked on verification  ({e})")
         except ConfigError as e:

@@ -1,5 +1,5 @@
 ---
-description: An SDK for MuleSoft Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.
+description: An SDK for Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.
 ---
 
 import { Callout, Tabs } from 'nextra/components'
@@ -10,7 +10,7 @@ import { Badge, Card, CardGrid, Figure, Hero } from '../components'
   title="Agent Fabric SDK"
   tagline={
     <>
-      Consume <strong>MuleSoft Agent Fabric</strong> capabilities — governed model
+      Consume <strong>Agent Fabric</strong> capabilities — governed model
       access, governed tool access, and provisioning-as-code — from your own agent
       framework, in your own IDE, <strong>without adopting Mule</strong>.
     </>
@@ -18,7 +18,7 @@ import { Badge, Card, CardGrid, Figure, Hero } from '../components'
   media={
     <Figure
       src="/img/omni-gateway-banner.jpg"
-      alt="MuleSoft Omni Gateway — AI Gateway, Federated Gateways, and API Gateway."
+      alt="Omni Gateway — AI Gateway, Federated Gateways, and API Gateway."
       caption="Omni Gateway spans AI, federated, and API gateways. This SDK is the developer-side client for the AI lane — the one that is live-verified today."
       width={1024}
       height={682}
@@ -41,7 +41,7 @@ never a wrapper you have to code around.
 <Callout type="info">
   **"Agent Fabric" is a MuleSoft (Salesforce) product name**, not a generic
   term. This project is an SDK *for* that product; it is descriptive, not a
-  first-party release. See [§0.4 in the README](https://github.com/your-org/mulesoft-agent-fabric).
+  first-party release. See [§0.4 in the README](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk).
 </Callout>
 
 ## The one design rule
@@ -93,13 +93,13 @@ with Fabric.from_env() as fabric:
 <Tabs.Tab>
 
 ```typescript
-const base = process.env.MULESOFT_LLM_PROXY_URL!;   // ends in "/", no /v1
+const base = process.env.AGENT_FABRIC_LLM_PROXY_URL!;   // ends in "/", no /v1
 const resp = await fetch(`${base}chat/completions`, {
   method: "POST",
   headers: {
     "content-type": "application/json",
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
   body: JSON.stringify({
     model: "gpt-4o",
@@ -113,10 +113,10 @@ console.log((await resp.json()).choices[0].message.content);
 <Tabs.Tab>
 
 ```bash
-curl "${MULESOFT_LLM_PROXY_URL}chat/completions" \
+curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
   -H "content-type: application/json" \
-  -H "client_id: ${MULESOFT_LLM_PROXY_CLIENT_ID}" \
-  -H "client_secret: ${MULESOFT_LLM_PROXY_CLIENT_SECRET}" \
+  -H "client_id: ${AGENT_FABRIC_LLM_PROXY_CLIENT_ID}" \
+  -H "client_secret: ${AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET}" \
   -d '{
     "model": "gpt-4o",
     "messages": [{"role": "user", "content": "Explain quantum computing in simple terms."}]
@@ -175,7 +175,7 @@ curl "${MULESOFT_LLM_PROXY_URL}chat/completions" \
 What is **not** yet unblocked — and why the SDK raises a clear error instead of
 guessing — is covered honestly on the [Verification policy](/concepts/verification)
 page. In short: Pillar 2, Pillar 3, and the exact framework *constructor
-signatures* (§8) still need live confirmation, and code paths that depend on an
+signatures* still need live confirmation, and code paths that depend on an
 unverified endpoint, header, or class name raise
 `NotImplementedError("blocked on verification: …")` rather than fabricate one.
 

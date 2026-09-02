@@ -14,7 +14,7 @@ verified headers, and hands it to the Agents SDK ready-made.
 ## Install
 
 ```bash
-pip install "mulesoft-agent-fabric[openai]"
+pip install "agent-fabric[openai]"
 ```
 
 ## Quickstart
@@ -44,11 +44,11 @@ JS** (`@openai/agents`).
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: process.env.MULESOFT_LLM_PROXY_URL,   // no /v1
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -101,7 +101,7 @@ from openai import AsyncOpenAI
 from agents import OpenAIChatCompletionsModel
 
 async_client = AsyncOpenAI(
-    base_url=...,          # from MULESOFT_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,          # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,   # client_id / client_secret header pair
     http_client=...,       # the SDK's shared httpx client
@@ -128,7 +128,7 @@ pre-built `AsyncOpenAI` instance.
 
 > The `openai-agents` package is distinct from the plain `openai` client —
 > `agents.OpenAIChatCompletionsModel` lives in the Agents SDK, not in the base
-> OpenAI Python SDK. Installing `mulesoft-agent-fabric[openai]` pulls in
+> OpenAI Python SDK. Installing `agent-fabric[openai]` pulls in
 > `openai-agents` for you.
 
 See the [error taxonomy](/errors) for how proxy rejections surface as typed

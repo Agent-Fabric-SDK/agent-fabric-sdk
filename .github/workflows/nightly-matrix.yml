@@ -119,7 +119,9 @@ jobs:
       - name: Live round-trip (opt-in)
         if: ${{ inputs.live == true }}
         env:
-          MULESOFT_LLM_PROXY_URL: ${{ secrets.MULESOFT_LLM_PROXY_URL }}
-          MULESOFT_LLM_PROXY_CLIENT_ID: ${{ secrets.MULESOFT_LLM_PROXY_CLIENT_ID }}
-          MULESOFT_LLM_PROXY_CLIENT_SECRET: ${{ secrets.MULESOFT_LLM_PROXY_CLIENT_SECRET }}
+          # Env-var names the SDK reads were renamed MULESOFT_* -> AGENT_FABRIC_* (#156);
+          # the repo secret names are kept as-is so no secret re-creation is needed.
+          AGENT_FABRIC_LLM_PROXY_URL: ${{ secrets.MULESOFT_LLM_PROXY_URL }}
+          AGENT_FABRIC_LLM_PROXY_CLIENT_ID: ${{ secrets.MULESOFT_LLM_PROXY_CLIENT_ID }}
+          AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET: ${{ secrets.MULESOFT_LLM_PROXY_CLIENT_SECRET }}
         run: python scripts/verify_frameworks.py --only "${FRAMEWORK}" --live --emit-verified

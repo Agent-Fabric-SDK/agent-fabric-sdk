@@ -12,7 +12,7 @@ access**. Everything here is wired to the live-verified proxy contract.
 
 <Figure
   src="/img/omni-gateway-architecture.jpg"
-  alt="MuleSoft Omni Gateway, an AI-native API gateway: developers consume APIs through one gateway that fronts A2A agents, MCP servers, LLMs, and other APIs, providing unified access, enterprise security, intelligent routing, observability, rate limiting and quotas, transformation, developer experience, and governance and compliance across REST, GraphQL, gRPC, WebSocket, SSE, MCP, and A2A."
+  alt="Omni Gateway, an AI-native API gateway: developers consume APIs through one gateway that fronts A2A agents, MCP servers, LLMs, and other APIs, providing unified access, enterprise security, intelligent routing, observability, rate limiting and quotas, transformation, developer experience, and governance and compliance across REST, GraphQL, gRPC, WebSocket, SSE, MCP, and A2A."
   caption="Omni Gateway is the control point this SDK connects your agents to — one gateway for APIs, A2A agents, MCP servers, and models."
   width={1024}
   height={561}
@@ -118,7 +118,7 @@ rather than fabricating a path.
 <Callout type="warning">
   **Honesty note (§0.3).** The proxy *contract* the adapters target is
   live-verified, but the exact framework *constructor signatures* are still being
-  confirmed against installed versions ([§8](/concepts/verification)). Where a
+  confirmed against installed versions. Where a
   name can't be resolved, the adapter raises `blocked on verification` rather
   than guess. The [Verification policy](/concepts/verification) page tracks
   current status.

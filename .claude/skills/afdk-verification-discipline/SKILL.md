@@ -146,7 +146,7 @@ python scripts/verify_frameworks.py --emit-verified   # print §8 markdown rows 
   recorded §8 path — a renamed/re-exported class is caught. *Construction
   succeeding is the signature verification.*
 - **Check B (`--live`):** one real completion through the sandbox proxy (needs the
-  three `MULESOFT_LLM_PROXY_*` env vars). Only LangGraph's runtime call is
+  three `AGENT_FABRIC_LLM_PROXY_*` env vars). Only LangGraph's runtime call is
   exercised directly; the other adapters rely on the already-LIVE-verified shared
   proxy path (§2) rather than guessing an agent-loop method.
 
@@ -189,7 +189,7 @@ code that assumes it is written"). Do NOT unblock §12.8 category 3 surfaces (LL
 data-plane, §3 token-attribution header) from static analysis alone.
 
 Before touching any `§`-cited guard, read that section of
-`mulesoft-agent-fabric-sdk-build-plan.md` (the authoritative spec at repo root) —
+`agent-fabric-sdk-build-plan.md` (the authoritative spec at repo root) —
 the constraints are deliberate, not accidental.
 
 ---
@@ -234,4 +234,4 @@ treat these as blocking checks:
 Files: `python/src/agent_fabric/core/_verify.py`, `docs/verified-apis.md`,
 `docs/unsupported-boundary.md`, `docs/m1-completion-checklist.md`,
 `python/scripts/verify_frameworks.py`, and the spec
-`mulesoft-agent-fabric-sdk-build-plan.md`.
+`agent-fabric-sdk-build-plan.md`.

@@ -16,7 +16,7 @@ try:
 except ImportError:  # pragma: no cover - install-time guidance
     print(
         'The CLI needs the [cli] extra. Install it with:\n'
-        '    pip install "mulesoft-agent-fabric[cli]"',
+        '    pip install "agent-fabric[cli]"',
         file=sys.stderr,
     )
     raise SystemExit(1) from None
@@ -26,7 +26,7 @@ from .spec import FabricSpec
 
 app = typer.Typer(
     add_completion=False,
-    help="SDK for MuleSoft Agent Fabric — governed models, tools, provisioning-as-code.",
+    help="SDK for Agent Fabric — governed models, tools, provisioning-as-code.",
 )
 
 
