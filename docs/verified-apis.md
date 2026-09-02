@@ -256,13 +256,15 @@ run is diagnosable instead of surprising.
 
 | Dependency | Breaks at | Symptom | Status | Date |
 |---|---|---|---|---|
-| `openai` | `>=3.0` | The SDK passes its shared `FabricAsyncClient` (an `httpx.AsyncClient` subclass) into `AsyncOpenAI(http_client=…)`. openai 3.x retyped that parameter to `httpx2.AsyncClient`, a distinct class from a separate distribution, so `mypy --strict` fails in `llm/client.py` and `integrations/openai_agents.py`. Calls still succeed at runtime — openai duck-types the client — so this surfaces as a typecheck failure, not a test failure. | OPEN | 2026-09-01 |
+| `openai` | `>=3.0` | The SDK passes its shared `FabricAsyncClient` (an `httpx.AsyncClient` subclass) into `AsyncOpenAI(http_client=…)`. openai 3.x retyped that parameter to `httpx2.AsyncClient`, a distinct class from a separate distribution, so `mypy --strict` flagged `llm/client.py` and `integrations/openai_agents.py`. Calls still succeed at runtime — openai duck-types the client — so this was a typecheck failure, not a test failure. **Mitigated** with a targeted `# type: ignore[arg-type]` at the three call sites (`llm/client.py` ×2, `integrations/openai_agents.py`); `mypy --strict` passes under openai 3.x (#137). | MITIGATED | 2026-09-02 |
 
-Resolving it means migrating `core/transport.py` off `httpx` onto `httpx2`, which
-also affects every adapter that accepts `http_async_client` / `client_args`. That
-is a core-layer change (§1.1) and should not be done implicitly as part of a
-dependency bump. Until then, `openai>=2,<3` is a **local development** constraint
-only — it is not encoded in `pyproject.toml`, by design.
+The targeted ignores keep `mypy --strict` green against the newest `openai` a fresh
+resolve pulls (§8.4). A full fix — migrating `core/transport.py` off `httpx` onto
+`httpx2` — also touches every adapter that accepts `http_async_client` /
+`client_args`, so it is a core-layer change (§1.1) and out of scope for the mitigation.
+Because the ignores are code-specific and `--strict` enables `warn_unused_ignores`, a
+pinned `openai<3` (where the mismatch does not occur) would now flag them as *unused* —
+a non-issue while the extras stay floor-only and every resolve takes openai 3.x.
 
 ## 9. MCP tool binding classes (§4.4) — verify each name
 
