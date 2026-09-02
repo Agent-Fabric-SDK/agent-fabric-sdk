@@ -1,6 +1,6 @@
-# MuleSoft Agent Fabric SDK
+# Agent Fabric SDK
 
-An SDK for consuming **MuleSoft Agent Fabric** capabilities — governed model
+An SDK for consuming **Agent Fabric** capabilities — governed model
 access, governed tool access, and provisioning-as-code — from your own agent
 framework, in your own IDE, without adopting Mule.
 
@@ -75,7 +75,7 @@ Once released, it will be installable directly (the line below is **planned —
 not yet on PyPI**):
 
 ```bash
-pip install "mulesoft-agent-fabric[llm,langgraph]"   # base + raw client + one framework
+pip install "agent-fabric[llm,langgraph]"   # base + raw client + one framework
 ```
 
 Optional extras (one per framework): `langgraph`, `adk`, `strands`,
@@ -90,13 +90,13 @@ Governed model access needs three values, resolved from kwargs → env vars →
 token — this is separate from any Anypoint control-plane credential.
 
 ```bash
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 # Optional attribution, surfaced on telemetry (§3)
-export MULESOFT_APP_NAME="checkout-agent"
-export MULESOFT_BUSINESS_GROUP="payments"
+export AGENT_FABRIC_APP_NAME="checkout-agent"
+export AGENT_FABRIC_BUSINESS_GROUP="payments"
 ```
 
 `Fabric.from_env()` reads these. Missing fields are reported **all at once** with

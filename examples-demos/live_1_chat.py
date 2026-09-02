@@ -7,7 +7,7 @@ Type this out on camera. Every `.` gives full IntelliSense:
     client.        -> the whole AsyncOpenAI surface (chat, responses, embeddings…)
 
 Drop the `_paths` line if you have already exported the three
-MULESOFT_LLM_PROXY_* variables in your shell.
+AGENT_FABRIC_LLM_PROXY_* variables in your shell.
 """
 
 # ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)

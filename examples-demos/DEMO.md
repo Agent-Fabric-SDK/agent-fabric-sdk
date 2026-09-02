@@ -16,7 +16,7 @@ editor. Both scripts run against a real Anypoint sandbox — nothing is mocked.
 pip install -e "python[llm,langgraph]" langgraph langchain
 
 # Credentials — examples-demos/.env.local, git-ignored, loaded by _paths.py
-#   MULESOFT_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET
+#   AGENT_FABRIC_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET
 
 # Docs site
 cd docs-site && npm install && npm run dev      # http://localhost:3000

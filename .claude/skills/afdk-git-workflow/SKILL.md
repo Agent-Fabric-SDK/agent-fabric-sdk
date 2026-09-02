@@ -11,7 +11,7 @@ Every code change in `agent-fabric-sdk` starts with a GitHub issue and happens
 on a dedicated branch named after that issue. No exceptions for "small"
 changes — small changes are exactly where this discipline gets skipped and
 history gets muddied. This is a Python SDK with a build-plan-as-spec
-(`mulesoft-agent-fabric-sdk-build-plan.md`) and a `§N.N`-cited codebase; commit
+(`agent-fabric-sdk-build-plan.md`) and a `§N.N`-cited codebase; commit
 messages should cite the relevant section when a change is implementing or
 touching spec-governed behavior.
 
@@ -45,7 +45,7 @@ This exception applies **only** when:
   repo policy, CI, `python/`, `docs-site/`, or the build plan itself.
 
 Anything else (even `.claude/README.md`, `.claude/settings*.json`,
-`.claude/hooks/`, `mulesoft-agent-fabric-sdk-build-plan.md`, or a mixed diff
+`.claude/hooks/`, `agent-fabric-sdk-build-plan.md`, or a mixed diff
 that touches skills plus anything else) follows the normal issue + branch + PR
 flow.
 

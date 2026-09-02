@@ -13,7 +13,7 @@ Every platform fact the SDK relies on is either **verified against a real
 Anypoint sandbox / an installed framework**, or it is **not used** — the code
 path that would need it raises `NotImplementedError("blocked on verification: …")`
 or a clear `ConfigError` instead of guessing. The engineering source of truth is
-[`docs/verified-apis.md`](https://github.com/your-org/mulesoft-agent-fabric/blob/main/docs/verified-apis.md).
+[`docs/verified-apis.md`](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/docs/verified-apis.md).
 
 ## What is verified today
 
@@ -56,7 +56,7 @@ python scripts/verify_frameworks.py --live      # + a real proxy round-trip
 python scripts/verify_frameworks.py --emit-verified   # prints §8 rows to paste
 ```
 
-The [nightly framework matrix](https://github.com/your-org/mulesoft-agent-fabric/blob/main/.github/workflows/nightly-matrix.yml)
+The [nightly framework matrix](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/main/.github/workflows/nightly-matrix.yml)
 runs this every night so an upstream framework rename turns CI red **before** it
 reaches you.
 

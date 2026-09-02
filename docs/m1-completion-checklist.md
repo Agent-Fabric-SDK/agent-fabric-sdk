@@ -35,7 +35,7 @@ checks per framework and never guesses a name:
   the class from its **recorded §8 path** and checks the object `isinstance` of
   it, so a silently-renamed or re-exported class is caught. **Construction
   succeeding is the signature verification.**
-- **B — Live round-trip (`--live`; needs the 3 `MULESOFT_LLM_PROXY_*` env vars).**
+- **B — Live round-trip (`--live`; needs the 3 `AGENT_FABRIC_LLM_PROXY_*` env vars).**
   Makes one real completion. Only LangGraph's runtime call (`ChatOpenAI.ainvoke`)
   is exercised directly — the other seven frameworks' agent-loop APIs are
   themselves unverified, so the harness constructs the object and relies on the

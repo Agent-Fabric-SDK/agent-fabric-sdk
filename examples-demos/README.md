@@ -47,9 +47,9 @@ pip install -e "python[llm]"                 # + e.g. python[langgraph] for demo
 
 # Governed model access (demos 01 and 02). The proxy authenticates on a
 # client_id/client_secret HEADER PAIR — not a bearer token.
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 export DEMO_MODEL="gpt-4o"                    # optional; a model your proxy routes
 ```
 

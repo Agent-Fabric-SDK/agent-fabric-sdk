@@ -3,7 +3,7 @@
 Tier 1.
 
 **What this shows.** A one-line factory call gets you a *native*
-`langchain_openai.ChatOpenAI` already pointed at the governed MuleSoft LLM
+`langchain_openai.ChatOpenAI` already pointed at the governed Agent Fabric LLM
 proxy — correct base URL, `client_id`/`client_secret` header auth (not
 bearer), attribution headers, and the SDK's shared transport (retry/telemetry
 hooks). The returned object is LangGraph/LangChain's own class, not a
@@ -15,11 +15,11 @@ proxy.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[langgraph]"
+pip install "agent-fabric[langgraph]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/langgraph/main.py
 ```
@@ -35,11 +35,11 @@ from langchain_openai import ChatOpenAI
 
 model = ChatOpenAI(
     model="gpt-4o",
-    base_url=MULESOFT_LLM_PROXY_URL,
+    base_url=AGENT_FABRIC_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     default_headers={
-        "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-        "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
     },
     http_async_client=httpx.AsyncClient(...),  # your own transport, retries, hooks
     max_retries=0,

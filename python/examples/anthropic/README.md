@@ -3,7 +3,7 @@
 Tier 1.
 
 **What this shows.** A one-line factory call gets you a *native*
-`anthropic.AsyncAnthropic` client already pointed at the governed MuleSoft LLM
+`anthropic.AsyncAnthropic` client already pointed at the governed Agent Fabric LLM
 proxy — `client_id`/`client_secret` header auth (not bearer), attribution
 headers, and the SDK's shared transport (retry/telemetry hooks). The returned
 object is Anthropic's own client, not a wrapper.
@@ -22,11 +22,11 @@ override `base_url` if needed.
 ## Run
 
 ```bash
-pip install "mulesoft-agent-fabric[anthropic]"
+pip install "agent-fabric[anthropic]"
 
-export MULESOFT_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export MULESOFT_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export MULESOFT_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/anthropic/main.py
 ```
@@ -41,11 +41,11 @@ import httpx
 from anthropic import AsyncAnthropic
 
 c = AsyncAnthropic(
-    base_url=MULESOFT_LLM_PROXY_URL,   # UNVERIFIED: needs an Anthropic-native route
+    base_url=AGENT_FABRIC_LLM_PROXY_URL,   # UNVERIFIED: needs an Anthropic-native route
     api_key="unused",                  # proxy enforces client_id/client_secret headers
     default_headers={
-        "client_id": MULESOFT_LLM_PROXY_CLIENT_ID,
-        "client_secret": MULESOFT_LLM_PROXY_CLIENT_SECRET,
+        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
+        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
     },
     http_client=httpx.AsyncClient(...),  # your own transport, retries, hooks
     max_retries=0,

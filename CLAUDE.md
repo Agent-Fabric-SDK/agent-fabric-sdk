@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-An SDK for consuming **MuleSoft Agent Fabric** capabilities — governed model
+An SDK for consuming **Agent Fabric** capabilities — governed model
 access, governed tool access, and provisioning-as-code — from any of eight
 agent frameworks, without adopting Mule. Python ships today (`python/`);
 TypeScript is planned (§1.3). The current state is the **M0 scaffold + M1
@@ -13,7 +13,7 @@ surfaces are still verification-gated (see below).
 
 ## The build plan is the spec
 
-`mulesoft-agent-fabric-sdk-build-plan.md` (156KB, at repo root) is the
+`agent-fabric-sdk-build-plan.md` (156KB, at repo root) is the
 authoritative specification. **Every `§N.N` reference in code, docstrings,
 tests, and commit messages points into it.** When a docstring says something is
 "blocked on verification (§6.7)" or "floors, never ceilings (§8.4)", read that

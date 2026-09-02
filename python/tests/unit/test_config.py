@@ -45,7 +45,7 @@ def test_validated_llm_requires_client_id_and_secret_not_bearer() -> None:
 def test_env_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANYPOINT_CLIENT_ID", "cid")
     monkeypatch.setenv("ANYPOINT_REGION", "eu")
-    monkeypatch.setenv("MULESOFT_TELEMETRY", "false")
+    monkeypatch.setenv("AGENT_FABRIC_TELEMETRY", "false")
     cfg = FabricConfig.from_env()
     assert cfg.client_id == "cid"
     assert cfg.region == "eu"

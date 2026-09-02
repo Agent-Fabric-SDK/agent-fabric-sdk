@@ -27,7 +27,7 @@ def test_uninstalled_adapter_raises_curated_import_error(
     fab = Fabric(_cfg())
     with pytest.raises(ImportError) as exc:
         _ = fab.langgraph
-    assert 'mulesoft-agent-fabric[langgraph]' in str(exc.value)
+    assert 'agent-fabric[langgraph]' in str(exc.value)
 
 
 def test_unknown_attribute_raises_attribute_error() -> None:

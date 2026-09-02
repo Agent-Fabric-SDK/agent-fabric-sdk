@@ -80,7 +80,7 @@
   <!-- ================= 2 - SDK ================= -->
   <rect x="40" y="296" width="1720" height="270" rx="14" fill="#F0F7FF" stroke="#0176D3" stroke-width="2"/>
   <text x="64" y="327" font-size="13.5" font-weight="700" letter-spacing="1.4" fill="#0176D3">2 &#183; AGENT FABRIC SDK</text>
-  <text x="399" y="327" font-size="12.5" fill="#64748B" font-family="ui-monospace, 'SF Mono', Menlo, monospace">pip install "mulesoft-agent-fabric[llm,langgraph]"</text>
+  <text x="399" y="327" font-size="12.5" fill="#64748B" font-family="ui-monospace, 'SF Mono', Menlo, monospace">pip install "agent-fabric[llm,langgraph]"</text>
 
   <!-- col 1 -->
   <rect x="64" y="344" width="536" height="138" rx="10" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
@@ -88,8 +88,8 @@
   <text x="95" y="371" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
   <text x="116" y="371" font-size="14.5" font-weight="700" fill="#0176D3">Resolve config</text>
   <text x="84" y="398" font-size="12.5" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">Fabric.from_env()</text>
-  <text x="84" y="418" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">MULESOFT_LLM_PROXY_URL</text>
-  <text x="84" y="436" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">MULESOFT_LLM_PROXY_CLIENT_ID / _CLIENT_SECRET</text>
+  <text x="84" y="418" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">AGENT_FABRIC_LLM_PROXY_URL</text>
+  <text x="84" y="436" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">AGENT_FABRIC_LLM_PROXY_CLIENT_ID / _CLIENT_SECRET</text>
   <text x="84" y="462" font-size="11.5" fill="#64748B">kwargs &#8594; env &#8594; .agent-fabric.toml. Every missing</text>
   <text x="84" y="476" font-size="11.5" fill="#64748B">value is reported at once, not one per run.</text>
 
@@ -156,7 +156,7 @@
 
   <!-- ================= 4 - OMNI GATEWAY ================= -->
   <rect x="40" y="744" width="1720" height="218" rx="14" fill="#E8F6FD" stroke="#00A1E0" stroke-width="2.5"/>
-  <text x="64" y="778" font-size="16" font-weight="700" letter-spacing="0.6" fill="#075985">4 &#183; MULESOFT OMNI GATEWAY &#8212; LLM PROXY</text>
+  <text x="64" y="778" font-size="16" font-weight="700" letter-spacing="0.6" fill="#075985">4 &#183; OMNI GATEWAY &#8212; LLM PROXY</text>
   <text x="560" y="778" font-size="13" fill="#0369A1">governed data plane &#183; live-verified</text>
   <text x="64" y="800" font-size="12.5" fill="#0C4A6E">Policies are configured once by your platform team in Anypoint. None of this lives in your application code.</text>
 

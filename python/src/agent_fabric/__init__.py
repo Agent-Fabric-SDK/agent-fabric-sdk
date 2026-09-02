@@ -1,4 +1,4 @@
-"""mulesoft-agent-fabric — an SDK for consuming MuleSoft Agent Fabric
+"""agent-fabric — an SDK for consuming Agent Fabric
 capabilities from your own agent framework.
 
 See the README for the maintainer + support statement and the trademark note

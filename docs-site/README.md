@@ -1,7 +1,7 @@
 # Agent Fabric SDK — documentation site
 
 A [Nextra](https://nextra.site) (Next.js + MDX) documentation site for the
-MuleSoft Agent Fabric SDK. Content lives in `pages/**/*.mdx`; navigation is
+Agent Fabric SDK. Content lives in `pages/**/*.mdx`; navigation is
 declared in the `_meta.js` files next to the pages.
 
 ## Local development

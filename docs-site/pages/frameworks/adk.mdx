@@ -3,7 +3,7 @@ import { Tabs } from 'nextra/components'
 # Google ADK — governed model access
 
 Google's Agent Development Kit (ADK) is Gemini-first; it reaches the
-MuleSoft LLM proxy through ADK's `LiteLlm` model wrapper, which speaks
+Agent Fabric LLM proxy through ADK's `LiteLlm` model wrapper, which speaks
 LiteLLM's own model-string and kwarg conventions rather than raw OpenAI ones.
 
 > **Tier 1 — full conformance-gated**, with one documented exemption: LiteLLM
@@ -13,7 +13,7 @@ LiteLLM's own model-string and kwarg conventions rather than raw OpenAI ones.
 ## Install
 
 ```bash
-pip install "mulesoft-agent-fabric[adk]"
+pip install "agent-fabric[adk]"
 ```
 
 ## Quickstart
@@ -45,11 +45,11 @@ official `openai` npm client at it — the same base URL and
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: process.env.MULESOFT_LLM_PROXY_URL,   // no /v1
+  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.MULESOFT_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.MULESOFT_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -99,7 +99,7 @@ from google.adk.models.lite_llm import LiteLlm
 
 llm = LiteLlm(
     model="openai/gpt-4o",
-    api_base=...,       # from MULESOFT_LLM_PROXY_URL, no /v1 suffix
+    api_base=...,       # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     extra_headers=...,  # client_id / client_secret header pair
 )

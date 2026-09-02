@@ -193,7 +193,7 @@ class Fabric:
         if not _framework_installed(spec.probe):
             raise ImportError(
                 f"The {name!r} integration is not installed. Install it with:\n"
-                f'    pip install "mulesoft-agent-fabric[{spec.extra}]"'
+                f'    pip install "agent-fabric[{spec.extra}]"'
             )
         module = importlib.import_module(spec.module, package="agent_fabric.integrations")
         adapter_cls = getattr(module, spec.cls)
