@@ -7,7 +7,7 @@ declared in the `_meta.js` files next to the pages.
 ## Local development
 
 ```bash
-cd docs-site
+cd website
 npm install
 npm run dev          # http://localhost:3000
 ```
@@ -29,7 +29,7 @@ npx serve out        # assets resolve under /agent-fabric-sdk/
 ## Deploy — GitHub Pages
 
 The site is published by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
-on every push to `main` that touches `docs-site/**` (and on manual
+on every push to `main` that touches `website/**` (and on manual
 `workflow_dispatch`). The workflow builds the static export with
 `DOCS_BASE_PATH=/agent-fabric-sdk`, adds `.nojekyll`, and deploys the `out/`
 artifact to Pages. The published site lives at

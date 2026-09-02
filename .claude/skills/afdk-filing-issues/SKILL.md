@@ -148,7 +148,7 @@ section.
 | **`integrations/`** | `python/src/agent_fabric/integrations/` — per-framework native-object adapters (LangGraph, ADK, Strands, MS Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex) | Does one adapter change, or all eight need the same fix? If it's a shared contract (e.g. header injection), every adapter is in scope — the conformance kit (`python/tests/conformance/suite.py`) exists precisely to catch drift. |
 | **TypeScript parity (planned, §1.3)** | not yet in code | Would a Python-side fix need a matching TS-side note/follow-up once TS ships? Flag it even though there's no TS code yet, so the parity gap is tracked. |
 | **Provisioning CLI** | `python/src/agent_fabric/provisioning/cli.py` (`agent-fabric` command: `validate`, `plan`, `apply`, `drift`, `lint`, `generate`, `status`, `init`, `publish`, `verify`) | Does a CLI command's behavior, output, or `_blocked(...)` message change? |
-| **Nextra docs site** | `docs-site/pages/` (`index.mdx`, `quickstart.mdx`, `feature-overview.mdx`, `errors.mdx`, `publishing.mdx`, plus `concepts/`, `frameworks/`, `provisioning/`, `reference/`, `tool-access/`) | Does a documented flow, code sample, or reference page describe the behavior being changed? |
+| **Nextra docs site** | `website/pages/` (`index.mdx`, `quickstart.mdx`, `feature-overview.mdx`, `errors.mdx`, `publishing.mdx`, plus `concepts/`, `frameworks/`, `provisioning/`, `reference/`, `tool-access/`) | Does a documented flow, code sample, or reference page describe the behavior being changed? |
 | **`docs/verified-apis.md`** | repo root `docs/verified-apis.md` + guards in `core/_verify.py` | Does this issue flip a row's status (UNVERIFIED → VERIFIED-*), add a new row, or touch a `_verify.blocked(...)` / `Unverified(...)` guard? Say which row. |
 
 How to apply the verdict:
@@ -213,7 +213,7 @@ labels** together (see Milestone); there is no GitHub Projects v2 board.
 | --- | --- |
 | Something is broken | `bug` |
 | New capability / improvement | `enhancement` |
-| Docs-only (README, `docs-site/`, `docs/verified-apis.md`, docstrings) | `documentation` |
+| Docs-only (README, `website/`, `docs/verified-apis.md`, docstrings) | `documentation` |
 | Build/tooling/refactor with no user-facing behavior change | `chore` |
 
 **Priority label (apply exactly one):**
@@ -255,7 +255,7 @@ If the issue feels larger than `size/l`, decompose into sub-issues via
 | `python/src/agent_fabric/tools/` | `area/tools` | `--color fbca04` |
 | `python/src/agent_fabric/integrations/` | `area/integrations` | `--color d93f0b` |
 | `python/src/agent_fabric/provisioning/` (incl. the `agent-fabric` CLI) | `area/provisioning` | `--color b60205` |
-| `docs-site/` (Nextra docs) | `area/docs-site` | `--color c2e0c6` |
+| `website/` (Nextra docs) | `area/docs-site` | `--color c2e0c6` |
 | `docs/verified-apis.md`, `core/_verify.py` guards | `area/verification` | `--color e11d21` |
 | `python/tests/conformance/` | `area/conformance` | `--color bfd4f2` |
 | CI (`.github/workflows/`), `pyproject.toml` extras, tooling | `area/infra` | `--color fef2c0` |
@@ -275,7 +275,7 @@ gh label create area/registry      --repo Agent-Fabric-SDK/agent-fabric-sdk --co
 gh label create area/tools         --repo Agent-Fabric-SDK/agent-fabric-sdk --color fbca04 --description "tools/: MCP discovery/binding" 2>/dev/null || true
 gh label create area/integrations  --repo Agent-Fabric-SDK/agent-fabric-sdk --color d93f0b --description "integrations/: per-framework native-object adapters" 2>/dev/null || true
 gh label create area/provisioning  --repo Agent-Fabric-SDK/agent-fabric-sdk --color b60205 --description "provisioning/ and the agent-fabric CLI" 2>/dev/null || true
-gh label create area/docs-site     --repo Agent-Fabric-SDK/agent-fabric-sdk --color c2e0c6 --description "docs-site/ (Nextra)" 2>/dev/null || true
+gh label create area/docs-site     --repo Agent-Fabric-SDK/agent-fabric-sdk --color c2e0c6 --description "website/ (Nextra)" 2>/dev/null || true
 gh label create area/verification  --repo Agent-Fabric-SDK/agent-fabric-sdk --color e11d21 --description "docs/verified-apis.md rows and core/_verify.py guards" 2>/dev/null || true
 gh label create area/conformance   --repo Agent-Fabric-SDK/agent-fabric-sdk --color bfd4f2 --description "python/tests/conformance/ adapter conformance kit" 2>/dev/null || true
 gh label create area/infra         --repo Agent-Fabric-SDK/agent-fabric-sdk --color fef2c0 --description "CI, pyproject.toml extras, tooling" 2>/dev/null || true
@@ -428,7 +428,7 @@ deliberately deferred to a follow-up>
 <what's missing/wrong in docs>
 
 ## Where
-<file path(s) — README.md, CLAUDE.md, docs-site/pages/..., docs/verified-apis.md>
+<file path(s) — README.md, CLAUDE.md, website/pages/..., docs/verified-apis.md>
 
 ## Suggested change
 <bullet points or a draft>
@@ -553,5 +553,5 @@ EOF
   and decomposing oversized issues into sub-issues.
 - [[afdk-git-workflow]] — picking up a filed issue, branching, and assignee
   handling.
-- [[afdk-docs-sync]] — keeping `docs-site/` and `docs/verified-apis.md` in sync
+- [[afdk-docs-sync]] — keeping `website/` and `docs/verified-apis.md` in sync
   with code changes described in an issue's Proposal.

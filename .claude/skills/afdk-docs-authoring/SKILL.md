@@ -1,26 +1,26 @@
 ---
 name: afdk-docs-authoring
-description: Use when writing or editing pages under docs-site/pages/**.mdx (the Nextra docs site) — owns the pages layout, _meta.js ordering, the SDK-developer audience contract, the VERIFICATION-STATUS framing, the trademark/support boundary (§0.4), and the "cite a symbol, not path:line" rule. Read before adding a page or substantially rewriting one.
+description: Use when writing or editing pages under website/pages/**.mdx (the Nextra docs site) — owns the pages layout, _meta.js ordering, the SDK-developer audience contract, the VERIFICATION-STATUS framing, the trademark/support boundary (§0.4), and the "cite a symbol, not path:line" rule. Read before adding a page or substantially rewriting one.
 ---
 
 # AFDK Docs Authoring
 
 ## Overview
 
-`docs-site/` is a Nextra 3 site (`next` + `nextra-theme-docs`) documenting the
+`website/` is a Nextra 3 site (`next` + `nextra-theme-docs`) documenting the
 `agent-fabric` Python SDK for people who consume it, not people who
-build it. It ships from `docs-site/pages/**.mdx`, ordered by `_meta.js` files,
-themed by `docs-site/theme.config.tsx`. This skill is the authoring runbook —
+build it. It ships from `website/pages/**.mdx`, ordered by `_meta.js` files,
+themed by `website/theme.config.tsx`. This skill is the authoring runbook —
 what to read and obey *before* you write or rewrite a page. [[afdk-docs-sync]]
 owns the complementary PR-time gate: when a code change under `python/src/`
 should trigger a doc update, and what happens if the docs lag.
 
 ## When this skill activates
 
-- Creating a new page under `docs-site/pages/`.
+- Creating a new page under `website/pages/`.
 - Substantially rewriting an existing page (more than a typo or one-line fix).
 - Editing any `_meta.js` to add, reorder, or relabel entries.
-- Reviewing a PR that touches `docs-site/pages/**.mdx` or `_meta.js`.
+- Reviewing a PR that touches `website/pages/**.mdx` or `_meta.js`.
 - The user says "add a docs page for X", "document the new adapter", "update
   the quickstart", etc.
 
@@ -44,7 +44,7 @@ Therefore rendered prose **must not**:
   translating them: it is fine, even expected, to cite a `§N.N` section number
   from `agent-fabric-sdk-build-plan.md` as **authority** (e.g. "See
   Verification policy (§0.3)" — the site does this deliberately, see
-  `docs-site/pages/concepts/verification.mdx`), but don't assume the reader has
+  `website/pages/concepts/verification.mdx`), but don't assume the reader has
   or needs the document itself to understand the page.
 - Claim something is verified, live, or supported when it is not — see
   VERIFICATION-STATUS framing below. This is the contract violation with the
@@ -56,7 +56,7 @@ Therefore rendered prose **must not**:
 ## File layout
 
 ```
-docs-site/
+website/
 ├── pages/
 │   ├── _meta.js                # top-level nav: Introduction, Quickstart,
 │   │                           #   feature-overview, pillars (frameworks,
@@ -124,7 +124,7 @@ is a page that got orphaned — check for it after every new-page PR.
 ## VERIFICATION-STATUS framing (§0.3) — the load-bearing rule
 
 This is the single most important discipline on this site, because the SDK's
-credibility rests on it. `docs-site/pages/concepts/verification.mdx` is the
+credibility rests on it. `website/pages/concepts/verification.mdx` is the
 canonical page; every other page that claims a fact about the Anypoint
 control plane, the LLM proxy, or a framework's constructor signature must be
 consistent with it and with `docs/verified-apis.md` (the engineering source of
@@ -253,7 +253,7 @@ file path, stop and find the symbol or section name instead.
    `pages/_meta.js` if it's a new top-level entry).
 5. Smoke-test locally:
    ```bash
-   cd docs-site
+   cd website
    npm install
    npm run dev     # or: npm run build && npm run start
    ```
@@ -291,7 +291,7 @@ file path, stop and find the symbol or section name instead.
 
 ```bash
 # Smoke-test the docs site
-cd docs-site
+cd website
 npm install
 npm run dev              # http://localhost:3000
 npm run build && npm run start   # production build check

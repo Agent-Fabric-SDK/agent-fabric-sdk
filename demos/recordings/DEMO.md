@@ -19,7 +19,7 @@ pip install -e "python[llm,langgraph]" langgraph langchain
 #   AGENT_FABRIC_LLM_PROXY_URL / _CLIENT_ID / _CLIENT_SECRET
 
 # Docs site
-cd docs-site && npm install && npm run dev      # http://localhost:3000
+cd website && npm install && npm run dev      # http://localhost:3000
 
 # Smoke test everything before recording
 python demos/recordings/demo_1_chat_completions.py

@@ -1,6 +1,6 @@
 name: Docs (GitHub Pages)
 
-# Deploys the Nextra consumer site (docs-site/) to GitHub Pages as a static
+# Deploys the Nextra consumer site (website/) to GitHub Pages as a static
 # export. Bucket A of the docs split (#144); contributor docs stay in-repo and
 # are NOT published here.
 #
@@ -11,7 +11,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs-site/**'
+      - 'website/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ concurrency:
 
 defaults:
   run:
-    working-directory: docs-site
+    working-directory: website
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: docs-site/package-lock.json
+          cache-dependency-path: website/package-lock.json
       - run: npm ci
       - name: Build static export (served under the project sub-path)
         run: npm run build
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: docs-site/out
+          path: website/out
 
   deploy:
     needs: build

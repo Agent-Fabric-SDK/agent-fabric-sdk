@@ -80,7 +80,7 @@ Applies to each Tier-1 adapter before it counts as shipped.
 |---|---|---|---|---|
 | 1. Passes the conformance kit, or has an asserted documented exemption | ⬜ | 🟡 (correlation-id exemption recorded in `KNOWN_LIMITATIONS`) | ⬜ | ⬜ |
 | 2. Runnable `examples/<framework>/` (env-vars-only) | ✅ | ✅ | ✅ | ✅ (guards the blocked path) |
-| 3. Docs page with the manual equivalent (users can eject) | ✅ (`docs-site/`) | ✅ | ✅ | ✅ |
+| 3. Docs page with the manual equivalent (users can eject) | ✅ (`website/`) | ✅ | ✅ | ✅ |
 | 4. Listed in the nightly matrix | ✅ (`.github/workflows/nightly-matrix.yml`) | ✅ | ✅ | ✅ |
 | 5. Version floor declared, no ceiling | ✅ (pyproject extras) | ✅ | ✅ | ✅ |
 
@@ -103,7 +103,7 @@ Applies to each Tier-1 adapter before it counts as shipped.
 - ✅ **Error taxonomy + `classify()`** — live-verified against the 4 rejection shapes.
 - ✅ **Model handles** (`resolve()`), honest `list_models(live=True)` ConfigError.
 - ✅ **Two adapter ergonomics** — `connection_kwargs()` + module-level factories.
-- ✅ **Docs site skeleton** (`docs-site/`, Nextra) — deployable to Vercel/Railway.
+- ✅ **Docs site skeleton** (`website/`, Nextra) — deployable to Vercel/Railway.
 - ⬜ **`openai` major-version decision** — extras have no ceiling, so a fresh
   install pulls openai 3.x, which breaks the httpx transport injection the SDK
   is verified against (openai 1.x). Decide: cap `openai<2` (documented exception
