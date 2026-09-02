@@ -14,8 +14,12 @@ Drop the `_paths` line if you have already exported the three
 AGENT_FABRIC_LLM_PROXY_* variables in your shell.
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
-import _paths  # noqa: F401  (loads examples-demos/.env.local into the environment)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
+import _paths  # noqa: F401  (loads demos/.env.local into the environment)
 
 from agent_fabric import Fabric
 

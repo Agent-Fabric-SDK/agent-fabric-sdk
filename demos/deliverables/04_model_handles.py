@@ -9,14 +9,17 @@ SDK never fabricates a /models path. Instead:
     proxy exposes no catalog — rather than guessing an endpoint.
 
 Run (no credentials or network needed):
-    python examples-demos/04_model_handles.py
+    python demos/deliverables/04_model_handles.py
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 from __future__ import annotations
 
 import asyncio
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401
 
 from agent_fabric import Fabric

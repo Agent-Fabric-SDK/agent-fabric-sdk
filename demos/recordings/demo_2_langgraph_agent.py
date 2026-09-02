@@ -1,13 +1,16 @@
 """DEMO 2 — the same governance, inside a LangGraph agent.
 
-    python examples-demos/demo_2_langgraph_agent.py
+    python demos/recordings/demo_2_langgraph_agent.py
 
-Credentials come from examples-demos/.env.local (loaded by _paths).
+Credentials come from demos/.env.local (loaded by _paths).
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 import asyncio
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401  (dev path shim + .env.local loader)
 
 from langchain.agents import create_agent

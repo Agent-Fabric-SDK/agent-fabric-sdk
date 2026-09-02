@@ -13,15 +13,17 @@ SDK's own `openai.APIStatusError` — classify() is the bridge you apply to
 raw client raises automatically.
 
 Run:
-    python examples-demos/03_governed_error_taxonomy.py
+    python demos/deliverables/03_governed_error_taxonomy.py
 """
 
-# ruff: noqa: I001  (the _paths shim must import before agent_fabric — do not reorder)
+# ruff: noqa: I001, E402  (the _paths shim must import before agent_fabric — do not reorder)
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # demos/ (holds _paths.py)
 import _paths  # noqa: F401
 
 import httpx
@@ -35,7 +37,7 @@ from agent_fabric.core.errors import (
 )
 
 FIXTURES = (
-    Path(__file__).resolve().parent.parent
+    Path(__file__).resolve().parents[2]  # demos/deliverables/ -> repo root
     / "python" / "tests" / "fixtures" / "anypoint" / "llm_proxy"
 )
 
