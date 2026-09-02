@@ -11,7 +11,6 @@ const config: DocsThemeConfig = {
     </span>
   ),
   project: {
-    // TODO: point at the real repository before publishing (§0.4).
     link: 'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk',
   },
   docsRepositoryBase:
