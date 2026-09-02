@@ -35,3 +35,4 @@ fabric.lock.local
 
 # Env
 .env
+.envrc
