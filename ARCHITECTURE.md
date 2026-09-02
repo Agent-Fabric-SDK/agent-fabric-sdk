@@ -3,7 +3,7 @@
 This document is the contributor-facing map of how the SDK is built — the layer
 boundaries, the design invariants, and the discipline that keeps the package
 trustworthy. It is a distillation, not the spec: the authoritative specification
-is [`agent-fabric-sdk-build-plan.md`](agent-fabric-sdk-build-plan.md), and every
+is [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md), and every
 `§N.N` reference below points into it. When a rule here feels arbitrary, read the
 cited section — the constraints are deliberate.
 
@@ -186,7 +186,7 @@ Anthropic-native Messages API route, an open verification item, §0.3).
 
 ## Related documents
 
-- [`agent-fabric-sdk-build-plan.md`](agent-fabric-sdk-build-plan.md) — the
+- [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md) — the
   authoritative specification; every `§N.N` here points into it.
 - [`docs/verified-apis.md`](docs/verified-apis.md) — the §0.3 verification ledger
   (source of truth for what is verified vs. blocked).

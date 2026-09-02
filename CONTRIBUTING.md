@@ -7,7 +7,7 @@ tested and linted, and the conventions that keep the package trustworthy.
 For *how the SDK is built* — the layer boundaries, the verification discipline,
 the error taxonomy, the framework tiers — read [`ARCHITECTURE.md`](ARCHITECTURE.md)
 first; this guide assumes it. The authoritative specification behind both is
-[`agent-fabric-sdk-build-plan.md`](agent-fabric-sdk-build-plan.md), and every
+[`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md), and every
 `§N.N` reference in this repo points into it — when a rule here feels arbitrary,
 read the cited section.
 

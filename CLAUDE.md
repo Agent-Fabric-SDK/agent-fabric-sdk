@@ -13,7 +13,7 @@ surfaces are still verification-gated (see below).
 
 ## The build plan is the spec
 
-`agent-fabric-sdk-build-plan.md` (156KB, at repo root) is the
+`spec/agent-fabric-sdk-build-plan.md` (156KB) is the
 authoritative specification. **Every `§N.N` reference in code, docstrings,
 tests, and commit messages points into it.** When a docstring says something is
 "blocked on verification (§6.7)" or "floors, never ceilings (§8.4)", read that

@@ -31,7 +31,7 @@ agent code. They have:
 
 - Python and pip, and are willing to run `pip install "agent-fabric[...]"`.
 - No access to this repo's private planning doc
-  (`agent-fabric-sdk-build-plan.md`) or its issue tracker.
+  (`spec/agent-fabric-sdk-build-plan.md`) or its issue tracker.
 - No need to know internal test layout, CI job names, or which milestone
   something shipped in.
 
@@ -42,7 +42,7 @@ Therefore rendered prose **must not**:
   path:line" below).
 - Reference internal-only concepts by their planning-doc shorthand without
   translating them: it is fine, even expected, to cite a `§N.N` section number
-  from `agent-fabric-sdk-build-plan.md` as **authority** (e.g. "See
+  from `spec/agent-fabric-sdk-build-plan.md` as **authority** (e.g. "See
   Verification policy (§0.3)" — the site does this deliberately, see
   `website/pages/concepts/verification.mdx`), but don't assume the reader has
   or needs the document itself to understand the page.
@@ -208,7 +208,7 @@ silently goes stale with no build failure to catch it. Instead:
   `core/_verify.py`" (from `concepts/verification.mdx`) — a path survives
   refactors inside the file; a line number does not.
 - Cite a **`§N.N` build-plan section** for design authority
-  (`agent-fabric-sdk-build-plan.md`), not a line range in that
+  (`spec/agent-fabric-sdk-build-plan.md`), not a line range in that
   document either — sections are stable identifiers, line numbers aren't.
 - Cite a **command** the reader can run to reproduce a claim
   (`python scripts/verify_frameworks.py --live`) rather than describing what
