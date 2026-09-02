@@ -1,0 +1,22 @@
+# `docs/` — engineering reference
+
+Maintainer-facing reference docs for building the SDK. These are **not** the
+consumer docs: for *using* the SDK see the Nextra site under `docs-site/`; for
+*working in* the repo (branch/PR flow, testing, conventions) see
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md); for the architecture map see
+[`../ARCHITECTURE.md`](../ARCHITECTURE.md); the authoritative spec is
+[`../spec/agent-fabric-sdk-build-plan.md`](../spec/agent-fabric-sdk-build-plan.md).
+
+Everything here serves the **verification discipline** (§0.3): *never invent an
+endpoint, header name, or class name.* The files track what has been proven
+against a real Anypoint sandbox versus what is still assumed or blocked.
+
+| File | What it is |
+| --- | --- |
+| [`verified-apis.md`](verified-apis.md) | **The verification ledger** — the single source of truth for every endpoint, header, and class name the SDK touches and its status (`VERIFIED (LIVE)` / `VERIFIED (CLI)` / `VERIFIED (plugin)` / `UNVERIFIED` / blocked). When a value is confirmed against a sandbox, flip its row here **and** set `verified=True` in `core/_verify.py` — the two edits move together. |
+| [`m1-completion-checklist.md`](m1-completion-checklist.md) | **The 0.1.0 milestone tracker** (build plan §9.1, "M1 — Model access"). A status-keyed checklist toward a truthful, publishable release; a box flips to ✅ only when the fact is confirmed against the installed framework / real sandbox, never just because the code that assumes it was written. |
+| [`unsupported-boundary.md`](unsupported-boundary.md) | **The §9.3 procurement doc** — classifies every platform API the SDK calls (public / no-SLA / undocumented), so enterprise-buyer questions get a five-minute answer instead of a two-week stall. Its "Undocumented surfaces" section is designed to stay empty. |
+
+*"Agent Fabric", "Anypoint", and "Omni Gateway" are Salesforce trademarks; this
+project is a descriptive, non-first-party SDK for consuming those capabilities
+(§0.4).*

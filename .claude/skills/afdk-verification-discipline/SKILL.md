@@ -189,7 +189,7 @@ code that assumes it is written"). Do NOT unblock §12.8 category 3 surfaces (LL
 data-plane, §3 token-attribution header) from static analysis alone.
 
 Before touching any `§`-cited guard, read that section of
-`agent-fabric-sdk-build-plan.md` (the authoritative spec at repo root) —
+`spec/agent-fabric-sdk-build-plan.md` (the authoritative spec) —
 the constraints are deliberate, not accidental.
 
 ---
@@ -234,4 +234,4 @@ treat these as blocking checks:
 Files: `python/src/agent_fabric/core/_verify.py`, `docs/verified-apis.md`,
 `docs/unsupported-boundary.md`, `docs/m1-completion-checklist.md`,
 `python/scripts/verify_frameworks.py`, and the spec
-`agent-fabric-sdk-build-plan.md`.
+`spec/agent-fabric-sdk-build-plan.md`.
