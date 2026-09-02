@@ -27,6 +27,7 @@ Do not build these. Each was considered and rejected for a stated reason.
 | An agent-network YAML/Agent Script generator | Schema is new and moving (Agent Network 2.0 / `.agent` files). The Anypoint CLI plugin and DX MCP Server already cover it. Wrap the CLI later if demanded. |
 | A wrapper abstraction over the eight frameworks | Adapters return **native** framework objects. See §3.1. |
 | Runtime policy application from application code | Inverts the platform-team ownership model. Provisioning is a CI-time concern. See §5.4. |
+| A central scanner that publishes to Exchange directly | Repository scanning **is** in scope (§7.10), but the scanner opens PRs; publication happens in each repo's own CI. A central publisher holding write scopes makes its operator the org's publisher of record. See §7.10.3. |
 
 ### 0.3 Mandatory verification step (do this first, before M0)
 
@@ -1290,6 +1291,170 @@ Ambiguous or unrecognised projects exit with a clear message naming the entrypoi
 - Are asset lifecycle states (draft / published / deprecated) exposed via API? **(gates `require_lifecycle` in §6.1.1 and deprecation in §7.5)**
 - Can documentation pages be published programmatically, and in what markup?
 - Does Exchange accept an MCP tool manifest and an A2A agent card as native descriptor formats, or must they be attached as files? **(shapes §7.3 output)**
+- Can an asset be published in a **draft / unlisted / staged** state, and can provenance be recorded on it? **(gates the `stage` tier in §7.10.2)**
+
+### 7.10 Repository and organisation-wide scanning
+
+Everything above §7.10 assumes one repo, one developer, one interactive command. That answers "help me publish my asset." It does not answer **"we have two hundred repos and an empty catalog,"** which is the harder and more common problem: bootstrapping is a one-time org-wide cost that no individual developer is motivated to pay, and a registry that stays empty for six months never recovers its credibility.
+
+So: scanning is in scope. Fully automatic publication of everything it finds is not, and the reasons are structural rather than cautious.
+
+#### 7.10.1 What is already derivable, restated precisely
+
+| Surface | Derivable without hand-authoring? | Where |
+|---|---|---|
+| MCP tool names, descriptions, input schemas | **Yes, fully.** Read the schema the framework already computed. | §7.3.1 |
+| Asset type (`MCP_SERVER` / `A2A_AGENT` / `AGENT` / `API`) | **Yes.** Framework objects are unambiguous. | §7.8 |
+| A2A card mechanical fields — endpoint, transport, auth schemes, I/O modes | **Yes.** | §7.3.4 |
+| **A2A skills** | **No, and deliberately so.** Deriving one skill per function produces a card advertising forty micro-skills. | §7.3.4 |
+| **Tool *meaning*** — which values are valid, when to call this tool over a similar one | **No.** Shape is derivable; meaning is not. | §7.3.3 |
+
+An MCP server can therefore be scanned to a complete, publishable descriptor with no human input. An A2A agent cannot, and a scanner must not pretend otherwise. That asymmetry drives §7.10.8.
+
+#### 7.10.2 The autonomy ladder — four tiers, default `propose`
+
+| Tier | What it writes | Who reviews | Default for |
+|---|---|---|---|
+| `report` | nothing, anywhere | nobody | always, on first run |
+| `propose` | **a PR in each target repo** adding `.agent-fabric.toml`, a committed descriptor, and the publish workflow | that repo's own owners, via normal PR review | **the default** |
+| `stage` | publishes into a separate **discovery** business group, tagged as scanner-derived, never the shared catalog | a catalog curator, out of band | opt-in per org |
+| `auto` | publishes to the repo's own business group on merge to the default branch | nobody — CI only | opt-in **per repo** |
+
+One rule makes this safe, and it is not negotiable: **a tier above `propose` can only be enabled by a file committed in the target repo.** Never by a flag on the scanner. If a scanner operator can raise the tier centrally, then one person with a token becomes the org's publisher of record and §7.7 is void — which is the exact outcome that gets the SDK banned in a platform review.
+
+```toml
+# .agent-fabric.toml, committed in the TARGET repo — the only place this can be raised
+[scan]
+tier = "auto"                  # report | propose | stage | auto
+assets = ["hr-tools-mcp"]      # explicit; `auto` never applies to newly detected assets
+```
+
+A newly detected asset always starts at `propose`, even in a repo set to `auto`. Otherwise adding a file to an `auto` repo silently publishes a new catalog entry, and Exchange versions are immutable (§7.5) — there is no clean undo.
+
+#### 7.10.3 Static-first, because scanning is executing
+
+§7.3.2's caveat — importing user code runs it — is per-repo advice at single-repo scale. At fleet scale it is a security boundary. A central scanner that imports code from two hundred unreviewed repos is arbitrary code execution across the organisation, in one process, with an Anypoint write credential in its environment. Nobody should accept that, and no amount of documentation makes it acceptable.
+
+Therefore:
+
+- **Fleet scanning defaults to `auto:static`** (AST, no execution) and cannot be switched to `auto` for repos it does not own.
+- **Escalation to `auto` happens inside the target repo's own CI**, where the repo already trusts its own code, never in the central scanner.
+- Consequently, fleet-scan descriptors carry the §7.3.2 completeness caveat and are **proposals, not publications**.
+
+Which yields the invariant that shapes the whole feature:
+
+> **The central scanner never publishes. It opens pull requests. Every publication happens from the target repo's CI, from a reviewed descriptor, under credentials the platform team controls.**
+
+This is not a compromise imposed on the feature — it is strictly better than central publication. The completeness warning lands in a PR where the owning team can see it and fix it by moving to `auto` in their own CI, rather than silently producing a catalog entry listing 4 of 11 tools.
+
+#### 7.10.4 The `propose` PR
+
+```
+$ agent-fabric scan fleet --config scan-fleet.yaml --tier propose
+
+Scanning 214 repositories (github.com/acme) …
+  208 scanned · 6 skipped (no supported framework detected)
+
+  Detected 47 candidate assets in 31 repositories:
+    38  MCP_SERVER    complete descriptor derived
+     6  A2A_AGENT     mechanical fields only — skills required (§7.3.4)
+     3  AGENT         no A2A surface
+
+  Quality gate (§7.3.3)
+    31 pass · 7 have missing or tautological descriptions · 9 have undocumented params
+
+  Cross-repo dedupe (§7.10.6)
+    2 clusters where >1 repo exposes the same capability — issues opened, no PRs
+
+  Opening 29 PRs (2 clusters held back) … done
+    acme/hr-service#412        1 asset   MCP_SERVER  ready
+    acme/finance-tools#89      2 assets  MCP_SERVER  1 quality failure
+    …
+```
+
+Each PR adds only reviewable files, and never a credential:
+
+```
++ .agent-fabric.toml                        entrypoints + asset types, from detection
++ descriptors/hr-tools-mcp.json             the derived descriptor, reviewable in the diff
++ .github/workflows/fabric-publish.yml      auto:check on PR, publish --if-changed on merge
+```
+
+The PR body states what was derived, what could not be, and what the reviewer must supply — the seven-line version of §7.3.3's quality report. A PR that says "3 tools need descriptions, here is the file and the line" converts catalog bootstrapping into ordinary code review, which is the only process that scales to two hundred repos.
+
+#### 7.10.5 Fleet configuration and ownership
+
+```yaml
+# scan-fleet.yaml — owned by the platform team
+apiVersion: fabric/v1
+kind: ScanFleet
+hosts:
+  - provider: github
+    org: acme
+    include_topics: ["agent", "mcp"]      # opt-in by repo topic
+    exclude: ["acme/archived-*", "acme/*-sandbox"]
+    default_branch_only: true
+ownership:
+  from: CODEOWNERS                        # -> Publication.contact
+  fallback_team: "Platform Engineering"
+publication:
+  group_id: per_repo_business_group        # never the shared catalog from a scan
+  tier: propose                            # ceiling; a repo may only lower it
+quality:
+  block_proposal_below: warning            # do not PR an asset that cannot pass review
+```
+
+`ownership.from: CODEOWNERS` is worth more than it looks. §7.1's `Contact` is the field most likely to be left blank, and an uncontactable catalog entry is nearly as bad as a missing one. CODEOWNERS is already maintained, already accurate, and already reviewed.
+
+#### 7.10.6 Cross-repo dedupe is where fleet scanning beats per-repo `init`
+
+§7.1's collision check compares one candidate against Exchange. A fleet scanner sees **all candidates simultaneously**, which catches the duplicate class that per-repo publishing structurally cannot: three teams that each wrapped the same upstream API.
+
+Group candidates by tool-signature digest and endpoint. For any cluster of more than one, **do not open PRs.** Open a single issue naming every repo in the cluster and asking which one owns the capability. A scanner that resolves this by picking the first repo alphabetically produces exactly the duplicate catalog §7.1 exists to prevent, only faster and at scale.
+
+#### 7.10.7 Ship the coverage report first
+
+The read-only, bidirectional inventory needs **no write scopes at all**:
+
+```
+$ agent-fabric scan report --config scan-fleet.yaml
+
+In code, not in the catalog        38 assets across 27 repos
+In the catalog, no live code        6 assets   -> deprecation candidates (§7.5)
+In both, descriptor drifted        11 assets   -> `publish --bump minor` (§7.4)
+In both, current                   52 assets
+
+Catalog coverage: 52 of 90 detected capabilities (58%)
+```
+
+This is the §5.3 pattern applied to publication: small, cheap, uncontroversial, requires no verification of a write path, and it is the fastest way to get a platform team to say yes to the rest. It is also the artifact that makes the case for funding the bootstrap at all, since "our catalog covers 58% of what we actually run" is a number an engineering director can act on.
+
+Build it before the PR machinery.
+
+#### 7.10.8 Guardrails that survive contact with two hundred repos
+
+- **The quality gate is not downgradable by the scanner.** An asset failing §7.3.3 is never staged or auto-published — at most proposed, with the failures in the PR body. Bulk scanning multiplies §10's "auto-generated descriptions make useless tools look documented" risk by the size of the fleet.
+- **A2A agents are `propose`-only, permanently.** Skills cannot be derived (§7.3.4), so no tier auto-publishes an `A2A_AGENT`. The PR asks for `@skill(...)` declarations.
+- **Every scanner-derived asset records its provenance** — scanner version, commit SHA, derivation mode, date — so a curator can tell a reviewed entry from a bootstrapped one, and can re-run the bootstrap later without re-litigating which is which.
+- **Digest-gated re-scan.** Re-scanning uses §7.5's content digest, so an unchanged repo produces no PR, no issue and no write. Without this, a scheduled fleet scan is a PR spam generator and will be turned off within a week.
+- **One PR and one issue per repo, updated in place.** Same discipline as the nightly matrix (§8.4).
+- **Rate limits and concurrency are a design constraint, not an afterthought.** Two hundred shallow clones plus Exchange lookups will hit both the Git host's and Anypoint's limits. Bounded concurrency, sparse checkout, and a persistent cache keyed on commit SHA.
+
+#### 7.10.9 What scanning is not
+
+| Not building | Why |
+|---|---|
+| Zero-touch publication of everything found, with no review | Exchange versions are immutable (§7.5) and catalog ownership is a political constraint (§7.7). The closest offered is `auto`, per-repo opt-in, still quality-gated. |
+| A central scanner holding Exchange write scopes | Would make the scanner operator the org's publisher of record. Publication happens in the target repo's CI (§7.10.3). |
+| Importing untrusted repo code centrally | Arbitrary code execution across the org. Static-first, escalate only inside the owning repo's CI. |
+| A secret scanner, SAST, or code-quality tool | Different products. The scanner detects publishable agent assets and nothing else. |
+| Deployment or reachability discovery | The SDK does not deploy anything (§6.6). `reachable` stays a probe in `status`, not an inference. |
+
+#### 7.10.10 Added to the M0 verification checklist
+
+- Can an asset be published in a **draft / unlisted / staged** state? **(gates the `stage` tier — without it, `stage` collapses into `propose`)**
+- Can **provenance metadata** be attached to a published asset? Shares the §7.9 metadata/tags verification.
+- Is there an Exchange API to list **all** assets in an org efficiently enough for a bidirectional coverage report over a large catalog, or must it be paginated per business group?
 
 ---
 
@@ -1317,6 +1482,10 @@ CONFORMANCE_SCENARIOS = [
     "publication_verify_drift",    # added tool on live server -> PublicationDrift
     "publication_idempotent",      # --if-changed with no change -> zero writes, exit 0
     "descriptor_matches_framework",# derived schema == the schema the model receives
+    "scan_never_publishes",        # fleet scan issues ZERO writes to Exchange
+    "scan_tier_needs_repo_optin",  # tier > propose ignored unless committed in target repo
+    "scan_static_completeness",    # loop-registered tools -> completeness warning in the PR body
+    "scan_fleet_dedupe",           # same capability in 2 repos -> 1 issue, 0 PRs
     "auto_vs_live_agree",          # object and live introspection produce one digest
     "dynamic_tools_detected",      # loop-registered tools present in `auto`, warned in `auto:static`
     "asset_type_detection",        # fixture projects per framework classify correctly
@@ -1355,13 +1524,14 @@ Pin floors, not ceilings, in `pyproject.toml`. Never `<` pin a framework — it 
 | **M2.5 — Governance object** | `Governance`, `GatewayTarget`, target profiles, `resolve()` with drift detection, policy portability table, `simulate()` with local gateway or mock proxy (§6.2–§6.6). **0.3.0.** | 4 weeks |
 | **M2.7 — Publication** | `Publication`, `preview()`, `verify()` with drift diff, digest + `--if-changed`, collision check, `agent-fabric status` (§7). **0.3.5.** | 3 weeks |
 | **M2.8 — Derivation** | Per-framework descriptor adapters (§7.3.1), `auto` / `auto:live` / `auto:static` / `auto:check`, cross-check, quality report, asset detection + `agent-fabric init` (§7.8). **0.3.8.** | 4 weeks |
+| **M2.9 — Fleet scanning** | `agent-fabric scan` (single repo, non-interactive), coverage report, fleet enumeration, autonomy tiers, `propose` PRs, cross-repo dedupe, scheduled re-scan (§7.10). **0.3.9.** | 3 weeks |
 | **M3 — TypeScript** | TS core + LangGraph.js, ADK TS, Strands TS, OpenAI Agents (JS), Anthropic SDK (TS), LlamaIndex.TS, Vercel AI SDK. Shared conformance scenarios ported. **0.4.0.** | 4 weeks |
 | **M4 — Provisioning** | Spec, plan/apply/drift, `inputSchema: auto`, policy allow-list, GitHub Action. Plus `Governance.export()` and `Publication.export()`. Or the Terraform-generation pivot. **0.5.0.** | 5 weeks |
 | **M5 — Hardening** | Perf, telemetry polish, error-message pass, migration guide, examples for all eight, security review. **1.0.0.** | 3 weeks |
 
 `export()` — for both the governance and publication objects — lands with M4, since it emits the M4 spec format. Ship M2.5 and M2.7 with their local and runtime verbs only, and document `export()` as coming.
 
-Roughly nine to ten months for two engineers, up from six. M2.8 is the single highest-leverage block in the plan after M1 — it is what makes the catalog self-maintaining instead of self-rotting — but it is also the block most exposed to upstream framework churn, so it needs the nightly matrix in place before it starts. Ship M1 publicly rather than waiting — the LLM proxy adapters are useful alone, and early feedback will reorder M2–M4.
+Roughly ten to eleven months for two engineers, up from six. M2.9 depends entirely on M2.8 — a scanner is only as good as the derivation underneath it — but its coverage report (§7.10.7) is read-only and needs no write path, so that one piece can ship alongside M2.7 as a platform-team on-ramp. M2.8 is the single highest-leverage block in the plan after M1 — it is what makes the catalog self-maintaining instead of self-rotting — but it is also the block most exposed to upstream framework churn, so it needs the nightly matrix in place before it starts. Ship M1 publicly rather than waiting — the LLM proxy adapters are useful alone, and early feedback will reorder M2–M4.
 
 ### 9.2 Definition of done, per adapter
 
@@ -1408,6 +1578,11 @@ Link it from the README above the fold. Enterprise buyers will ask; having the a
 | Importing user code for introspection triggers side effects | Medium | Medium | Explicit entrypoints, documented import-safety contract, `auto:static` fallback (§7.3.2). |
 | `auto:static` silently under-reports tools | Medium | High — incomplete catalog looks complete | Completeness warning on unresolved dynamic registration; never the default (§7.3.2). |
 | Auto-derived A2A cards advertise dozens of micro-skills | High if unguarded | Medium | Require explicit skill declaration; fail rather than invent (§7.3.4). |
+| **Fleet scanner treated as a central publisher, holding org-wide Exchange write scopes** | **Medium** | **High — one operator becomes the org's publisher of record; §7.7 is void** | Scanner never publishes; it opens PRs. Tier above `propose` raised only by a file in the target repo (§7.10.2, §7.10.3). |
+| Central scanner importing untrusted repo code | Medium | High — arbitrary code execution across the org with a write credential in scope | Fleet scanning is static-first and cannot be switched to import mode for repos it does not own (§7.10.3). |
+| Bulk scan floods the catalog with low-quality entries | High if unguarded | High — erodes registry trust at fleet scale | Quality gate not downgradable by the scanner; A2A permanently `propose`-only; cross-repo dedupe holds back clusters (§7.10.6, §7.10.8). |
+| Scheduled fleet re-scan becomes a PR spam generator | High if unguarded | Medium — feature gets switched off | Digest-gated re-scan; one PR and one issue per repo, updated in place (§7.10.8). |
+| `auto:static` under-reporting is invisible at fleet scale | Medium | Medium — 200 partial descriptors look like 200 complete ones | Completeness warning surfaced in the proposal PR body, where the owning team sees it (§7.10.3). |
 | Publication seen as a threat to catalog ownership | Medium | High | Own-business-group default, shared-target flag, platform-owned allow-list (§7.7). |
 | Maven-only publication path for non-Mule assets | Medium | Medium — JVM in Python/TS CI | M0 gate (§7.9). Prefer Exchange REST API; document the JVM requirement if unavoidable. |
 | Security review rejects policy-from-code | Medium | High | Allow-list catalog + CI-only apply, shipped in v1 (§5.4). |
