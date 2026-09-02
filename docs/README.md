@@ -1,7 +1,7 @@
 # `docs/` — engineering reference
 
 Maintainer-facing reference docs for building the SDK. These are **not** the
-consumer docs: for *using* the SDK see the Nextra site under `docs-site/`; for
+consumer docs: for *using* the SDK see the Nextra site under `website/`; for
 *working in* the repo (branch/PR flow, testing, conventions) see
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md); for the architecture map see
 [`../ARCHITECTURE.md`](../ARCHITECTURE.md); the authoritative spec is
