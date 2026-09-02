@@ -12,37 +12,35 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-Build a production bundle:
+Build the static export (what CI ships to Pages) and preview it:
 
 ```bash
-npm run build
-npm run start        # serves the built site
+npm run build        # `output: 'export'` → writes a static site to ./out
+npx serve out        # preview the exported site at the root
 ```
 
-## Deploy
+To preview exactly as GitHub Pages serves it — under the project sub-path:
 
-This is a standard Next.js app, so it deploys to Vercel or Railway without
-special configuration — the only thing to set is the **project root**, because
-the site lives in the `docs-site/` subdirectory of the repo.
+```bash
+DOCS_BASE_PATH=/agent-fabric-sdk npm run build
+npx serve out        # assets resolve under /agent-fabric-sdk/
+```
 
-### Vercel
+## Deploy — GitHub Pages
 
-1. Import the repo.
-2. Set **Root Directory** to `docs-site`.
-3. Framework preset auto-detects as **Next.js**. Build command `next build`,
-   output handled automatically. Deploy.
+The site is published by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
+on every push to `main` that touches `docs-site/**` (and on manual
+`workflow_dispatch`). The workflow builds the static export with
+`DOCS_BASE_PATH=/agent-fabric-sdk`, adds `.nojekyll`, and deploys the `out/`
+artifact to Pages. The published site lives at
+`https://agent-fabric-sdk.github.io/agent-fabric-sdk/`.
 
-(Optionally add a `vercel.json` at the repo root with
-`{ "buildCommand": "cd docs-site && npm install && npm run build" }` if you
-prefer configuring from the repo root instead of the dashboard.)
+**One-time setup:** in repo **Settings → Pages**, set **Source = "GitHub
+Actions"**. The workflow cannot flip that switch; until it is set, the deploy
+job has nowhere to publish.
 
-### Railway
-
-1. New project → Deploy from the repo.
-2. Set the service **Root Directory** to `docs-site` (or a `RAILWAY_DOCKERFILE`
-   / Nixpacks root).
-3. Nixpacks detects Next.js: build `npm run build`, start `npm run start`.
-   `npm run start` binds to `$PORT` (Railway sets it) via the `start` script.
+`basePath`/`assetPrefix` are gated on `DOCS_BASE_PATH`, so `npm run dev` and a
+future custom domain serve at the root without the sub-path.
 
 ## Structure
 
