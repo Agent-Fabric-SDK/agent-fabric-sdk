@@ -23,7 +23,7 @@ Do not build these. Each was considered and rejected for a stated reason.
 | Not building | Why |
 |---|---|
 | A Python/TS runtime for Agent Broker orchestration | Agent networks compile to Mule apps on CloudHub 2.0; brokers are A2A servers. Reimplementing the guided-determinism graph engine is a competing product, not an SDK. |
-| Authoring of gateway policy *logic* | Omni Gateway policies are Rust→WASM on Envoy via the PDK. Cannot be expressed in Python or TS. |
+| Authoring of gateway policy *logic* | Omni Gateway policies are Rust→WASM on Envoy via the PDK. Cannot be expressed in Python or TS. §6.9 specifies a **contract** with companion custom policies and the SDK's client half of it — the policy logic itself lives in a separate repo, and no `.rs` file belongs in this one. |
 | An agent-network YAML/Agent Script generator | Schema is new and moving (Agent Network 2.0 / `.agent` files). The Anypoint CLI plugin and DX MCP Server already cover it. Wrap the CLI later if demanded. |
 | A wrapper abstraction over the eight frameworks | Adapters return **native** framework objects. See §3.1. |
 | Runtime policy application from application code | Inverts the platform-team ownership model. Provisioning is a CI-time concern. See §5.4. |
@@ -940,6 +940,8 @@ If LLM Proxy and MCP Bridge are Connected-Mode-only, the local gateway **cannot*
 - **If confirmed unavailable locally:** `simulate()` still validates routing, auth, rate limiting, custom policies and request/response shape — real value for the dev loop — but LLM traffic is served by a **local mock proxy** the SDK ships (an OpenAI-compatible stub that replays fixtures and simulates policy rejections from §8.2). Label it unambiguously in logs: `LOCAL SIMULATION — LLM proxy is mocked, not a real gateway`. Never let a developer believe they tested the real thing.
 - **If available locally:** great, use it, and drop the mock to a fallback.
 
+**A third option this section originally missed.** "Local Mode" and "runs on my laptop" are **orthogonal axes**, and conflating them is what produced the false dichotomy above. Omni Gateway is Flex Gateway (verified: API type `flexGateway`, v1.13.2), and a Flex Gateway can run **self-managed in Connected Mode anywhere a container runs** — including a developer's laptop and a CI runner — drawing its configuration from API Manager rather than from YAML on disk. In that topology the LLM Proxy policies, `client-id-enforcement`, SLA-based rate limiting and control-plane analytics are all **real**, because it is the same gateway binary and the same control plane as production. It costs an Anypoint org, a dev environment, and a per-run API instance. See §6.8 — it is the highest-fidelity local loop available, and it makes the "LLM Proxy is Connected-Mode-only" finding a cost question rather than a capability ceiling.
+
 **2. Policies are not portable across modes.** Classify every policy in a shipped table:
 
 ```python
@@ -971,13 +973,15 @@ A silent skip here is the worst possible failure mode for this feature. Make the
 ### 6.5 `simulate()` — the local harness
 
 ```python
-async with gov.simulate() as env:
+async with gov.simulate() as env:                    # mode="local" by default
     model = fabric.langgraph.chat_model("gpt-4o", gateway=env.gateway)
     tools = await fabric.tools.discover(domain="hr", gateway=env.gateway)
     agent = create_react_agent(model, tools.langgraph())
     result = await agent.ainvoke({"messages": [("user", "…")]})
 assert env.policy_events("rate-limiting").count == 1
 ```
+
+`simulate()` takes a `mode` selecting one of three fidelity rungs — `"mock"`, `"local"`, `"connected"` — described in §6.8. The rest of this section covers the `"local"` rung: a Local Mode gateway from declarative YAML. **`env.fidelity` must always be queryable**, so a test that requires a real LLM proxy can assert it got one rather than silently passing against a mock.
 
 Implementation:
 
@@ -1023,6 +1027,266 @@ Add to §0.3:
 - Is "deployed to gateway" readable per API instance via a documented API? **(gating for `require_deployed`)**
 - Are governance ruleset results exposed via API? **(gating for `require_governance_pass`)**
 - Can applied policies be fetched in bulk for an environment, or only per instance? **(determines whether §6.1.3 is fast or slow)**
+- Can a Flex Gateway register in **Connected Mode from a laptop or a CI runner**, and what does the registration artifact contain? **(gating for §6.8 — the highest-fidelity local loop)**
+- Can an API instance be created and destroyed per developer or per CI run cheaply, and does it count against a licensed instance quota? **(determines whether §6.8 is per-developer or one shared dev gateway)**
+
+---
+
+### 6.8 Local testing against a self-managed Connected Mode gateway
+
+§6.4 and §6.5 assume a local gateway means a **Local Mode** gateway. That assumption produced a genuine gap, because *how a gateway is configured* and *where it runs* are independent:
+
+| | Configured by local YAML (**Local Mode**) | Configured by the control plane (**Connected Mode**) |
+|---|---|---|
+| **Runs remotely** — private space, cloud, customer K8s | rare, but possible | `mode="managed"` / `mode="self-managed"` — what §6.2 already models |
+| **Runs on a laptop or CI runner** | §6.5 `simulate()` | **this section — nothing covered it** |
+
+The bottom-right cell is the important one. Omni Gateway is Flex Gateway, and a Flex Gateway container registered to the control plane in Connected Mode behaves identically wherever it runs: it fetches its API instances and policies from API Manager. Run that container on a laptop against a dedicated dev environment and the LLM Proxy policies (`llm-proxy-core`, `model-based-routing`, `openai-transcoding-policy`), `client-id-enforcement`, SLA-based rate limiting and token-usage analytics are **all real**.
+
+**This changes the shape of the project's biggest governance risk.** §10 rates "Local Mode cannot run LLM Proxy or MCP Bridge" as Medium-high likelihood, High impact, with the outcome "`simulate()` becomes a mock, not a replica." A connected self-managed local gateway makes that a **cost** question rather than a **capability ceiling** — the capability exists locally; it just requires an org and a dev environment.
+
+#### 6.8.1 The three-rung fidelity ladder
+
+| Rung | Gateway | Config from | LLM Proxy | Connected-only policies | `resolve()` testable | Needs an org | Offline |
+|---|---|---|---|---|---|---|---|
+| `mock` | none — in-process stub | fixtures (§8.2) | mocked | none | no | no | yes |
+| `local` | Flex Gateway container, Local Mode | declarative YAML | probably not — M0 | **no** | **no** — no control plane | no* | yes |
+| `connected` | **Flex Gateway container, Connected Mode, self-managed** | **API Manager** | **real** | **real** | **yes** | yes + dev env | no |
+
+\* subject to the §6.7 licence-artifact question.
+
+```python
+async with gov.simulate(mode="connected") as env:
+    assert env.fidelity == "connected"        # never a silent downgrade
+    model = fabric.langgraph.chat_model("gpt-4o", gateway=env.gateway)
+    resp = await model.ainvoke("hello")
+
+    # Only reachable on this rung: real policies, real drift detection, real usage.
+    await gov.resolve(fabric)                          # exercises GovernanceDrift
+    assert env.policy_events("llm-token-rate-limit").count == 0
+    assert env.usage().total_tokens > 0                # real attribution data
+```
+
+**No new types are needed.** §6.2's `GatewayTarget` already expresses this: `mode="self-managed"`, `connected=True`, `base_url="http://localhost:8081"`. The `connected` flag was introduced to carry exactly this distinction. What is missing is the harness, the lifecycle management and the documentation — not the model.
+
+#### 6.8.2 Two capabilities this unlocks that no other rung can
+
+**`resolve()` becomes locally testable.** In Local Mode there is no control plane, so there are no API Manager instances, no applied-policy list, and `GovernanceDrift` detection (§6.3) cannot be exercised *at all* — not in a dev loop, not in CI, only against a shared sandbox. On the `connected` rung there are real instances with real applied policies, so `governance_resolve_drift` becomes a first-class local test.
+
+**Attribution headers become verifiable.** The business-group attribution header name is the **single highest-priority M0 unknown** (§0.3) and it gates every governed call across all nine adapters. Verifying it requires a real gateway that actually reads the header and real analytics that report the attributed usage. A connected local gateway provides both, on a laptop, against a dev environment — which is a far tighter loop than probing a shared sandbox.
+
+#### 6.8.3 Lifecycle is the hard part, not the container
+
+Starting the container is easy. Not leaving debris in the control plane is not.
+
+**Ephemeral API instances.** Each run needs an API instance in the dev environment. Fifty developers times several runs a day produces orphaned instances indefinitely. So: deterministic naming (`fabric-dev-<user>-<spec-digest>`), create-if-absent rather than create-always, teardown on exit **and on exception**, and a **TTL reaper** (`agent-fabric dev reap`) for instances leaked by a hard kill. Report what was reaped; never silently delete something a developer is using.
+
+**A hard environment fence.** The harness creates and destroys control-plane objects, which is a mutation — legitimate here because it is a dev-loop concern rather than the runtime path (working instruction #11), but it must be fenced. Refuse to run against any environment not explicitly marked as a dev target in config, and refuse outright if the environment name resolves to production. A dev harness that can be pointed at production by a typo in an env var is a defect, not a feature.
+
+**Two supported topologies**, because the right one depends on instance quota:
+
+| | Per-developer gateway | One shared dev gateway |
+|---|---|---|
+| Control-plane objects | one gateway + instances per dev | one gateway, instances per dev |
+| Isolation | full | policies collide; noisy neighbours |
+| Registration | one artifact per dev | one shared artifact |
+| Default when | quota is comfortable | quota is tight |
+
+Default to per-developer; support shared for orgs where a registered gateway is a licensed, counted resource. The §6.7 quota question decides which is the documented default.
+
+**Registration artifacts are credentials.** `flexctl registration create` produces a file containing secrets that let the holder register a gateway into the org. Treat it as such: gitignored, never logged, never baked into an image, generated per developer, and supplied to CI from secrets. `agent-fabric dev up` must refuse to proceed if it finds a registration artifact tracked by git.
+
+**Real traffic costs real tokens.** Unlike `local` and `mock`, this rung sends real requests through the real proxy to a real model. Apply a token-budget policy in the dev environment **by default** rather than documenting the risk, default the harness to conservative `max_tokens`, and print cumulative spend at teardown. A dev loop that quietly consumes a production LLM budget will be switched off after the first invoice.
+
+#### 6.8.4 Where each rung belongs
+
+| Context | Rung | Why |
+|---|---|---|
+| Unit tests, OSS contributors, no org | `mock` | offline, no credentials, fast |
+| Routing, CORS, custom WASM policies, request shape | `local` | real gateway, no control-plane cost |
+| Policy behaviour, `resolve()`, attribution, usage | `connected` | the only rung where these are real |
+| Pre-merge CI gate | `connected` | highest fidelity before a shared sandbox |
+| Release gating | live sandbox | see §8.3 |
+
+Keep `local` as the default for `simulate()`. `connected` is opt-in, because it requires credentials and spends money — but it should be the rung the docs recommend for anyone with an org, and the one CI uses on the main branch.
+
+#### 6.8.5 Added to the M0 verification checklist
+
+Both items are in §6.7. They decide whether §6.8 is per-developer or shared, and how CI obtains a registration.
+
+### 6.9 Companion custom policies — the SDK-coupled contract
+
+§0.2 excludes authoring gateway policy *logic* from this SDK, and that exclusion stands: Omni Gateway policies are Rust→WASM on Envoy via the PDK and cannot be expressed in Python or TypeScript. This section is not a reversal. It specifies the **contract** between the SDK and a small set of custom policies shipped from a **separate companion repository**, of which this SDK implements only the client half.
+
+The reason to specify it here rather than leave it to the policy repo is that the contract is worth more to the SDK than to the gateway. Every stock policy verified in §4 keys on a single HTTP request — a credential, a body, a header. But an agent run is not one request. It is one model call, then a tool call, then six more model calls, then a delegation to another agent. The gateway sees fifteen unrelated requests from one `client_id` and cannot tell a converged run from a runaway loop, or a declared tool from an injected one.
+
+There are exactly three facts the SDK knows that the gateway structurally cannot:
+
+1. **Run shape.** The correlation-ID contextvar in `core/transport.py` (§2.3) already fans one logical run across every model and tool call. Step index, recursion depth, and the parent run in an A2A delegation chain exist only in the client.
+2. **The declared toolset.** `ToolSet.filter(allow=, deny=)` (§4.3) runs in the developer's process. It is advisory. A prompt-injected agent can call any tool its credential reaches, and the gateway will allow it.
+3. **Provenance.** Framework and version, SDK version, resolved model, lockfile digest (§4.2).
+
+A custom policy that consumes any of those is, by construction, useless without the SDK — which is the property that makes this workstream worth funding. Nothing below can be reproduced with `curl`.
+
+#### 6.9.1 Ownership boundary — read this before writing any Rust
+
+| Artifact | Repo | Owner |
+|---|---|---|
+| Policy logic (Rust→WASM, PDK), policy Exchange assets | **companion repo**, e.g. `agent-fabric-policies` | platform / gateway team |
+| Header emission, signing, error mapping, conformance scenarios | **this SDK** | SDK team |
+| Applying a policy to an API instance | CI, from a reviewed spec (§5.4) | platform team |
+
+Three rules follow, and none of them is negotiable:
+
+- **No Rust in this repository.** If a PR to this repo contains a `.rs` file or a `Cargo.toml`, it is in the wrong repo. The SDK's entire contribution is a signed header on the way out and a typed exception on the way back.
+- **The wire format is a published spec, not an implementation detail.** Version it in the header value itself (`x-agent-run: v1.…`) so the SDK and the policies release independently. Maintain a compatibility matrix in the companion repo; the SDK must tolerate a gateway running the previous major version.
+- **§5.4 and working instruction #11 still apply.** These policies are applied by the platform team in CI. Nothing in the SDK's runtime path applies, mutates, or requests a policy. The SDK emits headers and reads decisions.
+
+**Everything here is UNVERIFIED.** Not one row below has been confirmed against a real gateway, and §6.9.6 lists the PDK capability questions that decide whether the design is buildable at all. Per working instruction #2, no SDK code path ships against this contract until its row in `docs/verified-apis.md` is filled in.
+
+#### 6.9.2 `agent-run-attestation` — the primitive; build this one first
+
+A request-side policy requiring a signed run-context header, without which the request is rejected (or, in `observe` mode, annotated and passed).
+
+```
+x-agent-run: v1.<base64url(claims_json)>.<base64url(hmac_sha256)>
+
+claims = {
+  "run_id":        "0f9c…",      # the §2.3 correlation ID, verbatim
+  "parent_run_id": "a41e…",      # A2A / broker delegation chain; null at the root
+  "step":          7,            # 7th governed call in this run
+  "depth":         2,            # 2 agents deep
+  "agent_id":      "checkout-agent",
+  "business_group": "payments",
+  "framework":     "langgraph@0.2.74",
+  "sdk_version":   "0.1.0",
+  "toolset_digest": "sha256:…",  # §6.9.5; null when no tools are bound
+  "iat": 1756800000, "exp": 1756800300, "nonce": "…"
+}
+```
+
+**Sign with the `client_secret` the SDK already holds.** API Manager already knows that secret for the client application — `client-id-enforcement` 1.3.3 is verified live on the `openai-sdk` instance (§4) — so the policy can verify without any new key infrastructure, key rotation story, or JWKS endpoint. This is the single most important design decision in the section, and it is also the least certain: whether a PDK policy can read the contract secret for the authenticated client application is an open capability question (§6.9.6). If it cannot, fall back to a policy-configured shared signing key per business group, and accept the rotation burden.
+
+Configuration surface:
+
+```yaml
+mode: observe | enforce          # start at observe, always
+maxClockSkewSeconds: 60
+maxTokenAgeSeconds: 300
+replayWindowSeconds: 300         # nonce cache; see the shared-state question in §6.9.6
+requireSignature: true           # false = accept unsigned claims, for the migration window
+emitTracingLabels: true          # project run_id / agent_id / depth into tracing (§2.5)
+```
+
+What it buys, in order of value:
+
+- **It closes the §3 blocker.** "Business-group attribution header name" has been UNVERIFIED since M0 and is rated High impact in §10 because it kills cost attribution. This makes it moot. Rather than waiting for MuleSoft to expose a header the gateway reads, you define the header, you sign it, and the policy reads it. Attribution becomes a contract you control instead of a platform unknown you are blocked on.
+- **It makes every other policy in this section possible.** §6.9.3, §6.9.4 and §6.9.5 are all consumers of these claims. Build them in that order or not at all.
+- **It gives `mode: enforce` as a real capability.** An instance with this policy is SDK-only by construction, which is a legitimate thing for a platform team to want and impossible to achieve with the stock policy set.
+- **It joins the client trace to the gateway trace.** §2.5 promises a developer can correlate a local OTel trace with what the platform team sees. Today that rests on `X-Correlation-Id` surviving; `emitTracingLabels` makes it structural.
+
+**Ship the free version first.** The stock `llm-token-rate-limit` policy takes a DataWeave `keySelector`, verified in §4 as `#[attributes.headers['client_id']]`. The moment the SDK emits a plain `x-agent-run-id` header, that becomes `#[attributes.headers['x-agent-run-id']]` and stock rate limiting is run-scoped with **zero custom code**. Do that in M1. The custom policy earns its keep only when you need signing, replay protection, and step/depth counting — do not let it block the 80% that is a one-line config change.
+
+SDK side, all of it in `core/`:
+
+- `core/attestation.py` — canonical JSON serialisation (key order is part of the signature; get this wrong and every request fails verification), HMAC, and the header codec. Framework-free.
+- `core/transport.py` — emit in `_apply_base_headers`, alongside the existing correlation header. Both `FabricAsyncClient` and `FabricClient`.
+- `core/telemetry.py` — `step` and `depth` counters on the run contextvar, incremented per governed call.
+- `Fabric.run_context(run_id=…)` gains `parent_run_id=` so an A2A delegation continues the chain rather than starting a new one.
+
+#### 6.9.3 `agent-run-budget` — the runaway-loop killer
+
+`client_id`-keyed token limiting is the wrong granularity for agents. One ReAct loop that will not converge exhausts the budget for every other agent sharing that credential, and the failure lands on whichever agent asks next — not on the one at fault. Keying on `run_id` from §6.9.2 contains the blast radius to the run that caused it.
+
+```yaml
+maxTokensPerRun: 50000
+maxSteps: 40
+maxDepth: 4                      # delegation depth; the A2A cycle guard
+runTtlSeconds: 900
+onExceeded: reject | truncate    # truncate = allow the in-flight call, block the next
+```
+
+`maxDepth` deserves its own mention: §4.5 wraps a remote A2A agent as a callable tool, so agent-calls-agent is a supported pattern, and there is currently nothing anywhere in the stack that stops A delegating to B delegating back to A. Client-side depth counting is defeated by the first participant that does not use the SDK. Gateway-side is not.
+
+The rejection body is the other half of the value. Verified stock behaviour for a token-limit block is `429` with an **empty body**, no `retry-after`, and budget state smuggled into `x-token-reset` as milliseconds (§4). Against that, this policy returns:
+
+```json
+{"error": {"type": "run_budget_exceeded", "policy": "agent-run-budget",
+           "run_id": "0f9c…", "consumed": 48213, "limit": 50000,
+           "step": 41, "limit_kind": "maxSteps",
+           "remediation": "Run exceeded 40 steps — likely a non-converging tool loop. Inspect the run trace before raising the limit."}}
+```
+
+`PolicyViolation.remediation` is a required field (§2.4) that the SDK currently has to synthesise, because the gateway says nothing. Here it comes from the policy, which is the only party that knows which limit tripped.
+
+**Two hard parts, stated up front.** Token counts live in the response `usage` block, and on a streaming response they arrive only in the terminal SSE event — so accumulation means inspecting a stream without buffering it. And a cross-request counter needs state shared across gateway workers; if the PDK offers no shared store, per-worker approximation is the fallback and the configured limit becomes a soft ceiling that must be documented as such. Both are §6.9.6 questions. Scope this policy only after they are answered.
+
+#### 6.9.4 `fabric-error-envelope` — normalise the rejection shapes
+
+`errors.classify()` is a heuristic table because the gateway speaks four dialects, and §4 says so explicitly: *neither the status code nor the shape of the `error` value is a sufficient discriminator*. A flat `{"error": "…"}` for auth, a nested provider object passed through verbatim, a nested `{"type": "pii_detected"}` for PII that is a `403` but not an auth failure, and an empty body for `429`. The current implementation disambiguates on `www-authenticate` presence and error `type` strings, which works, and which will break the first time a policy is upgraded.
+
+A response-side policy that rewrites **non-2xx responses only** into one versioned envelope collapses that table into a schema check:
+
+```json
+{"error": {"envelope": "fabric/v1", "type": "pii_detected", "policy": "llm-pii-detection-policy@1.0.0",
+           "message": "…", "remediation": "…", "retry_after_s": 42,
+           "correlation_id": "0f9c…", "run_id": "0f9c…",
+           "details": {"entities": [{"pii_type": "Email", "start": 31, "end": 48}]},
+           "doc_url": "https://…/errors/pii_detected"}}
+```
+
+**Make it content-negotiated.** Rewrite only when the request carried `x-fabric-accept-envelope: v1`. Any existing non-SDK consumer of that instance keeps byte-identical passthrough behaviour, so this can be applied to a live instance without a breaking-change review — and the good error experience is an SDK-exclusive property rather than a migration event for somebody else's integration.
+
+Three constraints on the implementation:
+
+- **Never touch a 2xx**, and never touch `text/event-stream`. Streaming is verified working (§2) and a response-rewriting policy is exactly the sort of thing that breaks it.
+- **Preserve the original status code.** The envelope changes the body, not the semantics.
+- **`details` is open.** The envelope's contract is the outer keys; per-policy payloads go in `details` so a new policy does not require a new envelope version.
+
+Payoff for the SDK: `classify()` becomes "parse the envelope if present, else fall back to today's heuristic table." The fallback stays forever — the SDK must work against an instance with no companion policies — but it stops being the primary path, and a new gateway policy stops being a fixture-capture exercise.
+
+#### 6.9.5 `toolset-contract` — the one with real differentiation
+
+This policy sits on the **MCP ingress** (`https://…/mcp/<name>/`, verified §6), not the LLM proxy, and it is the strongest of the four because it closes a security gap rather than a DX gap.
+
+Today, tool filtering is client-side and therefore advisory. §4.3 recommends filtering to keep descriptor counts down, which is a token-cost argument, not a security one — and the security consequence is not written down anywhere: a prompt-injected agent can invoke any tool its credential can reach, because the gateway has never been told which tools the agent declared.
+
+The policy takes `toolset_digest` from the signed claims (§6.9.2), resolves it against the manifest published to Exchange, and enforces two things:
+
+1. the invoked tool name is in the declared set, and
+2. its arguments validate against the published `inputSchema`.
+
+The digest infrastructure already exists. §7.3 derives descriptors from code, §7.5 computes a content digest for `--if-changed`, and the conformance kit already asserts `descriptor_auto_stable` — two introspections of one server produce an identical digest. This policy is largely a consumer of work the plan has already committed to.
+
+It is unforgeable without the SDK because the SDK is what computes the digest at publication time and signs it at call time. That is the cleanest example in this section of the property being asked for.
+
+**Stretch, and the reason to call any of this a fabric:** have the LLM proxy return a short-lived, run-scoped capability token on a successful completion, and have the MCP ingress require it. Governed tools then become callable only from inside a governed model run — a tool call with a valid credential but no active run is rejected. No hand-rolled client can do this, because it requires carrying state from an LLM response header into an MCP session, which is precisely what `core/transport.py` and `McpServerHandle` already are. Treat it as a design spike, not a deliverable: it couples the two data planes, and if the coupling is wrong it fails closed on every tool call in production.
+
+#### 6.9.6 Cross-cutting rules
+
+**Policy ordering is part of the contract.** Attestation must run before anything reading run claims, and the error envelope must sit outermost so it catches rejections from every policy including attestation itself. Record the required order in the companion repo and assert it in `Governance.resolve()` (§6.3) — a correct set of policies in the wrong order is drift, and `GovernanceDrift` should say so.
+
+**Every policy ships `observe | enforce`, and defaults to `observe`.** Roll out in observe, read the analytics, then enforce. A policy that hard-requires an SDK header on day one breaks whatever is already calling that instance, and the rollback is a control-plane change under someone else's change window.
+
+**Fail closed, but only in the direction that is safe.** A missing or invalid attestation in `enforce` mode is a rejection. A missing *optional* claim is not — `toolset_digest` is null for an agent with no tools bound, and that must stay a normal request rather than a policy incident.
+
+**LiteLLM degrades this, as it degrades everything.** ADK and CrewAI cannot be handed the SDK's httpx client, so their correlation ID is per-client rather than per-run — already a documented, asserted conformance exemption (§8.1 `correlation_id_propagated`, §10). Under attestation, those two adapters still authenticate and still attribute per client application, but `step` and `depth` are not trustworthy, which means §6.9.3's `maxSteps` and `maxDepth` cannot be enforced for them. Decide explicitly whether that is an exemption or a hard blocker for enforcement on an instance those frameworks call. Do not discover it during a rollout.
+
+**This is the rare governance feature that is fully testable locally.** The §6.4 portability table says custom WASM (PDK) policies work in **both** Local and Connected Mode — unlike `client-id-enforcement`, SLA rate limiting, or the LLM proxy itself. So these four are exercisable on the `local` rung of `simulate()` (§6.5, §6.8): a real gateway, real policy enforcement, no control-plane cost, no shared sandbox, no org required. `attribution_headers_present` and `correlation_id_propagated` stop being assertions against a mock and become assertions against a gateway that actually rejects. That is a stronger dev loop than anything else in §6 offers, and it is an argument for building §6.9.2 earlier than its business value alone would justify.
+
+#### 6.9.7 Added to the M0 verification checklist
+
+None of this is buildable until the PDK's actual capabilities are known. Each row gates a specific design decision above; add them to `docs/verified-apis.md` and answer them before any Rust is written.
+
+| Question | Gates | If the answer is no |
+|---|---|---|
+| Can a PDK policy read the contract `client_secret` for the authenticated client application? | §6.9.2 signing key | Per-BG configured shared key; own the rotation story |
+| Does the PDK expose state shared across gateway workers (counters, nonce cache)? | §6.9.2 replay window, §6.9.3 budgets | Per-worker approximation; document limits as soft ceilings |
+| Can a policy inspect a streaming (SSE) response body without buffering it? | §6.9.3 token accumulation | Budget enforcement is non-streaming-only; say so loudly |
+| Can a policy rewrite a response body conditionally on a request header? | §6.9.4 content negotiation | Envelope becomes instance-wide and therefore a breaking change |
+| Can a policy make an outbound call (Exchange manifest lookup), and with what latency budget? | §6.9.5 digest resolution | Ship the manifest in policy config; accept staleness |
+| Is policy execution order controllable and readable per API instance? | §6.9.6 ordering, drift detection | Order becomes convention, unassertable by `resolve()` |
+| Do custom WASM policies genuinely run in Local Mode as §6.4 claims? | the entire local dev-loop argument | Falls back to the `connected` rung; needs an org |
 
 ---
 
@@ -1482,6 +1746,9 @@ CONFORMANCE_SCENARIOS = [
     "publication_verify_drift",    # added tool on live server -> PublicationDrift
     "publication_idempotent",      # --if-changed with no change -> zero writes, exit 0
     "descriptor_matches_framework",# derived schema == the schema the model receives
+    "fidelity_never_downgrades",   # simulate(mode="connected") fails rather than falling back
+    "connected_local_real_policy", # connected-mode local gateway enforces a connected-only policy
+    "dev_instance_cleaned_up",     # ephemeral API instance destroyed on exit AND on exception
     "scan_never_publishes",        # fleet scan issues ZERO writes to Exchange
     "scan_tier_needs_repo_optin",  # tier > propose ignored unless committed in target repo
     "scan_static_completeness",    # loop-registered tools -> completeness warning in the PR body
@@ -1489,6 +1756,10 @@ CONFORMANCE_SCENARIOS = [
     "auto_vs_live_agree",          # object and live introspection produce one digest
     "dynamic_tools_detected",      # loop-registered tools present in `auto`, warned in `auto:static`
     "asset_type_detection",        # fixture projects per framework classify correctly
+    "attestation_header_signed",   # §6.9.2 header present, canonical, signature verifies
+    "attestation_step_increments", # step/depth advance across a run's model + tool calls
+    "attestation_chain_preserved", # A2A delegation continues parent_run_id, no new root
+    "error_envelope_preferred",    # §6.9.4 envelope parsed when present, heuristic when not
 ]
 ```
 
@@ -1502,7 +1773,18 @@ Unit and contract tests replay these with `respx` (Python) / `msw` (TS). **The `
 
 ### 8.3 Integration
 
-`docker-compose` bringing up Omni Gateway in Local Mode with declarative config, an upstream mock API, and an MCP Bridge-equivalent config. Not everything is testable locally — LLM Proxy and MCP Bridge are Connected Mode features — so integration coverage is partial by design. Mark clearly which tests need a real sandbox and gate them behind `FABRIC_SANDBOX_TESTS=1` so contributors without an org can still run the suite.
+Three tiers, matching the §6.8 fidelity ladder. The distinction that matters: LLM Proxy and MCP Bridge are **Connected Mode** features, which is not the same as "not testable locally" — a self-managed Connected Mode gateway runs on a laptop or a CI runner and has both for real (§6.8).
+
+| Tier | Marker | What it runs | Needs an org |
+|---|---|---|---|
+| `mock` | default, always on | in-process stub replaying §8.2 fixtures | no |
+| `local` | `@pytest.mark.local_gateway` | `docker-compose`: Flex Gateway in Local Mode, declarative config, upstream mock | no* |
+| `connected` | `@pytest.mark.connected_gateway` | Flex Gateway container in **Connected Mode**, registered to a dev environment | **yes** |
+| live sandbox | `FABRIC_SANDBOX_TESTS=1` | the shared sandbox, for release gating | yes |
+
+\* subject to the §6.7 licence-artifact question.
+
+Coverage on the `local` tier is partial by design — connected-only policies are skipped and loudly reported (§6.4). The `connected` tier closes that gap and is the pre-merge gate on the main branch. Keep every org-requiring tier off by default so contributors without an Anypoint org can still run the full `mock` suite.
 
 ### 8.4 Nightly framework matrix
 
@@ -1521,7 +1803,8 @@ Pin floors, not ceilings, in `pyproject.toml`. Never `<` pin a framework — it 
 | **M0 — Verify** | §0.3 in full. `docs/verified-apis.md`. `scripts/probe.py` + captured fixtures. Go/no-go on §5. | 2 weeks |
 | **M1 — Model access** | `core` complete. `llm` client + catalog. Adapters for Tier 1 (LangGraph, ADK, Strands, Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI). Conformance kit. `lint` command. Docs site skeleton. **First public release, 0.1.0.** | 4 weeks |
 | **M2 — Tool access** | `registry` + `tools` + `ToolSet`. Bindings for all eight. Lockfile. A2A agent handles. LlamaIndex (Tier 2) adapter. Governed-only discovery, name/glob `search` + filters, and `explain()` (§6.1). **0.2.0.** | 6 weeks |
-| **M2.5 — Governance object** | `Governance`, `GatewayTarget`, target profiles, `resolve()` with drift detection, policy portability table, `simulate()` with local gateway or mock proxy (§6.2–§6.6). **0.3.0.** | 4 weeks |
+| **M2.5 — Governance object** | `Governance`, `GatewayTarget`, target profiles, `resolve()` with drift detection, policy portability table, `simulate()` across all three fidelity rungs incl. the self-managed Connected Mode local gateway and its dev-instance lifecycle (§6.2–§6.6, §6.8). **0.3.0.** | 5 weeks |
+| **M2.6 — Attestation (client half)** | `core/attestation.py`, header emission in both transports, step/depth counters, `parent_run_id` on `run_context()`, envelope-aware `classify()`, the four §8.1 attestation scenarios (§6.9.2–§6.9.4). **Off the critical path** — see below. **0.3.2.** | 2 weeks |
 | **M2.7 — Publication** | `Publication`, `preview()`, `verify()` with drift diff, digest + `--if-changed`, collision check, `agent-fabric status` (§7). **0.3.5.** | 3 weeks |
 | **M2.8 — Derivation** | Per-framework descriptor adapters (§7.3.1), `auto` / `auto:live` / `auto:static` / `auto:check`, cross-check, quality report, asset detection + `agent-fabric init` (§7.8). **0.3.8.** | 4 weeks |
 | **M2.9 — Fleet scanning** | `agent-fabric scan` (single repo, non-interactive), coverage report, fleet enumeration, autonomy tiers, `propose` PRs, cross-repo dedupe, scheduled re-scan (§7.10). **0.3.9.** | 3 weeks |
@@ -1530,6 +1813,8 @@ Pin floors, not ceilings, in `pyproject.toml`. Never `<` pin a framework — it 
 | **M5 — Hardening** | Perf, telemetry polish, error-message pass, migration guide, examples for all eight, security review. **1.0.0.** | 3 weeks |
 
 `export()` — for both the governance and publication objects — lands with M4, since it emits the M4 spec format. Ship M2.5 and M2.7 with their local and runtime verbs only, and document `export()` as coming.
+
+**M2.6 is deliberately fenced.** It is the SDK's half of the §6.9 contract only, it depends on the companion policy repo existing and on §6.9.7 being answered, and it is excluded from the total below — a milestone that blocks on a different team's Rust has no business sitting on this plan's critical path. What is *not* fenced is the one-line version: emit a plain `x-agent-run-id` header in M1 so a platform team can point the stock `llm-token-rate-limit` `keySelector` at it and get run-scoped budgets with no custom policy at all (§6.9.2). Do that in M1 regardless of whether M2.6 is ever funded.
 
 Roughly ten to eleven months for two engineers, up from six. M2.9 depends entirely on M2.8 — a scanner is only as good as the derivation underneath it — but its coverage report (§7.10.7) is read-only and needs no write path, so that one piece can ship alongside M2.7 as a platform-team on-ramp. M2.8 is the single highest-leverage block in the plan after M1 — it is what makes the catalog self-maintaining instead of self-rotting — but it is also the block most exposed to upstream framework churn, so it needs the nightly matrix in place before it starts. Ship M1 publicly rather than waiting — the LLM proxy adapters are useful alone, and early feedback will reorder M2–M4.
 
@@ -1559,14 +1844,24 @@ Link it from the README above the fold. Enterprise buyers will ask; having the a
 |---|---|---|---|
 | MuleSoft ships a first-party Python/TS SDK | Medium-high | Existential | Talk to MuleSoft product in week 1 of M0. Ask for a written answer. Offer to be a design partner. |
 | MCP Bridge has no provisioning API | Medium | M4 only | Pivot to Terraform generation (§5.5). M1–M3 unaffected. |
-| Attribution header names not exposed | Low-medium | High — kills cost attribution | Surfaced in M0. If unavailable, escalate to MuleSoft; ship with correlation-ID-only telemetry and document the gap. |
+| Attribution header names not exposed | Low-medium | High — kills cost attribution | Surfaced in M0. If unavailable, escalate to MuleSoft; ship with correlation-ID-only telemetry and document the gap. **§6.9.2 makes this moot if built** — a signed, self-defined attestation header the companion policy reads replaces the platform header the SDK is waiting on. |
+| Client-side tool filtering mistaken for tool authorization | **High** | **High — a prompt-injected agent calls any tool its credential reaches** | Document `ToolSet.filter` as advisory in §4.3, not a security control. Gateway-enforced fix is §6.9.5, and it needs the attestation primitive first. |
+| Runaway agent loop exhausts a shared credential's token budget | High | Medium — the failure lands on an innocent agent | Run-scoped keying: `keySelector` on the SDK's run-id header (free, M1), then §6.9.3 for step/depth limits. |
+| A2A delegation cycle (A→B→A) with no depth guard | Medium | Medium — unbounded spend, no client-side fix | Client-side depth counting is defeated by the first non-SDK participant. `maxDepth` in §6.9.3 is the only real guard. |
+| Companion policy contract drifts from the SDK's emitted header | Medium | High — every governed call rejects at once | Versioned wire format (`v1.…`), compat matrix in the companion repo, SDK tolerates the previous major, `observe` mode default (§6.9.1, §6.9.6). |
+| Custom policies do not actually run in Local Mode as §6.4 claims | Medium | Medium — kills the §6.9.6 local dev-loop argument | M0 gate (§6.9.7). Falls back to the `connected` rung, which needs an org. |
 | Framework churn breaks adapters | Certain | Medium | Nightly matrix (§8.4). Native-object design (§3.1) minimises blast radius. |
 | Anthropic-native proxy route unavailable | Medium | Medium — Anthropic adapter cannot reach a working upstream | M0 gate (§3.3). One-time `UnverifiedValueWarning`; `base_url` overridable; the seven other adapters are unaffected. |
 | CrewAI/ADK LiteLLM transport blocks per-run correlation | Certain | Low | Documented, asserted conformance exemption (§8.1); LiteLLM logger callback may recover it later. |
 | Anypoint API changes break control-plane calls | Medium | Medium | Contract fixtures + monthly probe re-run (§8.2). |
 | Scope creep into agent-network authoring | High | High | It is in §0.2. Point at it in every scope discussion. |
-| **Local Mode cannot run LLM Proxy or MCP Bridge** | **Medium-high** | **High — `simulate()` becomes a mock, not a replica** | M0 gate (§6.7). Ship the mock proxy either way; label simulation loudly (§6.4). |
-| Local Mode needs a control-plane licence artifact | Medium | Medium — blocks OSS contributors and CI | M0 gate. Fall back to mock-proxy-only local loop. |
+| **Local Mode cannot run LLM Proxy or MCP Bridge** | **Medium-high** | **Medium — was High before §6.8** | M0 gate (§6.7). Ship the mock proxy either way; label simulation loudly (§6.4). **A self-managed Connected Mode gateway running locally has both for real (§6.8)**, so this became a cost question rather than a capability ceiling. |
+| Local Mode needs a control-plane licence artifact | Medium | Medium — blocks OSS contributors and CI | M0 gate. Fall back to mock-proxy-only local loop; `connected` rung for anyone with an org. |
+| **Orphaned dev API instances accumulate in the control plane** | **High if unguarded** | **Medium — quota exhaustion and a mess nobody owns** | Deterministic naming, create-if-absent, teardown on exception, `agent-fabric dev reap` TTL reaper (§6.8.3). |
+| Dev harness pointed at a production environment by a stray env var | Low-medium | **High** | Hard environment fence: refuse any environment not explicitly marked a dev target, and refuse outright on production (§6.8.3). |
+| Gateway registration artifact leaked or committed | Medium | High — lets the holder register a gateway into the org | Treated as a credential: gitignored, never logged, per-developer; `dev up` refuses if git tracks it (§6.8.3). |
+| Connected local dev loop silently spends LLM budget | Medium-high | Medium — feature switched off after the first invoice | Token-budget policy applied in the dev environment by default, conservative `max_tokens`, cumulative spend printed at teardown (§6.8.3). |
+| A test expecting `connected` silently runs on `mock` | Medium | High — a false pass on the policy behaviour that matters most | `env.fidelity` queryable; `simulate(mode=...)` fails rather than downgrading; conformance `fidelity_never_downgrades` (§6.8.1). |
 | Developers trust a green `simulate()` run | High | High — ungoverned code reaches prod | Non-suppressible skipped-policy warning (§6.4). `resolve()` drift check at startup as the real gate. |
 | `governed=True` silently returns empty | High | Medium — SDK gets blamed | `explain()` (§6.1.2) plus a reason attached to every exclusion. |
 | Governed-discovery join is slow on large catalogs | Medium | Medium | Bulk index + Exchange-side prefilter (§6.1.3). `warm()` at startup. |
