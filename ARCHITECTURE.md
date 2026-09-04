@@ -2,10 +2,15 @@
 
 This document is the contributor-facing map of how the SDK is built — the layer
 boundaries, the design invariants, and the discipline that keeps the package
-trustworthy. It is a distillation, not the spec: the authoritative specification
-is [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md), and every
-`§N.N` reference below points into it. When a rule here feels arbitrary, read the
-cited section — the constraints are deliberate.
+trustworthy. It is a distillation, not the spec. The authoritative specs are
+[`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md)
+(phases, milestones, standing invariants) and
+[`spec/agent-fabric-sdk-build-guide.md`](spec/agent-fabric-sdk-build-guide.md)
+(feature scope, cited as `BG §N.N`). A **bare** `§N.N` reference below points
+into the archived v1 plan at
+[`spec/archive/agent-fabric-sdk-build-plan-v1.md`](spec/archive/agent-fabric-sdk-build-plan-v1.md),
+which is where most existing citations in the tree still resolve. When a rule
+here feels arbitrary, read the cited section — the constraints are deliberate.
 
 For *using* the SDK, see the consumer docs site (`website/`). For *working in*
 the repo — branch/PR flow, testing surfaces, coding conventions — see
@@ -187,7 +192,11 @@ Anthropic-native Messages API route, an open verification item, §0.3).
 ## Related documents
 
 - [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md) — the
-  authoritative specification; every `§N.N` here points into it.
+  authoritative plan: phases, milestones, label taxonomy, standing invariants.
+- [`spec/agent-fabric-sdk-build-guide.md`](spec/agent-fabric-sdk-build-guide.md) —
+  feature-by-feature scope and acceptance bars; cited as `BG §N.N`.
+- [`spec/archive/agent-fabric-sdk-build-plan-v1.md`](spec/archive/agent-fabric-sdk-build-plan-v1.md) —
+  archived v1 plan, not authoritative; a bare `§N.N` resolves here.
 - [`docs/verified-apis.md`](docs/verified-apis.md) — the §0.3 verification ledger
   (source of truth for what is verified vs. blocked).
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch/PR/release flow, testing surfaces,

@@ -8,8 +8,9 @@ description: Use when reviewing an agent-fabric-sdk pull request — checks this
 ## Overview
 
 `agent-fabric` (import package `agent_fabric`) rests on a small set of
-architectural invariants documented in `CLAUDE.md` and the build plan
-(`spec/agent-fabric-sdk-build-plan.md`, the authoritative spec — every `§N.N`
+architectural invariants documented in `CLAUDE.md` and the specs in `spec/`
+(`agent-fabric-sdk-build-plan.md` for phases and invariants,
+`agent-fabric-sdk-build-guide.md` for feature scope — every `§N.N`
 points into it). Most are easy to violate in a way that passes a casual read but
 breaks the layered/framework-free-core rule, invents an unverified endpoint, or
 misclassifies a gateway rejection. This skill is the review-time checklist for
@@ -133,8 +134,12 @@ constraints**, not encoded as pins. Keep the Python 3.10 floor
 
 ### 5. §N.N citation hygiene
 
-Every `§N.N` in code, docstrings, tests, and commit messages points into
-`spec/agent-fabric-sdk-build-plan.md`. When the diff adds or moves a citation:
+Citations come in two forms and must not be mixed: **`BG §N.N`** points into
+`spec/agent-fabric-sdk-build-guide.md` and is the form for all new
+feature-scope references; a **bare `§N.N`** points into the archived v1 plan at
+`spec/archive/agent-fabric-sdk-build-plan-v1.md`. A new bare `§N.N` added by
+the diff is a comment — it should almost certainly be `BG §`. When the diff
+adds or moves a citation:
 
 - Spot-check that the cited section actually covers the claim — a `§`-cited guard
   must not be removed without reading its section (CLAUDE.md).
@@ -155,10 +160,14 @@ If the diff adds or changes a framework adapter, `tests/conformance/suite.py` is
 ONE suite run against every adapter. A framework is "supported" only if it passes
 all scenarios **or** records an **asserted exemption in `KNOWN_LIMITATIONS`** —
 never a silent `skip`/`xfail`. A new adapter with no conformance coverage, or a
-`pytest.skip` used to dodge a failing scenario, is a request-changes. Tier 1
-adapters (LangGraph, Google ADK, Strands, Microsoft Agent Framework, OpenAI
-Agents SDK, Anthropic SDK, CrewAI) are conformance-gated in blocking CI; Tier 2
-(LlamaIndex) is non-blocking.
+`pytest.skip` used to dodge a failing scenario, is a request-changes.
+
+The roster is cut (`BG §1.8`): **LangGraph** is the one deep,
+conformance-gated adapter, and seven frameworks (Google ADK, Strands, Microsoft
+Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex) are
+supported at `connection_kwargs()` only. The Tier 1 / Tier 2 vocabulary is
+retired. A PR reintroducing deep support for a demoted framework without a
+demand-driven decision is a scope question, not a free win.
 
 ### 8. Trademark-descriptive wording (§0.4)
 

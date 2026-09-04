@@ -6,6 +6,22 @@ layered/framework-free core, the verification contract, the branch/issue
 lifecycle — so it can be pulled into context exactly when it's relevant instead
 of living only in a human's head or a scroll-past section of `CLAUDE.md`.
 
+## Two specs, two citation forms
+
+Every skill below assumes the citation convention stated in full in
+`CLAUDE.md`. The short version:
+
+- **`spec/agent-fabric-sdk-build-plan.md`** — phases, milestones, labels,
+  implementation order, standing invariants. Cited by phase name.
+- **`spec/agent-fabric-sdk-build-guide.md`** — feature scope. Cited **`BG §N.N`**.
+- **`spec/archive/agent-fabric-sdk-build-plan-v1.md`** — archived, not
+  authoritative. A **bare `§N.N`** resolves here, which is where most existing
+  citations in the tree still point.
+
+Milestones are `Phase 1`–`Phase 5` plus the standing `Verification` and
+`Upstream gaps`. Area labels use a **colon** (`area:skeleton`); the old
+`area/*` slash labels are retired.
+
 ## Index
 
 | Skill | When it fires |
