@@ -1,0 +1,80 @@
+---
+description: A local server that replays real gateway rejections, so you can develop against a governed gateway without having one.
+---
+
+import { Callout } from 'nextra/components'
+
+# Local simulator
+
+<Callout type="info">
+  **Phase 1 — designed, not yet shipped.** Flags and scenario syntax below are
+  a proposal; the committed part is the behaviour and the acceptance bar. See
+  [Roadmap](/roadmap) and [Verification policy](/concepts/verification).
+</Callout>
+
+Nobody can make the production gateway emit a PII block on cue. Which means
+the branch of your agent that handles `PIIDetected` has **never executed**
+before the day it executes on a real customer's data.
+
+`fabric mock` is a local HTTP server that behaves like the governed proxy *for
+the failure paths*. It replays captured rejection fixtures on demand and
+forwards happy-path traffic to a stub model.
+
+```bash
+fabric mock --port 8080 \
+  --scenario pii_block:every=5 \
+  --scenario budget:limit=20000,window=60s \
+  --scenario injection:on-pattern="ignore previous"
+```
+
+Then point **any** client at `http://localhost:8080` — the SDK, a stock OpenAI
+client, or cURL.
+
+## Why this is the one feature `base_url` cannot give you
+
+Everything else the SDK does happens on the client side, so a determined
+developer could hand-roll it. This cannot be hand-rolled, because **the value
+is on the server side.** "Develop against a governed gateway without having a
+gateway" is not an ergonomics improvement; it is a capability you otherwise do
+not have.
+
+## Testing the branch that has never run
+
+`pii_block:every=5` makes every fifth call fail. Your masking logic runs in
+your own terminal, before the pull request is opened, instead of in
+production.
+
+For an overnight batch, `budget:limit=20000,window=60s` shrinks an hour-long
+budget window to one minute — so the pacing and resume logic from
+[Budget & pacing](/budget) is exercised end-to-end in ninety seconds rather
+than "we'll find out tonight."
+
+## The honesty guarantee
+
+A simulator that could be mistaken for a real gateway would be worse than no
+simulator, so two rules are non-negotiable:
+
+<Callout type="warning">
+  **Every simulator response carries `x-fabric-simulator: true`.** It can
+  never be confused for a real gateway in a log, a trace, or a screenshot.
+</Callout>
+
+And the fixtures are the **same files** used by the `classify()` tests. One
+source of truth: if the gateway contract drifts, the simulator and the error
+taxonomy fail together, rather than the simulator quietly teaching you a
+contract that no longer exists.
+
+## Acceptance bar
+
+- The full [conformance suite](/testing) passes against the simulator.
+- A **stock** `openai.OpenAI(base_url="http://localhost:8080", …)` — not the
+  SDK — receives byte-identical rejection shapes. This is what proves the
+  simulator is honest rather than merely convenient.
+- Happy-path responses emit the same `x-token-*` headers as the real proxy, so
+  budget pacing works against it.
+- Ships as `pip install "agent-fabric[local]"`. No Docker required.
+- Scenario scripting documented with three worked examples.
+
+---
+
+**Status: Phase 1 — not yet shipped.**

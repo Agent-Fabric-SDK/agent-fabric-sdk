@@ -75,7 +75,7 @@
     <text x="1644.5" y="188" font-size="11.5" fill="#64748B" text-anchor="middle">plain OpenAI SDK</text>
     <text x="1644.5" y="208" font-size="10" fill="#64748B" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, monospace">AsyncOpenAI / OpenAI</text>
   </g>
-  <text x="64" y="238" font-size="12" fill="#94A3B8">Tier 1 (conformance-gated, blocking CI): LangGraph &#183; ADK &#183; Strands &#183; Agent Framework &#183; OpenAI Agents &#183; Anthropic &#183; CrewAI     |     Tier 2 (supported, non-blocking CI): LlamaIndex</text>
+  <text x="64" y="238" font-size="12" fill="#94A3B8">Deep, conformance-gated: LangGraph     |     Supported at connection_kwargs(): ADK &#183; Strands &#183; Agent Framework &#183; OpenAI Agents &#183; Anthropic &#183; CrewAI &#183; LlamaIndex</text>
 
   <!-- ================= 2 - SDK ================= -->
   <rect x="40" y="296" width="1720" height="270" rx="14" fill="#F0F7FF" stroke="#0176D3" stroke-width="2"/>
@@ -198,5 +198,5 @@
   <text x="1576" y="1080" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">Amazon Bedrock</text>
 
   <!-- ================= footer ================= -->
-  <text x="40" y="1143" font-size="12.5" fill="#94A3B8">Live-verified today: governed model access. Roadmap: governed tool access (MCP) and provisioning-as-code &#8212; where an API is unverified the SDK raises NotImplementedError rather than guess.</text>
+  <text x="40" y="1143" font-size="12.5" fill="#94A3B8">Live-verified today: governed model access. Phase 1 adds budget, simulator, conformance and telemetry on these same hooks; Phase 2 adds governed tool access (MCP) and A2A &#8212; where an API is unverified the SDK raises NotImplementedError rather than guess.</text>
 </svg>
