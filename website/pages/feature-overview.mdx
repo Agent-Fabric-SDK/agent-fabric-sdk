@@ -1,5 +1,5 @@
 ---
-description: A tour of everything Pillar 1 — governed model access — gives you today.
+description: A tour of everything governed model access gives you today.
 ---
 
 import { Callout } from 'nextra/components'
@@ -7,8 +7,22 @@ import { Figure } from '../components'
 
 # Feature overview
 
-What the SDK gives you today, all in service of **Pillar 1 — governed model
-access**. Everything here is wired to the live-verified proxy contract.
+What the SDK gives you **today**, wired to the live-verified proxy contract.
+For what is designed but not yet shipped, see the [Roadmap](/roadmap) — nothing
+on this page is speculative.
+
+<Figure
+  src="/img/sdk-architecture.svg"
+  alt="Agent Fabric SDK architecture: your unchanged framework code calls the SDK, which resolves config, builds the native object, governs the transport, and classifies responses into typed errors; the call goes out as one OpenAI-compatible HTTPS request with client_id, client_secret, correlation and attribution headers injected, through the Omni Gateway LLM proxy — which enforces consumer auth, PII detection, token budget and metering — and on to upstream model providers."
+  caption="The whole path, end to end. The SDK occupies one layer: it injects governance into the transport, and the gateway — not your process — enforces policy."
+  width={1800}
+  height={1160}
+/>
+
+Everything the SDK adds attaches at stage 2 of that diagram, on a single shared
+transport. That is the **skeleton**: one place where every request enters and
+every response leaves, which is why budget, spans, correlation IDs and
+simulation can all be added later without you rewiring a call site.
 
 <Figure
   src="/img/omni-gateway-architecture.jpg"
@@ -35,7 +49,10 @@ retry policy injected:
 | Anthropic SDK | `fabric.anthropic.client()` | `anthropic.AsyncAnthropic` (client, not model-bound) |
 | CrewAI | `fabric.crewai.llm("gpt-4o")` | `crewai.LLM` (LiteLLM-backed) |
 
-See [Model access](/frameworks) for each framework's page.
+See [Model access](/frameworks) for each framework's page. Support **depth**
+differs even though the shape does not: LangGraph is the one deep,
+conformance-gated adapter, and the other seven are supported at the
+`connection_kwargs()` level.
 
 ## Three ways to construct — pick your ergonomics
 
@@ -95,9 +112,11 @@ passthrough — so you branch on governance outcomes instead of parsing bodies.
 See [Error taxonomy](/errors).
 
 Those exception types are the client-side mirror of the policies the gateway
-enforces. The LLM lane below is the one this SDK targets today; the same control
-plane applies the equivalent policy sets to APIs, MCP tools, and A2A agents,
-which is what Pillars 2 and 3 grow into.
+enforces. The **LLM** lane below is the one this SDK targets today; the same
+control plane applies equivalent policy sets to APIs, MCP tools, and A2A
+agents. Those two columns are not decoration — **MCP** is what
+[tool access](/tool-access) reaches in Phase 2, and **Agents** is what
+[A2A](/a2a) reaches in the same phase.
 
 <Figure
   src="/img/omni-gateway-governance-layer.jpg"

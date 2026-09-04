@@ -160,18 +160,25 @@ correlation/request IDs and the raw response for inspection.
 
 ---
 
-## Framework tiering (§1.4)
+## Adapter support depth (`BG §1.8`)
 
 Not every framework gets the same CI guarantee, and the roster is deliberately
-scoped rather than exhaustive.
+scoped rather than exhaustive. The former Tier 1 / Tier 2 split is **retired**
+along with the eight-adapter roster:
 
-- **Tier 1 — full support, conformance-gated, *blocking* CI:** LangGraph,
-  Google ADK, Strands, Microsoft Agent Framework, OpenAI Agents SDK, Anthropic
-  SDK, CrewAI.
-- **Tier 2 — supported, conformance-gated, *non-blocking* CI:** LlamaIndex.
-- **Tier 3:** none. AutoGen and Semantic Kernel are intentionally out of scope —
-  Microsoft positions Agent Framework as their direct successor, so carrying all
-  three would mean shipping two sunset-path adapters.
+- **Deep — conformance-gated, *blocking* CI:** LangGraph, and only LangGraph.
+- **Supported at `connection_kwargs()`:** Google ADK, Strands, Microsoft Agent
+  Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex. Verified at
+  the kwargs level rather than the constructor level.
+- **Out of scope:** AutoGen and Semantic Kernel — Microsoft positions Agent
+  Framework as their direct successor, so carrying all three would mean
+  shipping two sunset-path adapters.
+
+This makes `connection_kwargs()` *more* load-bearing, not less: it is the
+entire supported surface for seven of the eight. A second framework is
+promoted to deep support from demand evidence, one at a time — never guessed
+up front. The demotion is tracked in #197 and deepening LangGraph in #198;
+until #197 lands, the eight-adapter matrix is still in blocking CI.
 
 **Conformance is how "supported" is proven, not asserted.** One suite
 (`python/tests/conformance/suite.py`) runs identically against every adapter. A
@@ -179,12 +186,15 @@ framework is "supported" only when it passes every scenario **or** records an
 *asserted exemption* in `KNOWN_LIMITATIONS` — never a silent skip. Those
 exemptions are published in the README as credibility (e.g. adapters that reach
 models through LiteLLM cannot propagate a per-run correlation ID, because LiteLLM
-owns the transport). Tier-1 conformance blocks CI; Tier-2 (LlamaIndex) runs
-non-blocking.
+owns the transport).
 
-Two Tier-1 targets carry documented conformance exemptions rather than a lower
-tier: CrewAI (per-run correlation degrades to per-client because it reaches models
-through LiteLLM, like ADK) and the Anthropic SDK (depends on the proxy exposing an
+The centre of gravity moves with the roster cut (`BG §1.5`): the internal
+matrix shrinks to LangGraph, and the deliverable becomes the **customer-facing
+pytest plugin** users run against their own agent (#191).
+
+Two adapters carry documented conformance exemptions: CrewAI (per-run
+correlation degrades to per-client because it reaches models through LiteLLM,
+like ADK) and the Anthropic SDK (depends on the proxy exposing an
 Anthropic-native Messages API route, an open verification item, §0.3).
 
 ---

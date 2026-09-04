@@ -1,0 +1,121 @@
+---
+description: OpenTelemetry GenAI spans, per-run correlation IDs, and cost-attribution tags — in the dashboard you already run.
+---
+
+import { Callout } from 'nextra/components'
+
+# Telemetry & cost
+
+<Callout type="info">
+  **Phase 1 — designed, not yet shipped.** Attribute and API shapes below are a
+  proposal; the committed part is the behaviour and the acceptance bar. See
+  [Roadmap](/roadmap) and [Verification policy](/concepts/verification).
+</Callout>
+
+Two pieces of the six-piece minimum land here, because they answer the same
+two questions: *what happened?* and *who pays for it?*
+
+## OpenTelemetry GenAI spans
+
+Every governed call produces a span following the OpenTelemetry **GenAI
+semantic conventions** — `gen_ai.system`, `gen_ai.request.model`,
+`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` — plus attributes
+for the governance layer that generic instrumentation cannot know about:
+
+```
+fabric.policy.decision      = allow | refuse
+fabric.policy.type          = pii_detected | token_budget | injection | …
+fabric.budget.remaining     = 18450
+fabric.correlation_id       = …
+fabric.cost.team            = support
+```
+
+Export goes over OTLP to wherever you already send spans. **Nothing in the
+emit path is Anypoint-specific.**
+
+That is the point: if your team already runs Langfuse, Datadog, or Phoenix,
+then "policy refusals per hour by type" and "tokens per ticket" show up in the
+dashboard you already have, with no new tooling to adopt.
+
+### Two honest caveats
+
+<Callout type="warning">
+  **The GenAI conventions are still `Development` status upstream.** Attribute
+  names can change. So the semconv version is **pinned**, and spans are
+  **dual-emitted**: `gen_ai.*` at the pinned version, plus a stable `fabric.*`
+  namespace under this project's control. Your dashboards do not break when
+  upstream renames something.
+</Callout>
+
+Second: whether Anypoint Monitoring or Agent Visualizer **ingests** OTLP GenAI
+spans is not publicly documented. So this page promises *"exports OTLP"* and
+lets the sink be your choice. It does not promise your spans appear in Agent
+Visualizer, because that has not been confirmed — see
+[Verification policy](/concepts/verification).
+
+## Correlation IDs
+
+Every request gets a per-call ID. You can set a per-**run** ID once, and it is
+injected on every call, attached to every exception, put on every span, and
+logged:
+
+```python
+async with fabric.run(id=ticket.id):
+    await triage_agent.run(ticket)
+```
+
+The gateway's own audit log carries the same ID, so client-side and
+gateway-side records **join**. Propagation is contextvar-based, so it reaches
+through framework nodes without you threading an argument through every
+function.
+
+## Cost-attribution tags
+
+A small, fixed set of tags — `team`, `project`, `env`, `enduser.id` — set once
+and injected as headers on every call:
+
+```python
+fabric = Fabric.from_env(team="support", project="triage-v2", env="prod")
+
+async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
+    await triage_agent.run(ticket)
+```
+
+### The question this answers
+
+Finance asks what the support agent cost last month versus the HR bot.
+
+Without tags, both agents share one `client_id`, and the honest answer is
+*"we don't know."* With tags it is a group-by.
+
+And for compliance: *"prove the HR bot's answer to user X on date Y went
+through the content-safety policy."* The correlation ID on the log line joins
+to the gateway record, and the span carries `enduser.id` and
+`fabric.policy.type`. That is what an EU AI Act Article 12 log request looks
+like in practice — one query, not an investigation.
+
+<Callout type="warning">
+  **Which header names the gateway reads for attribution is unverified.** Until
+  it is confirmed, those names live behind an overridable placeholder rather
+  than a guess. The tags still carry full value in the OTel spans, which this
+  SDK controls end to end.
+</Callout>
+
+The tags are **validated** — fixed keys, bounded length — so nobody stuffs a
+JSON blob into a header.
+
+## Acceptance bar
+
+- Zero-config: `Fabric.from_env()` plus `OTEL_EXPORTER_OTLP_ENDPOINT` produces
+  spans, with no SDK-specific environment variable.
+- A **refused** request still produces a span, with
+  `fabric.policy.decision=refuse` and `otel.status_code=ERROR`.
+- A streaming response produces **exactly one** span, with token counts filled
+  in at stream end.
+- Opt-out behind a single flag, and under 1 ms of overhead — benchmarked in CI,
+  not asserted in prose.
+- Every `FabricError` exposes `.correlation_id`, matching the header sent.
+
+---
+
+**Status: Phase 1 — not yet shipped.**

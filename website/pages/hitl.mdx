@@ -1,0 +1,73 @@
+---
+description: One vocabulary for pause-and-ask-a-human, mapped onto each framework's native interrupt.
+---
+
+import { Callout } from 'nextra/components'
+
+# Human-in-the-loop
+
+<Callout type="info">
+  **Phase 2 — designed, not yet shipped.** The API shape below is a proposal;
+  the gateway step-up path is **unverified**. See [Roadmap](/roadmap) and
+  [Verification policy](/concepts/verification).
+</Callout>
+
+Refunds over €100 need a human. Today that is bespoke code, per team, per
+framework.
+
+```python
+@fabric.tool(approval="required", risk="financial")
+async def issue_refund(ticket_id: str, amount: float): ...
+```
+
+When the agent calls `issue_refund`, the SDK raises `ApprovalRequired` (or
+triggers the framework's own interrupt), records the pending approval against
+the correlation ID, and resumes when you resolve it:
+
+```python
+await fabric.approvals.resolve(approval_id, approved_by=reviewer.id)
+```
+
+## Mapped onto what your framework already has
+
+The SDK does not introduce a new pause mechanism. It maps one vocabulary onto
+the primitive each framework already ships:
+
+| Framework / protocol | Native primitive |
+|---|---|
+| LangGraph | `interrupt()` / `Command(resume=…)` |
+| OpenAI Agents SDK | tool-approval / guardrail hooks |
+| Google ADK | before/after tool callbacks |
+| Strands | hooks |
+| MCP | elicitation |
+| Omni Gateway | Trusted Agent Identity step-up (MFA) — unverified |
+
+## What the value actually is
+
+<Callout type="warning">
+  **Every framework already has human-in-the-loop.** So be clear about what is
+  being added, or this looks like reinvention.
+</Callout>
+
+Three things, none of which is a new mechanism:
+
+1. **Normalisation** — one vocabulary across frameworks, so approval policy is
+   not rewritten when a team switches from ADK to LangGraph.
+2. **Auditability** — the pending approval appears in the
+   [span](/telemetry), and the approver's identity lands in the audit trail
+   next to the correlation ID. "Who approved this refund?" becomes a query.
+3. **Gateway routing** — a high-risk approval can be routed through the
+   gateway's identity layer for step-up MFA, rather than trusting a click in
+   your own UI.
+
+## What it will not become
+
+No approval queue and no approval UI — both are on the
+[will-not-build list](/roadmap). This integrates with whatever you already
+run: Slack, ServiceNow, or LangGraph's own checkpointer. Building a queue would
+mean owning a durable store, an escalation model, and a notification system,
+which is a product rather than a feature.
+
+---
+
+**Status: Phase 2 — not yet shipped.**
