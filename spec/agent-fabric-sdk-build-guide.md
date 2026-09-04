@@ -307,7 +307,7 @@ async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
 
 **Why LangGraph first.** Largest Python agent-framework install base; its `interrupt()` primitive is what Phase 2 HITL builds on; its node structure makes correlation-ID propagation a visible win.
 
-**Acceptance.** `demos/langgraph-support-triage/` implements Scenario A end-to-end against the simulator and passes conformance.
+**Acceptance.** `langgraph-support-triage/` in the [companion demos repo](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk-demos) implements Scenario A end-to-end against the simulator and passes conformance.
 
 **Effort:** S to cut, M to deepen.
 
