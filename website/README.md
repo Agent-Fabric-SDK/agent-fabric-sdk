@@ -16,15 +16,24 @@ Build the static export (what CI ships to Pages) and preview it:
 
 ```bash
 npm run build        # `output: 'export'` → writes a static site to ./out
-npx serve out        # preview the exported site at the root
+npm run preview:pages
 ```
 
 To preview exactly as GitHub Pages serves it — under the project sub-path:
 
 ```bash
 DOCS_BASE_PATH=/agent-fabric-sdk npm run build
-npx serve out        # assets resolve under /agent-fabric-sdk/
+npm run preview:pages
+# Open http://localhost:4173/agent-fabric-sdk/
 ```
+
+The preview command serves the generated static files from `out/`, matching
+GitHub Pages more closely than the Next.js development server. The preview
+script maps the `/agent-fabric-sdk` project prefix back to the export root so
+pages, stylesheets, fonts, and scripts resolve at the same URLs used after
+deployment. GitHub's Jekyll preview instructions do not apply here: this site
+is a Nextra/Next.js static export, and the Pages workflow disables Jekyll
+before deployment.
 
 ## Deploy — GitHub Pages
 
