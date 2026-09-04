@@ -32,8 +32,13 @@ how a blocked value flips to verified — is documented for contributors in
 | Area | Status | What the SDK does about it |
 |---|---|---|
 | Framework **constructor signatures** (§8) | Unverified per framework | Adapters target recorded class names; a mismatch surfaces via the verification harness / nightly matrix rather than silently misbehaving. Agent Framework's client raises `blocked on verification` today. |
-| MCP tool discovery + binding (Pillar 2, §9) | Unverified | `fabric.tools.discover` and the binding classes raise `blocked on verification`. |
-| Provisioning control plane (Pillar 3) | Reshaped + unverified | The real flow is CLI + Maven, not REST CRUD; the design is pending, not guessed. |
+| MCP tool discovery + binding ([Phase 2](/tool-access)) | Unverified | `fabric.tools.discover` and the binding classes raise `blocked on verification`. |
+| Exchange publish API ([Phase 2](/publishing)) | Unverified | `fabric publish` is blocked; whether Exchange exposes first-class MCP/agent asset types is unconfirmed. |
+| Token-exchange endpoint for [on-behalf-of](/identity) (Phase 2) | Unverified | The exact endpoint and header the gateway expects are not guessed. |
+| [Policy discovery](/policies) (Phase 3) | **Missing upstream** | No such endpoint exists on the gateway today. Filed as an upstream gap — the handshake cannot be built until it ships. |
+| Budget query endpoint ([Phase 1](/budget)) | **Missing upstream** | Budget is reported in-band on response headers only, so `remaining` is last-known-good; `observed_at` exposes the staleness. |
+| Whether Anypoint Monitoring ingests OTLP GenAI spans ([Phase 1](/telemetry)) | Unverified | The SDK promises "exports OTLP" and lets the sink be your choice. |
+| A provisioning control plane | **Cut** | Not built. It would compete with API Manager and Terraform — see [Roadmap](/roadmap). |
 | Prompt-injection / content-safety bodies | Not captured | Fall through to a generic `PolicyViolation` — no invented discriminator. |
 | First-party **TypeScript SDK** | Planned | TypeScript examples reach the proxy over its OpenAI-compatible API via the `openai` / `@anthropic-ai/sdk` clients; no first-party TS package is implied until it ships. |
 

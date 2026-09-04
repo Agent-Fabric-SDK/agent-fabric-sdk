@@ -1,5 +1,5 @@
 ---
-description: Governed model access from eight agent frameworks, each returning its own native object.
+description: Governed model access from eight agent frameworks, each returning its own native object — LangGraph deep, the rest at connection_kwargs().
 ---
 
 import { Callout } from 'nextra/components'
@@ -7,9 +7,9 @@ import { Card, CardGrid } from '../../components'
 
 # Model access
 
-Pillar 1 gives you governed model access from eight agent frameworks. Each
-adapter returns the framework's **own native object**, pointed at your Omni
-Gateway proxy with verified auth, attribution, and retries injected.
+Governed model access from eight agent frameworks. Each adapter returns the
+framework's **own native object**, pointed at your Omni Gateway proxy with
+verified auth, attribution, and retries injected.
 
 <Callout type="info">
   **Language support.** Python is the only first-party SDK today; a TypeScript
@@ -22,37 +22,54 @@ Gateway proxy with verified auth, attribution, and retries injected.
   **CrewAI (Python-only)** and **MS Agent Framework (.NET/Python/Go)** have none.
 </Callout>
 
-## Frameworks by tier
+## One deep adapter, seven supported
 
-Tiers reflect support depth, not quality:
+Support depth is about **how much is guaranteed by tests**, not about quality
+or how well a framework works:
 
-- **Tier 1** — full, conformance-gated, blocking CI.
-- **Tier 2** — supported, non-blocking CI.
+- **Deep** — conformance-gated in blocking CI, with the full scenario suite run
+  against it.
+- **Supported at `connection_kwargs()`** — the governed connection is verified
+  at the kwargs level; the factory methods exist and return native objects, but
+  the constructor call itself is not conformance-gated.
+
+<Callout type="info">
+  **Why one deep adapter and not eight.** Eight conformance-gated adapters cost
+  more to maintain than they returned, and the maintenance came out of the
+  budget for the things that actually differentiate the SDK — budget pacing, the
+  simulator, the conformance plugin. A second framework is promoted to deep
+  support based on **real demand**, one at a time, rather than guessed up front.
+  This makes `connection_kwargs()` the most load-bearing surface here: it is the
+  entire supported contract for seven of the eight.
+</Callout>
 
 <CardGrid>
-  <Card title="LangGraph" href="/frameworks/langgraph" badge="Tier 1" badgeTone="accent">
+  <Card title="LangGraph" href="/frameworks/langgraph" badge="Deep" badgeTone="accent">
     `chat_model()` → `langchain_openai.ChatOpenAI`
   </Card>
-  <Card title="Google ADK" href="/frameworks/adk" badge="Tier 1" badgeTone="accent">
+  <Card title="Google ADK" href="/frameworks/adk" badge="Supported" badgeTone="neutral">
     `model()` → `google.adk … LiteLlm`
   </Card>
-  <Card title="Strands" href="/frameworks/strands" badge="Tier 1" badgeTone="accent">
+  <Card title="Strands" href="/frameworks/strands" badge="Supported" badgeTone="neutral">
     `model()` → `strands … OpenAIModel`
   </Card>
-  <Card title="MS Agent Framework" href="/frameworks/agent-framework" badge="Tier 1" badgeTone="accent">
+  <Card title="MS Agent Framework" href="/frameworks/agent-framework" badge="Supported" badgeTone="neutral">
     `chat_client()` → Agent Framework chat client
   </Card>
-  <Card title="OpenAI Agents SDK" href="/frameworks/openai" badge="Tier 1" badgeTone="accent">
+  <Card title="OpenAI Agents SDK" href="/frameworks/openai" badge="Supported" badgeTone="neutral">
     `model()` → `agents.OpenAIChatCompletionsModel`
   </Card>
-  <Card title="Anthropic SDK" href="/frameworks/anthropic" badge="Tier 1" badgeTone="accent">
+  <Card title="Anthropic SDK" href="/frameworks/anthropic" badge="Supported" badgeTone="neutral">
     `client()` → `anthropic.AsyncAnthropic`
   </Card>
-  <Card title="CrewAI" href="/frameworks/crewai" badge="Tier 1" badgeTone="accent">
+  <Card title="CrewAI" href="/frameworks/crewai" badge="Supported" badgeTone="neutral">
     `llm()` → `crewai.LLM` (LiteLLM-backed)
   </Card>
-  <Card title="LlamaIndex" href="/frameworks/llamaindex" badge="Tier 2" badgeTone="neutral">
+  <Card title="LlamaIndex" href="/frameworks/llamaindex" badge="Supported" badgeTone="neutral">
     `llm()` → `OpenAILike` (`is_chat_model=True`)
+  </Card>
+  <Card title="No framework" href="/quickstart" badge="Live" badgeTone="live">
+    `fabric.llm.client()` → `openai.AsyncOpenAI` (or `OpenAI` with `sync=True`)
   </Card>
 </CardGrid>
 

@@ -5,7 +5,7 @@ import { Callout } from 'nextra/components'
 `Fabric.from_env()` resolves configuration from, in precedence order: explicit
 kwargs → environment variables → `.agent-fabric.toml` → defaults.
 
-## Governed model access (Pillar 1)
+## Governed model access
 
 The three required values for the LLM proxy:
 
@@ -31,7 +31,7 @@ you fix configuration in a single pass rather than one error per run.
 | `AGENT_FABRIC_APP_NAME` | Human-readable app name, surfaced on telemetry. |
 | `AGENT_FABRIC_BUSINESS_GROUP` | Business group for attribution. |
 
-## Anypoint control plane (used by later pillars)
+## Anypoint control plane (used by later phases)
 
 These match the Anypoint CLI's own variable names (CLI-verified):
 `ANYPOINT_CLIENT_ID`, `ANYPOINT_CLIENT_SECRET`, `ANYPOINT_ORG`, `ANYPOINT_ENV`,

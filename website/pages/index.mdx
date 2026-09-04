@@ -1,18 +1,19 @@
 ---
-description: An SDK for Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.
+description: An SDK for Agent Fabric — governed model access from your own agent framework, with budget, refusals, telemetry and simulation on one skeleton.
 ---
 
 import { Callout, Tabs } from 'nextra/components'
 import { Badge, Card, CardGrid, Figure, Hero } from '../components'
 
 <Hero
-  eyebrow="Pillar 1 live-verified"
+  eyebrow="Governed model access — live-verified"
   title="Agent Fabric SDK"
   tagline={
     <>
       Consume <strong>Agent Fabric</strong> capabilities — governed model
-      access, governed tool access, and provisioning-as-code — from your own agent
-      framework, in your own IDE, <strong>without adopting Mule</strong>.
+      access, and the budget, refusal, telemetry and simulation machinery that
+      hangs off it — from your own agent framework, in your own IDE,{' '}
+      <strong>without adopting Mule</strong>.
     </>
   }
   media={
@@ -126,7 +127,17 @@ curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
 </Tabs.Tab>
 </Tabs>
 
-## The three pillars
+## Why not just set `base_url`?
+
+Fair question, and the honest answer shapes everything else here:
+
+> A stock OpenAI client with a `base_url` and two headers **can** reach the
+> governed proxy. This SDK is not selling you that.
+
+What it sells is the **skeleton** — one place in your process where every
+request enters and every response leaves. That is the only place where budget
+headers, error classification, correlation IDs, cost tags, OTel spans,
+simulation, and refusal handlers can all attach *without you wiring each one*.
 
 <CardGrid>
   <Card
@@ -136,48 +147,49 @@ curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
     badge="Live"
     badgeTone="live"
   >
-    Point any of eight frameworks at your governed proxy. Verified auth,
-    attribution, retries, and a typed error taxonomy — injected for you.
+    Point your framework at the governed proxy. Verified auth, attribution,
+    retries, and a typed error taxonomy — injected for you.
+  </Card>
+  <Card
+    title="The six-piece minimum"
+    href="/roadmap"
+    icon="◈"
+    badge="Phase 1"
+    badgeTone="roadmap"
+  >
+    Typed refusals, budget pacing, a local simulator, a conformance plugin,
+    OTel GenAI spans, and correlation IDs — one release, because the skeleton
+    is worth the sum of what hangs on it.
   </Card>
   <Card
     title="Governed tool access"
     href="/tool-access"
     icon="◇"
-    badge="Roadmap"
+    badge="Phase 2"
     badgeTone="roadmap"
   >
     Discover and bind governed MCP tools across frameworks, with governed-only
     filtering. The page covers what's blocked and why.
-  </Card>
-  <Card
-    title="Provisioning as code"
-    href="/provisioning"
-    icon="◇"
-    badge="Roadmap"
-    badgeTone="roadmap"
-  >
-    Declare gateways, policies, and published assets in a spec file, then plan
-    and apply them like infrastructure.
   </Card>
 </CardGrid>
 
 ## What is live today
 
 <Callout type="default">
-  **Pillar 1 (governed model access) is live-verified** against a real Anypoint
-  sandbox: the proxy base-URL shape (`https://<ingress>/<instance>/`, no `/v1`),
-  the `client_id` + `client_secret` consumer-auth header pair, the attribution
+  **Governed model access is live-verified** against a real Anypoint sandbox:
+  the proxy base-URL shape (`https://<ingress>/<instance>/`, no `/v1`), the
+  `client_id` + `client_secret` consumer-auth header pair, the attribution
   headers, and the four policy rejection shapes (auth `401`, PII `403`,
-  token-budget `429`, upstream passthrough). The framework-free client and all
-  eight adapters are wired to that verified contract.
+  token-budget `429`, upstream passthrough). The framework-free client and the
+  adapters are wired to that verified contract.
 </Callout>
 
-What is **not** yet unblocked — and why the SDK raises a clear error instead of
-guessing — is covered honestly on the [Verification policy](/concepts/verification)
-page. In short: Pillar 2, Pillar 3, and the exact framework *constructor
-signatures* still need live confirmation, and code paths that depend on an
-unverified endpoint, header, or class name raise
-`NotImplementedError("blocked on verification: …")` rather than fabricate one.
+Everything else on this site carries a phase badge, and those pages say
+plainly that their API shapes are proposals. Where a platform fact is not
+confirmed, the SDK raises
+`NotImplementedError("blocked on verification: …")` rather than fabricate an
+endpoint, header, or class name — see [Verification policy](/concepts/verification)
+for the current ledger, and the [Roadmap](/roadmap) for what lands when.
 
 ## Next steps
 
@@ -186,12 +198,15 @@ unverified endpoint, header, or class name raise
     Make your first governed model call in under five minutes.
   </Card>
   <Card title="Feature overview" href="/feature-overview" icon="☰">
-    A tour of everything Pillar 1 gives you today.
+    A tour of everything governed model access gives you today.
   </Card>
   <Card title="Pick your framework" href="/frameworks" icon="⚙">
     Per-framework install, quickstart, and the manual equivalent.
   </Card>
-  <Card title="Error taxonomy" href="/errors" icon="!">
+  <Card title="Typed refusals" href="/errors" icon="!">
     Branch on governance outcomes instead of parsing error bodies.
+  </Card>
+  <Card title="Roadmap" href="/roadmap" icon="◷">
+    What ships when — and what this SDK deliberately will not build.
   </Card>
 </CardGrid>

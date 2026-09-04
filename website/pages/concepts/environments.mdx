@@ -90,7 +90,7 @@ three verbs, at three different trust levels:
 | Verb | Target | Who runs it | What it does |
 |---|---|---|---|
 | `simulate()` | local | developer, laptop | Starts an ephemeral local Omni Gateway, applies the config, returns a live `base_url`. Nothing shared is touched. |
-| `export()` | sandbox, prod | developer, laptop | Compiles the object into a `fabric.yaml` fragment (see [Provisioning](/provisioning) and the [spec](/provisioning/spec)). Writes a file. Touches nothing. |
+| `export()` | sandbox, prod | developer, laptop | Compiles the object into a `fabric.yaml` fragment (see [Scan & publish](/publishing)). Writes a file. Touches nothing. |
 | `resolve()` | sandbox, prod | agent process, runtime | **Read-only.** Looks up the already-provisioned gateway route, verifies the expected policies are actually applied, returns the `base_url`. Raises `GovernanceDrift` if reality does not match the declaration. |
 
 There is deliberately **no `apply()` on the runtime object.** Applying to

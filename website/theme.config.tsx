@@ -27,7 +27,7 @@ const config: DocsThemeConfig = {
       asPath === '/' || !title ? SITE_NAME : `${title} — ${SITE_NAME}`
     const description =
       frontMatter.description ??
-      'An SDK for Agent Fabric — governed model access, governed tool access, and provisioning-as-code, from your own agent framework.'
+      'An SDK for Agent Fabric — governed model access from your own agent framework, with budget, refusals, telemetry and simulation on one skeleton.'
 
     return (
       <>

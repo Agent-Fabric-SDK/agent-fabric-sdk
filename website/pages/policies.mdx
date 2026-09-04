@@ -1,0 +1,64 @@
+---
+description: Read the in-force policy set to avoid calls that will be refused — advisory only; the gateway always wins.
+---
+
+import { Callout } from 'nextra/components'
+
+# Policy handshake
+
+<Callout type="info">
+  **Phase 3 — blocked upstream, not merely unbuilt.** This needs a
+  policy-discovery endpoint that **does not exist on the gateway today**. It is
+  filed as an upstream gap; until that ships, this cannot be built without
+  inventing an endpoint. See [Roadmap](/roadmap) and
+  [Verification policy](/concepts/verification).
+</Callout>
+
+On first connection, the SDK fetches the policy set in force for your
+credentials and exposes it:
+
+```python
+fabric.policies.models_allowed        # ["gpt-4o", "claude-sonnet"]
+fabric.policies.tools_allowed         # [...]
+fabric.policies.budget                # the same Budget object, now live
+fabric.policies.pii.mode              # "block" | "mask" | "log"
+fabric.policies.content_safety.on     # True
+fabric.policies.observed_at           # when this view was fetched
+```
+
+## Why it is worth an upstream ask
+
+**Wasted calls.** An agent requests a model that is not in its allow-list.
+Today that is one wasted round-trip and one refusal, every time. With the
+handshake, the adapter picks from `models_allowed` at construction time and the
+refusal never happens. Multiply by a few thousand tickets a day.
+
+**Honest UX.** If `pii.mode == "mask"`, the gateway will redact rather than
+reject — so your bot can say *"some details were redacted"* instead of
+*"request failed."* Same gateway behaviour, completely different experience,
+and today the client has no way to know which mode is in force.
+
+**Cold start.** It is also what makes [budget](/budget) live rather than
+last-known-good: a fresh process currently knows nothing about its budget until
+its first response comes back.
+
+## The hard rule
+
+<Callout type="error">
+  **The handshake is advisory.** It exists to avoid *wasted* calls and to
+  improve UX — never to make an access decision. The gateway still evaluates
+  every single request.
+</Callout>
+
+If the client's cached view and the gateway disagree, **the gateway wins** and
+the client learns from the refusal. Any proposal to skip a gateway call
+*"because the handshake said it's fine"* is client-side enforcement, which is
+on the [will-not-build list](/roadmap).
+
+This is also why `observed_at` is part of the surface, exactly as it is on the
+budget object: a policy view is a snapshot, and code that cannot tell a
+snapshot from live state will eventually make a decision it should not have.
+
+---
+
+**Status: Phase 3 — blocked on an upstream endpoint.**
