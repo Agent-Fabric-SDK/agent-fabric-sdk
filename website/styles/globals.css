@@ -180,6 +180,15 @@ body {
   font-size: 0.9rem;
 }
 
+@media (max-width: 767px) {
+  .nextra-content table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
 .nextra-content th {
   background: var(--af-surface-sunken);
   color: var(--af-fg);
@@ -226,25 +235,39 @@ body {
   padding-top: 1.5rem;
 }
 
-.nextra-sidebar-container,
 .nextra-toc {
   font-size: 0.875rem;
 }
 
-.nextra-sidebar-container .nextra-focus[data-active='true'] {
+.nextra-sidebar-container .nextra-menu-desktop a,
+.nextra-sidebar-container .nextra-menu-desktop button {
+  color: var(--af-fg-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  padding-block: 0.5rem;
+}
+
+.nextra-sidebar-container .nextra-menu-desktop a:hover,
+.nextra-sidebar-container .nextra-menu-desktop button:hover {
+  color: var(--af-fg);
+}
+
+.nextra-sidebar-container .nextra-menu-desktop li.active > a {
   background: var(--af-accent-soft);
   color: var(--af-accent);
-  font-weight: 600;
+  font-weight: 650;
 }
 
 /* Section separators in the sidebar carry the structure of this site, so make
    them read as labels rather than as dimmed nav items. */
-.nextra-sidebar-container li.nextra-menu-separator {
-  font-size: 0.7rem;
+.nextra-sidebar-container .nextra-menu-desktop > li:not(:has(a, button)) {
+  color: var(--af-fg);
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--af-fg-subtle);
   margin-top: 1.4rem;
 }
 
@@ -257,6 +280,7 @@ body {
 /* ------------------------------------------------------------------ hero */
 
 .af-hero {
+  margin-top: 1.25rem;
   margin-bottom: 1rem;
   padding-bottom: 2.25rem;
   border-bottom: 1px solid var(--af-border);
