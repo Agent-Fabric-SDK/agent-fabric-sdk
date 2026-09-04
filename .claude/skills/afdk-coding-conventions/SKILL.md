@@ -13,8 +13,11 @@ authoritative contract for *what the code must look like* is split across two
 sources you should keep open:
 
 - **`CLAUDE.md`** (repo root) — the short version of every rule below.
-- **`spec/agent-fabric-sdk-build-plan.md`** (~156KB) — the spec.
-  Every `§N.N` reference in code, docstrings, tests, and commits points into it.
+- **`spec/agent-fabric-sdk-build-plan.md`** — phases, invariants, the
+  do-not-build list. **`spec/agent-fabric-sdk-build-guide.md`** — feature
+  scope, cited as `BG §N.N`. A **bare** `§N.N` points into the archived v1
+  plan at `spec/archive/agent-fabric-sdk-build-plan-v1.md`, where most
+  existing citations in the tree still resolve.
   When a docstring says "blocked on verification (§6.7)" or "floors, never
   ceilings (§8.4)", read that section before changing the behavior — the
   constraints are deliberate.
@@ -75,9 +78,11 @@ Walk this against the build plan before writing code:
 - [ ] **pydantic v2 models** — config/state models are pydantic v2
       (`pydantic>=2.6`); the `pydantic.mypy` plugin is on. Use v2 idioms
       (`model_validate`, `Field`, `model_config`), not v1.
-- [ ] **`§N.N` citation habit** — when code encodes a build-plan decision, cite
-      the section in the docstring/comment (e.g. `# we retry in transport
-      (§2.3)`, `"""…(§3.1)"""`). Reviewers and future-you rely on these to find
+- [ ] **Citation habit** — when code encodes a spec decision, cite the section
+      in the docstring/comment. Use **`BG §N.N`** for build-guide scope (e.g.
+      `# budget parsed at the response hook (BG §1.3)`); a bare `§N.N` (e.g.
+      `"""…(§2.3)"""`) points into the archived v1 plan and should not be added
+      fresh. Reviewers and future-you rely on these to find
       the rationale.
 - [ ] **Verification guards (§0.3)** — never invent an endpoint, header, or
       class name. Use `core/_verify.py`: `_verify.blocked("…")` returns
@@ -172,10 +177,10 @@ git diff origin/develop...HEAD -- 'python/src/agent_fabric/**' \
 ## When to deviate
 
 Encode the rule, not a law of nature. A principled deviation gets a leading
-comment explaining *why*, with the `§N.N` it trades against, so the next
+comment explaining *why*, with the section it trades against, so the next
 reviewer does not re-flag it. If the deviation is general enough to recur,
-update the build plan (or `docs/verified-apis.md` for a verification change) in
-the **same** PR.
+update the relevant `spec/` document (or `docs/verified-apis.md` for a
+verification change) in the **same** PR.
 
 ## Forbidden rationalizations
 

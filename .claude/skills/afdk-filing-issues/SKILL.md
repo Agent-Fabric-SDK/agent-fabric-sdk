@@ -64,7 +64,9 @@ failure):
 2. Codebase verification.
 3. Cross-surface impact evaluation (SDK layers → docs → CLI → verified-apis.md).
 4. Duplicate check.
-5. Draft, citing `§N.N` build-plan sections where relevant.
+5. Draft, citing `BG §N.N` build-guide sections where relevant (see the
+   citation convention in `CLAUDE.md` — `BG §` for the build guide, bare `§`
+   only for the archived v1 plan).
 6. Show draft to user.
 7. Wait for explicit confirmation.
 8. Assign the milestone — pick the one matching milestone (see Milestone); ask
@@ -100,8 +102,9 @@ and enhancements:
   capture `file:line`.
 - **Enhancement**: confirm the gap is real — check `docs/verified-apis.md` and
   `core/_verify.py` first; a feature that looks "missing" may already be a
-  deliberate `_verify.blocked("…")` guard tracked against a `§N.N` build-plan
-  section, in which case the "issue" is really "unblock §N.N", not a new gap.
+  deliberate `_verify.blocked("…")` guard with an existing `Verification`
+  milestone row, in which case the "issue" is really "unblock that row", not a
+  new gap.
 
 Workflow:
 
@@ -110,8 +113,8 @@ Workflow:
    `registry` → `tools` → `integrations`, plus `provisioning/`).
 2. Read enough of the code to confirm or refute the claim.
 3. Capture specific `path:line` references for a `## Current behavior
-   (verified)` section, and cite the relevant `§N.N` build-plan section if one
-   governs the area.
+   (verified)` section, and cite the relevant `BG §N.N` build-guide section if
+   one governs the area.
 
 **If the claim is wrong or already implemented:** stop and tell the user, with
 file:line citations. Do not file an issue for a non-issue.
@@ -145,8 +148,8 @@ section.
 | **`llm/`** | `python/src/agent_fabric/llm/` — OpenAI-compatible proxy client + catalog | Does the LLM data-plane contract (base URL, `client_id`/`client_secret` headers, streaming, rejection shapes, §2–§4) change? |
 | **`registry/`** | `python/src/agent_fabric/registry/` — Exchange/governed-state | Does Exchange lookup or governed-state shape change? |
 | **`tools/`** | `python/src/agent_fabric/tools/` — MCP discovery/binding | Does `fabric.tools.discover` or any MCP-bridge binding logic change (currently blocked on verification, §6.7)? |
-| **`integrations/`** | `python/src/agent_fabric/integrations/` — per-framework native-object adapters (LangGraph, ADK, Strands, MS Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex) | Does one adapter change, or all eight need the same fix? If it's a shared contract (e.g. header injection), every adapter is in scope — the conformance kit (`python/tests/conformance/suite.py`) exists precisely to catch drift. |
-| **TypeScript parity (planned, §1.3)** | not yet in code | Would a Python-side fix need a matching TS-side note/follow-up once TS ships? Flag it even though there's no TS code yet, so the parity gap is tracked. |
+| **`integrations/`** | `python/src/agent_fabric/integrations/` — LangGraph (the one deep, conformance-gated adapter) plus seven frameworks supported at `connection_kwargs()` only | Does the deep adapter change, or the shared `connection_kwargs()` contract? A shared-contract change (e.g. header injection) puts every framework in scope at once — the conformance kit (`python/tests/conformance/suite.py`) exists precisely to catch that drift. See `BG §1.8`. |
+| **TypeScript parity (Phase 5, `BG §3.5`)** | not yet in code | Would a Python-side fix need a matching TS-side note/follow-up once TS ships? Flag it even though there's no TS code yet, so the parity gap is tracked. |
 | **Provisioning CLI** | `python/src/agent_fabric/provisioning/cli.py` (`agent-fabric` command: `validate`, `plan`, `apply`, `drift`, `lint`, `generate`, `status`, `init`, `publish`, `verify`) | Does a CLI command's behavior, output, or `_blocked(...)` message change? |
 | **Nextra docs site** | `website/pages/` (`index.mdx`, `quickstart.mdx`, `feature-overview.mdx`, `errors.mdx`, `publishing.mdx`, plus `concepts/`, `frameworks/`, `provisioning/`, `reference/`, `tool-access/`) | Does a documented flow, code sample, or reference page describe the behavior being changed? |
 | **`docs/verified-apis.md`** | repo root `docs/verified-apis.md` + guards in `core/_verify.py` | Does this issue flip a row's status (UNVERIFIED → VERIFIED-*), add a new row, or touch a `_verify.blocked(...)` / `Unverified(...)` guard? Say which row. |
@@ -154,7 +157,7 @@ section.
 How to apply the verdict:
 
 - **In scope, this issue:** name the concrete module(s)/file(s) in the
-  Proposal and add the matching `area/*` label.
+  Proposal and add the matching `area:*` label.
 - **In scope, but deliberately deferred:** say so in `## Out of scope` and file
   (or note the need for) a linked follow-up via [[afdk-issue-relationships]].
   Never silently drop a surface.
@@ -220,7 +223,7 @@ labels** together (see Milestone); there is no GitHub Projects v2 board.
 
 | Label | Meaning | When to use |
 | --- | --- | --- |
-| `priority/p0` | Critical | Breaks the LLM data-plane contract, a security/trademark issue (§0.4), or blocks CI on `main`. |
+| `priority/p0` | Critical | Breaks the LLM data-plane contract, is a security issue, blocks the current phase, or blocks CI on `main`. |
 | `priority/p1` | Must-have | Blocks a real adapter/framework from working, or breaks `lint-imports`/`mypy --strict`. |
 | `priority/p2` | Ship soon | Meaningful improvement; a workaround exists. **Default when unsure.** |
 | `priority/p3` | Nice-to-have | Cosmetic, docs polish, or future-facing (e.g. TS parity notes). |
@@ -239,56 +242,94 @@ Signals that push an issue up a size bucket:
 - Spans more than one architecture layer (`core`/`llm`/`registry`/`tools`/`integrations`).
 - Flips a `docs/verified-apis.md` row from `UNVERIFIED` (needs a real sandbox
   round-trip, not just a code change).
-- Touches all eight framework adapters (conformance-kit-wide change).
+- Touches the shared `connection_kwargs()` contract, so every framework is in
+  scope at once (conformance-kit-wide change).
 - Adds a new framework integration or a new CLI command.
 
 If the issue feels larger than `size/l`, decompose into sub-issues via
 [[afdk-issue-relationships]] rather than filing one oversized issue.
 
-**Area label (apply one *per area the issue touches*):**
+**Area label (apply one *per area the issue touches*).** These use a **colon**
+(`area:skeleton`), not a slash. The old `area/*` slash labels are **retired** —
+using one will not fail the create call, it will silently re-create a dead
+label, which is worse. Each area maps to a build guide section, so the label
+tells a reader which part of the guide is that issue's spec:
 
-| Code path | Label | Create with |
+| Label | Covers | `BG §` |
 | --- | --- | --- |
-| `python/src/agent_fabric/core/` | `area/core` | `--color 5319e7` |
-| `python/src/agent_fabric/llm/` | `area/llm` | `--color 1d76db` |
-| `python/src/agent_fabric/registry/` | `area/registry` | `--color 0e8a16` |
-| `python/src/agent_fabric/tools/` | `area/tools` | `--color fbca04` |
-| `python/src/agent_fabric/integrations/` | `area/integrations` | `--color d93f0b` |
-| `python/src/agent_fabric/provisioning/` (incl. the `agent-fabric` CLI) | `area/provisioning` | `--color b60205` |
-| `website/` (Nextra docs) | `area/docs-site` | `--color c2e0c6` |
-| `docs/verified-apis.md`, `core/_verify.py` guards | `area/verification` | `--color e11d21` |
-| `python/tests/conformance/` | `area/conformance` | `--color bfd4f2` |
-| CI (`.github/workflows/`), `pyproject.toml` extras, tooling | `area/infra` | `--color fef2c0` |
-| TypeScript parity (planned, §1.3) | `area/typescript` | `--color 006b75` |
+| `area:skeleton` | `FabricAsyncClient`, config, transport hooks, the `Fabric` facade | `1.1` |
+| `area:refusals` | `classify()`, the typed error taxonomy, refusal handlers | `1.2`, `2.1`, `2.2` |
+| `area:budget` | `Budget` object, pacing, rate-limit awareness | `1.3` |
+| `area:simulator` | `fabric mock` — the local gateway simulator | `1.4` |
+| `area:testing` | `simulate()`, the public pytest plugin, conformance kit | `1.5` |
+| `area:telemetry` | OTel GenAI spans, correlation IDs, cost tags | `1.6`, `1.7` |
+| `area:adapters` | Framework adapters and `connection_kwargs()` | `1.8`, `2.8` |
+| `area:cli` | The `fabric` CLI and the decorators | `1.9` |
+| `area:docs` | Docs site, README, `llms.txt`, examples | `1.10` |
+| `area:hitl` | Human-in-the-loop normalisation, approval routing | `2.3` |
+| `area:identity` | On-behalf-of, RFC 8693 token exchange | `2.4` |
+| `area:scanner` | `fabric scan` / `publish` and the GitHub Action | `2.5` |
+| `area:tools` | MCP tool discovery and governed tool consumption | `2.7` |
+| `area:a2a` | A2A `serve` / `expose` / `dev` | `2.9` |
+| `area:policies` | Policy handshake and to-the-code push | `3.2`, `3.3` |
+| `area:release` | Packaging, PyPI, semver, changelog, CI | — |
+| `area:typescript` | The TypeScript port | `3.5` |
+
+**Status labels (apply if they fit):**
+
+| Label | Meaning |
+| --- | --- |
+| `blocked-on-verification` | Cannot be closed by writing code — needs a `§0.3` answer first |
+| `upstream-gap` | A product ask to the Omni Gateway team, not SDK code |
+| `epic` | Tracking issue spanning several child issues |
+| `six-piece-minimum` | Part of the minimum set that justifies installing the SDK |
 
 When in doubt, scan the Proposal section line-by-line and add a label for each
-code area it names.
+area it names.
 
 Before applying an area label for the first time, create it — run all needed
 `gh label create` calls in one step, even if the labels probably already
 exist:
 
 ```bash
-gh label create area/core          --repo Agent-Fabric-SDK/agent-fabric-sdk --color 5319e7 --description "core/: config, auth, transport, errors, telemetry, cache" 2>/dev/null || true
-gh label create area/llm           --repo Agent-Fabric-SDK/agent-fabric-sdk --color 1d76db --description "llm/: OpenAI-compatible proxy client + catalog" 2>/dev/null || true
-gh label create area/registry      --repo Agent-Fabric-SDK/agent-fabric-sdk --color 0e8a16 --description "registry/: Exchange / governed state" 2>/dev/null || true
-gh label create area/tools         --repo Agent-Fabric-SDK/agent-fabric-sdk --color fbca04 --description "tools/: MCP discovery/binding" 2>/dev/null || true
-gh label create area/integrations  --repo Agent-Fabric-SDK/agent-fabric-sdk --color d93f0b --description "integrations/: per-framework native-object adapters" 2>/dev/null || true
-gh label create area/provisioning  --repo Agent-Fabric-SDK/agent-fabric-sdk --color b60205 --description "provisioning/ and the agent-fabric CLI" 2>/dev/null || true
-gh label create area/docs-site     --repo Agent-Fabric-SDK/agent-fabric-sdk --color c2e0c6 --description "website/ (Nextra)" 2>/dev/null || true
-gh label create area/verification  --repo Agent-Fabric-SDK/agent-fabric-sdk --color e11d21 --description "docs/verified-apis.md rows and core/_verify.py guards" 2>/dev/null || true
-gh label create area/conformance   --repo Agent-Fabric-SDK/agent-fabric-sdk --color bfd4f2 --description "python/tests/conformance/ adapter conformance kit" 2>/dev/null || true
-gh label create area/infra         --repo Agent-Fabric-SDK/agent-fabric-sdk --color fef2c0 --description "CI, pyproject.toml extras, tooling" 2>/dev/null || true
-gh label create area/typescript    --repo Agent-Fabric-SDK/agent-fabric-sdk --color 006b75 --description "Planned TypeScript parity (§1.3)" 2>/dev/null || true
-gh label create priority/p0        --repo Agent-Fabric-SDK/agent-fabric-sdk --color b60205 --description "Critical: data-plane/security break or CI-blocking on main" 2>/dev/null || true
-gh label create priority/p1        --repo Agent-Fabric-SDK/agent-fabric-sdk --color d93f0b --description "Must-have: blocks a real adapter or CI gate" 2>/dev/null || true
-gh label create priority/p2        --repo Agent-Fabric-SDK/agent-fabric-sdk --color fbca04 --description "Meaningful improvement, ship soon" 2>/dev/null || true
-gh label create priority/p3        --repo Agent-Fabric-SDK/agent-fabric-sdk --color 0e8a16 --description "Nice-to-have, not blocking" 2>/dev/null || true
-gh label create size/xs            --repo Agent-Fabric-SDK/agent-fabric-sdk --color c5def5 --description "Trivial: <1h" 2>/dev/null || true
-gh label create size/s             --repo Agent-Fabric-SDK/agent-fabric-sdk --color 9ecbe8 --description "~half day, one file" 2>/dev/null || true
-gh label create size/m             --repo Agent-Fabric-SDK/agent-fabric-sdk --color 76b8da --description "1-2 days, multiple files" 2>/dev/null || true
-gh label create size/l             --repo Agent-Fabric-SDK/agent-fabric-sdk --color 4a90c2 --description "3+ days, cross-layer or verification sign-off" 2>/dev/null || true
-gh label create chore              --repo Agent-Fabric-SDK/agent-fabric-sdk --color fef2c0 --description "Build/tooling/refactor, no user-facing behavior change" 2>/dev/null || true
+R="--repo Agent-Fabric-SDK/agent-fabric-sdk"
+
+# area (colon, not slash)
+gh label create area:skeleton           $R --color 5319e7 --description "FabricAsyncClient, config, transport hooks, Fabric facade (1.1)" 2>/dev/null || true
+gh label create area:refusals           $R --color e11d21 --description "classify(), the typed error taxonomy, handlers (1.2, 2.1, 2.2)" 2>/dev/null || true
+gh label create area:budget             $R --color d93f0b --description "Budget object, pacing, rate-limit awareness (1.3)" 2>/dev/null || true
+gh label create area:simulator          $R --color 0e8a16 --description "fabric mock — the local gateway simulator (1.4)" 2>/dev/null || true
+gh label create area:testing            $R --color bfd4f2 --description "simulate(), the pytest plugin, conformance kit (1.5)" 2>/dev/null || true
+gh label create area:telemetry          $R --color 1d76db --description "OTel GenAI spans, correlation IDs, cost tags (1.6, 1.7)" 2>/dev/null || true
+gh label create area:adapters           $R --color fbca04 --description "Framework adapters and connection_kwargs() (1.8, 2.8)" 2>/dev/null || true
+gh label create area:cli                $R --color b60205 --description "The fabric CLI and decorators (1.9)" 2>/dev/null || true
+gh label create area:docs               $R --color c2e0c6 --description "Docs site, README, llms.txt, examples (1.10)" 2>/dev/null || true
+gh label create area:hitl               $R --color f9d0c4 --description "Human-in-the-loop normalisation and approval routing (2.3)" 2>/dev/null || true
+gh label create area:identity           $R --color 006b75 --description "On-behalf-of, RFC 8693 token exchange (2.4)" 2>/dev/null || true
+gh label create area:scanner            $R --color c5def5 --description "fabric scan / publish and the GitHub Action (2.5)" 2>/dev/null || true
+gh label create area:tools              $R --color 0052cc --description "MCP tool discovery and governed tool consumption (2.7)" 2>/dev/null || true
+gh label create area:a2a                $R --color 5319e7 --description "A2A serve / expose / dev (2.9)" 2>/dev/null || true
+gh label create area:policies           $R --color bfdadc --description "Policy handshake and to-the-code push (3.2, 3.3)" 2>/dev/null || true
+gh label create area:release            $R --color fef2c0 --description "Packaging, PyPI, semver, changelog, CI" 2>/dev/null || true
+gh label create area:typescript         $R --color 2b7489 --description "TypeScript port (3.5)" 2>/dev/null || true
+
+# status
+gh label create blocked-on-verification $R --color e11d21 --description "Cannot be closed by writing code (§0.3)" 2>/dev/null || true
+gh label create upstream-gap            $R --color 000000 --description "A product ask to the Omni Gateway team, not SDK code" 2>/dev/null || true
+gh label create epic                    $R --color 3e4b9e --description "Tracking issue spanning several child issues" 2>/dev/null || true
+gh label create six-piece-minimum       $R --color ff8c00 --description "Part of the minimum set that justifies installing the SDK" 2>/dev/null || true
+
+# priority / size / type
+gh label create priority/p0             $R --color b60205 --description "Critical: blocks the phase" 2>/dev/null || true
+gh label create priority/p1             $R --color d93f0b --description "Must-have for the milestone" 2>/dev/null || true
+gh label create priority/p2             $R --color fbca04 --description "Meaningful improvement, ship soon" 2>/dev/null || true
+gh label create priority/p3             $R --color 0e8a16 --description "Nice-to-have, not blocking" 2>/dev/null || true
+gh label create size/xs                 $R --color c5def5 --description "Trivial: <1h" 2>/dev/null || true
+gh label create size/s                  $R --color 9ecbe8 --description "~half day, one file" 2>/dev/null || true
+gh label create size/m                  $R --color 76b8da --description "1-2 days, multiple files" 2>/dev/null || true
+gh label create size/l                  $R --color 4a90c2 --description "3+ days, cross-layer" 2>/dev/null || true
+gh label create size/xl                 $R --color 2c5f8a --description "Multi-week, its own workstream" 2>/dev/null || true
+gh label create chore                   $R --color fef2c0 --description "Build/tooling/refactor, no user-facing behavior change" 2>/dev/null || true
 ```
 
 The `2>/dev/null || true` makes re-runs idempotent. There is no GitHub Projects
@@ -303,38 +344,41 @@ exact title string, so **quote the title verbatim — never invent, reword, or
 renumber it** (§0.3 discipline applies with extra force to the skill that
 enforces it).
 
-The milestones, with the scope each owns:
+The milestones, with the scope each owns. Five are sequential product phases
+carrying a semver target; two are standing and unversioned:
 
 | Milestone title (verbatim) | Scope |
 | --- | --- |
-| `M0 — Verify` | §0.3/§6.7/§7.9 verify every endpoint/header/class name; `docs/verified-apis.md` is the deliverable. |
-| `M1 — Model access (0.1.0)` | core complete, llm client + catalog, Tier-1 adapters, conformance kit, lint, docs skeleton. First public release. |
-| `M2 — Tool access (0.2.0)` | registry + tools + ToolSet, bindings for all eight frameworks, lockfile, A2A handles, governed-only discovery + `explain()`. |
-| `M2.5 — Governance object (0.3.0)` | `Governance`, `GatewayTarget`, target profiles, `resolve()` drift detection, policy portability, `simulate()`. |
-| `M2.7 — Publication (0.3.5)` | `Publication`, `preview()`, `verify()` w/ drift diff, content digest + `--if-changed`, collision check, `agent-fabric status`. |
-| `M2.8 — Derivation (0.3.8)` | per-framework descriptor adapters, `auto`/`auto:live`/`auto:static`/`auto:check`, cross-check, quality report, `agent-fabric init`. |
-| `M2.9 — Fleet scanning (0.3.9)` | repo/org-wide scanning: `agent-fabric scan`, coverage report, autonomy tiers, propose PRs, cross-repo dedupe (§7.10). |
-| `M3 — TypeScript (0.4.0)` | TS core + adapters; shared conformance scenarios ported (§1.3). |
-| `M4 — Provisioning (0.5.0)` | `Spec`, plan/apply/drift, `inputSchema: auto`, policy allow-list, GitHub Action, `export()`. |
-| `M5 — Hardening (1.0.0)` | perf, telemetry polish, error-message pass, migration guide, examples for all eight, security review. |
+| `Phase 1 — Build the MVP (0.1.0)` | Skeleton + the six-piece minimum (typed refusals, budget, simulator, `simulate()`+conformance, OTel GenAI, correlation/cost tags), one deep LangGraph adapter, decorators + CLI, docs, PyPI. `BG §1.1`–`1.10`. |
+| `Phase 2 — Differentiate, go beyond (0.2.0)` | Refusal handlers, classification registry, HITL, identity helpers, in-repo scanner + Action, kill-switch, MCP discovery, second adapter, A2A `serve`/`expose`/`dev`. `BG §2.1`–`2.9`. |
+| `Phase 3 — Platform capabilities (0.3.0)` | Policy handshake, to-the-code push, structured output + eval hooks. Largely gated on `Upstream gaps`. `BG §3.2`–`3.4`. |
+| `Phase 4 — Enterprise readiness (0.4.0)` | Security review, performance budget, error-message pass, migration and deprecation policy, compliance evidence, log shipping, residency, workload identity, support model. |
+| `Phase 5 — Complete rollout (1.0.0)` | TypeScript port, remaining adapters by demand, go-to-market, 1.0 stability guarantees. `BG §3.5`, gated on Python product-market fit. |
+| `Verification` | The `§0.3` worklist: never invent an endpoint, header, class name or kwarg. Cross-phase and unversioned — each row blocks specific feature work. |
+| `Upstream gaps` | Product asks to the Omni Gateway team. Filed in Phase 1, landing whenever the gateway ships them. `BG §3.1`. |
 
-Note the em-dash (`—`) in every title, and that `M0 — Verify` has no version.
+Note the em-dash (`—`) in every phase title, and that `Verification` and
+`Upstream gaps` have no version and never complete.
 
-**Picking heuristic** — key off the issue's build-plan `§N.N` and its primary
+**Picking heuristic** — key off the issue's `BG §N.N` and its primary
 area/surface:
 
 | Issue is about… | Milestone |
 | --- | --- |
-| verification / `_verify.py` guards / flipping a `docs/verified-apis.md` row | `M0 — Verify` |
-| core / llm / a framework adapter / conformance kit | `M1 — Model access (0.1.0)` |
-| registry / tools / `ToolSet` | `M2 — Tool access (0.2.0)` |
-| `Governance` object / `GatewayTarget` / `simulate()` | `M2.5 — Governance object (0.3.0)` |
-| `Publication` / `publish` / `preview()` | `M2.7 — Publication (0.3.5)` |
-| Derivation / descriptor / `auto:*` | `M2.8 — Derivation (0.3.8)` |
-| fleet / org-wide scanning | `M2.9 — Fleet scanning (0.3.9)` |
-| TypeScript parity (§1.3) | `M3 — TypeScript (0.4.0)` |
-| provisioning CLI / spec / plan / apply | `M4 — Provisioning (0.5.0)` |
-| hardening / perf / telemetry / security review | `M5 — Hardening (1.0.0)` |
+| verification / `_verify.py` guards / flipping a `docs/verified-apis.md` row | `Verification` |
+| a product ask only the gateway team can close (no SDK code will fix it) | `Upstream gaps` |
+| the skeleton, transport hooks, config, or the `Fabric` facade | `Phase 1 — Build the MVP (0.1.0)` |
+| any of the six-piece minimum: refusals, budget, simulator, `simulate()`/conformance, OTel GenAI, correlation/cost tags | `Phase 1 — Build the MVP (0.1.0)` |
+| the LangGraph deep adapter, `connection_kwargs()`, decorators, the `fabric` CLI, quickstart/docs, PyPI release | `Phase 1 — Build the MVP (0.1.0)` |
+| refusal handlers, classification registry, HITL, identity/OBO, scanner + Action, kill-switch, MCP tool discovery, A2A, the second adapter | `Phase 2 — Differentiate, go beyond (0.2.0)` |
+| policy handshake, to-the-code push, structured output, eval hooks | `Phase 3 — Platform capabilities (0.3.0)` |
+| security review, perf budget, deprecation policy, compliance evidence, support model | `Phase 4 — Enterprise readiness (0.4.0)` |
+| TypeScript, remaining adapters by demand, go-to-market, 1.0 guarantees | `Phase 5 — Complete rollout (1.0.0)` |
+
+If an issue is **blocked on a verification answer but is itself feature work**,
+file it in its feature phase and add `blocked-on-verification` — do not park
+feature work in the `Verification` milestone. `Verification` holds the
+questions, not the features that wait on them.
 
 If the mapping is **genuinely ambiguous** (e.g. an issue that spans two
 milestones' scope with no clear primary), **ask the user once** which milestone
@@ -371,7 +415,7 @@ gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> --jq '.milestone.title
 3. <step>
 
 ## Expected
-<what should happen — cite the §N.N build-plan section if one governs it>
+<what should happen — cite the BG §N.N build-guide section if one governs it>
 
 ## Actual
 <what happens — paste error messages / stack traces in fenced blocks>
@@ -399,7 +443,7 @@ gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> --jq '.milestone.title
 <one paragraph: what should exist and why>
 
 ## Motivation
-<user problem this unblocks — link the relevant §N.N build-plan section>
+<user problem this unblocks — link the relevant BG §N.N build-guide section>
 
 ## Proposal
 <concrete shape of the change — which module(s), which layer, any new
@@ -449,8 +493,8 @@ Use a heredoc for the body so multi-line markdown survives intact:
 gh issue create \
   --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --title "Classify PII rejection before token-budget rejection" \
-  --milestone "M1 — Model access (0.1.0)" \
-  --label bug --label area/core --label priority/p1 --label size/s \
+  --milestone "Phase 1 — Build the MVP (0.1.0)" \
+  --label bug --label area:refusals --label priority/p1 --label size/s \
   --body "$(cat <<'EOF'
 ## Summary
 ...
@@ -507,30 +551,30 @@ If you find yourself about to run `gh issue create` and any of these are true,
   surface (layers, TypeScript parity, provisioning CLI, docs site,
   verified-apis.md). Every surface gets a verdict — "not affected" counts;
   silence does not.
-- You concluded a surface is in scope but neither added its `area/*` label nor
+- You concluded a surface is in scope but neither added its `area:*` label nor
   recorded the deferral in `## Out of scope` + a linked follow-up.
 - The issue has no `priority/*`, `size/*`, or type (`bug`/`enhancement`/
   `documentation`/`chore`) label.
 - The issue has no milestone assigned.
 - The issue touches more than one architecture layer but has only one
-  `area/*` label.
+  `area:*` label.
 - The issue depends on another open issue, but the body has no `## Depends
   on` section (wiring the structural link is [[afdk-issue-relationships]]'s
   job, but the markdown section must be in the body at filing time).
 - The Proposal claims a gap that is actually a known, already-tracked
-  `_verify.blocked("…")` guard — the issue should say "unblock §N.N", not
-  describe it as a fresh bug.
+  `_verify.blocked("…")` guard — the issue should say which `Verification`
+  row it unblocks, not describe it as a fresh bug.
 
 ## Common mistakes
 
 | Mistake | Fix |
 | --- | --- |
 | Filing against a fork or `tbolis/...` | User has no fork. Always `--repo Agent-Fabric-SDK/agent-fabric-sdk`. |
-| `--label "bug,area/core"` (one combined string) | Use repeated `--label` flags. |
+| `--label "bug,area:refusals"` (one combined string) | Use repeated `--label` flags. |
 | Pasting body via `--body "$(printf ...)"` with unescaped backticks | Use a quoted heredoc (`<<'EOF'`) — single-quoted EOF disables shell expansion. |
 | Skipping an area label because it doesn't exist | Create it first with `gh label create ... || true`, then file. |
 | Title in past tense or with `[BUG]` prefix | Imperative present tense; rely on the `bug` label. |
-| Filing a "bug" for a `_verify.blocked(...)` code path | That's tracked-as-designed per §0.3; file it as "unblock §N.N" enhancement work, not a defect. |
+| Filing a "bug" for a `_verify.blocked(...)` code path | That's tracked-as-designed per §0.3; file it against the `Verification` milestone as unblock work, not a defect. |
 
 ## Quick reference
 
@@ -539,7 +583,7 @@ If you find yourself about to run `gh issue create` and any of these are true,
 gh issue create \
   --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --title "<imperative title>" \
-  --milestone "M1 — Model access (0.1.0)" \
+  --milestone "Phase 1 — Build the MVP (0.1.0)" \
   --label <type> --label <area>... --label <priority> --label <size> \
   --body "$(cat <<'EOF'
 <template-filled body>

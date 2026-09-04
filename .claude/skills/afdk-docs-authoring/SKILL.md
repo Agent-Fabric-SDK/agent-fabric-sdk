@@ -30,8 +30,8 @@ The reader is a developer integrating `agent-fabric` into their own
 agent code. They have:
 
 - Python and pip, and are willing to run `pip install "agent-fabric[...]"`.
-- No access to this repo's private planning doc
-  (`spec/agent-fabric-sdk-build-plan.md`) or its issue tracker.
+- No access to this repo's private planning docs (`spec/`) or its issue
+  tracker.
 - No need to know internal test layout, CI job names, or which milestone
   something shipped in.
 
@@ -41,11 +41,12 @@ Therefore rendered prose **must not**:
   someone edits the file above the cited line — see "Cite a symbol, not
   path:line" below).
 - Reference internal-only concepts by their planning-doc shorthand without
-  translating them: it is fine, even expected, to cite a `§N.N` section number
-  from `spec/agent-fabric-sdk-build-plan.md` as **authority** (e.g. "See
-  Verification policy (§0.3)" — the site does this deliberately, see
-  `website/pages/concepts/verification.mdx`), but don't assume the reader has
-  or needs the document itself to understand the page.
+  translating them: it is fine, even expected, to cite a section number as
+  **authority** (e.g. "See Verification policy (§0.3)" — the site does this
+  deliberately, see `website/pages/concepts/verification.mdx`), but don't
+  assume the reader has or needs the document itself to understand the page.
+  Use `BG §N.N` for build-guide sections; a bare `§N.N` points into the
+  archived v1 plan (see the citation convention in `CLAUDE.md`).
 - Claim something is verified, live, or supported when it is not — see
   VERIFICATION-STATUS framing below. This is the contract violation with the
   highest blast radius in this repo: a customer who trusts a fabricated
@@ -74,16 +75,17 @@ website/
 │   │   ├── governance.mdx
 │   │   ├── environments.mdx
 │   │   └── attribution.mdx
-│   ├── frameworks/               # Pillar 1: one page per framework adapter
+│   ├── frameworks/               # one page per framework adapter
 │   │   ├── _meta.js              # index, langgraph, adk, strands,
 │   │   │                         #   agent-framework, openai, anthropic,
 │   │   │                         #   crewai, llamaindex
 │   │   ├── index.mdx
-│   │   └── <framework>.mdx       # one per Tier 1/2 integration
-│   ├── tool-access/               # Pillar 2
+│   │   └── <framework>.mdx       # one per integration, deep or
+│   │                             #   connection_kwargs-only
+│   ├── tool-access/               # governed tool access
 │   │   ├── _meta.js               # index, discovery, binding, a2a, lockfile
 │   │   └── *.mdx
-│   ├── provisioning/              # Pillar 3
+│   ├── provisioning/              # LEGACY — control plane is cut
 │   │   ├── _meta.js               # index, spec, plan-apply, governance-lint
 │   │   └── *.mdx
 │   └── reference/
@@ -93,10 +95,16 @@ website/
 └── package.json                  # npm install / dev / build / start
 ```
 
-Add a page inside the pillar or concept group it belongs to; don't invent a
-new top-level group for one page — the existing separators (Pillars, Concepts,
-Reference) already cover the domain, and `frameworks/`, `tool-access/`, and
-`provisioning/` each map to one of the three pillars in the build plan.
+Add a page inside the existing group it belongs to; don't invent a new
+top-level group for one page — the current separators (Pillars, Concepts,
+Reference) already cover the domain.
+
+**Note the drift.** The `Pillars` grouping and the `tool-access/` and
+`provisioning/` sections come from the retired three-pillar model; the
+provisioning control plane is cut entirely. The tree below still describes the
+site as it exists, so use it to navigate — but do not add pages that deepen a
+cut surface. Realigning the site to the phase model is tracked as a docs
+follow-up.
 
 ## `_meta.js` conventions
 
@@ -207,9 +215,9 @@ silently goes stale with no build failure to catch it. Instead:
   file rather than a symbol, e.g. "the placeholder constants live in
   `core/_verify.py`" (from `concepts/verification.mdx`) — a path survives
   refactors inside the file; a line number does not.
-- Cite a **`§N.N` build-plan section** for design authority
-  (`spec/agent-fabric-sdk-build-plan.md`), not a line range in that
-  document either — sections are stable identifiers, line numbers aren't.
+- Cite a **section, not a line range**, for design authority — `BG §N.N` for
+  `spec/agent-fabric-sdk-build-guide.md`, a bare `§N.N` only for the archived
+  v1 plan. Sections are stable identifiers, line numbers aren't.
 - Cite a **command** the reader can run to reproduce a claim
   (`python scripts/verify_frameworks.py --live`) rather than describing what
   running it once showed at some line in some log.
@@ -283,8 +291,7 @@ file path, stop and find the symbol or section name instead.
 | "I'll cite the exact line, it's more precise" | Line numbers drift on the next unrelated edit; the citation goes stale with no build failure. Cite the symbol or `§N.N` section instead. |
 | "It's probably verified by now, I'll just say it's supported" | If `docs/verified-apis.md` still says `UNVERIFIED`, the page must say so too. "Probably" is exactly the guess §0.3 forbids. |
 | "This endpoint/header name is a reasonable guess" | A fabricated endpoint that 404s in a customer sandbox is worse than admitting it's unknown (§0.3). Write "blocked on verification" instead. |
-| "I'll drop the descriptive phrasing, 'Agent Fabric's SDK' reads cleaner" | That phrasing implies first-party MuleSoft authorship. Trademark exposure (§0.4) outranks prose elegance. |
-| "One extra top-level nav group won't hurt" | The existing three separators (Pillars/Concepts/Reference) map onto the build plan's own structure. A stray fourth group signals the page doesn't actually belong anywhere yet — find its real home instead. |
+| "One extra top-level nav group won't hurt" | The existing three separators (Pillars/Concepts/Reference) already cover the domain. A stray fourth group signals the page doesn't actually belong anywhere yet — find its real home instead. |
 | "The page doesn't need `_meta.js` updated, Nextra will just append it" | True but it lands in the wrong reading position with no label — always place it deliberately. |
 
 ## Quick reference
