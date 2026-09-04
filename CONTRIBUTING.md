@@ -5,11 +5,11 @@ runbook for the repo: how a change moves from an issue to `main`, how the code i
 tested and linted, and the conventions that keep the package trustworthy.
 
 For *how the SDK is built* — the layer boundaries, the verification discipline,
-the error taxonomy, the framework tiers — read [`ARCHITECTURE.md`](ARCHITECTURE.md)
-first; this guide assumes it. The authoritative specification behind both is
-[`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md), and every
-`§N.N` reference in this repo points into it — when a rule here feels arbitrary,
-read the cited section.
+the error taxonomy, adapter support depth — read [`ARCHITECTURE.md`](ARCHITECTURE.md)
+first; this guide assumes it. The authoritative specs behind both live in
+[`spec/`](spec/): the build plan owns phases and invariants, the build guide
+owns feature scope (cited `BG §N.N`), and a bare `§N.N` resolves into the
+archived v1 plan. When a rule here feels arbitrary, read the cited section.
 
 > **These conventions are also encoded as Claude Code skills** under
 > `.claude/skills/afdk-*/` (one runbook per topic, listed in

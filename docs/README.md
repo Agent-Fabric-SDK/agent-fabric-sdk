@@ -4,8 +4,9 @@ Maintainer-facing reference docs for building the SDK. These are **not** the
 consumer docs: for *using* the SDK see the Nextra site under `website/`; for
 *working in* the repo (branch/PR flow, testing, conventions) see
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md); for the architecture map see
-[`../ARCHITECTURE.md`](../ARCHITECTURE.md); the authoritative spec is
-[`../spec/agent-fabric-sdk-build-plan.md`](../spec/agent-fabric-sdk-build-plan.md).
+[`../ARCHITECTURE.md`](../ARCHITECTURE.md); the authoritative specs are in
+[`../spec/`](../spec/) — the build plan (phases, invariants) and the build
+guide (feature scope, cited `BG §N.N`).
 
 Everything here serves the **verification discipline** (§0.3): *never invent an
 endpoint, header name, or class name.* The files track what has been proven

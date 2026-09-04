@@ -88,7 +88,8 @@ Reference the relevant build-plan §N.N when it clarifies *why* the dependency e
 
 Milestones are the coarse roadmap grouping that sits *above* sub-issues and
 blocked-by dependencies — exact titles only (never invent/reword/renumber),
-e.g. `"M1 — Model access (0.1.0)"`, `"M2 — Tool access (0.2.0)"`.
+e.g. `"Phase 1 — Build the MVP (0.1.0)"`,
+`"Phase 2 — Differentiate, go beyond (0.2.0)"`.
 
 A sub-issue normally **shares its parent's milestone**: a breakdown stays
 within one release unless a slice is intentionally deferred to a later

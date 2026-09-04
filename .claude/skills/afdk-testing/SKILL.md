@@ -108,7 +108,11 @@ inject the httpx client, so `correlation_id_propagated` is exempted with a
 documented reason) are both fixed in `suite.py` — read the module docstring
 and `KNOWN_LIMITATIONS` before adding a ninth framework or a 19th scenario.
 
-When adding a new adapter (one of the 8 Tier-1/Tier-2 frameworks):
+When adding or deepening an adapter. Note the roster is cut to **one deep,
+conformance-gated adapter (LangGraph) plus seven frameworks supported at
+`connection_kwargs()` only** (`BG §1.8`), and the old Tier 1 / Tier 2 split is
+retired. A shallow framework is verified at the `connection_kwargs()` level,
+not the constructor level:
 1. Wire every scenario in `CONFORMANCE_SCENARIOS` against that adapter.
 2. If a scenario genuinely cannot pass for a structural reason (not a bug you
    should fix), add an entry to `KNOWN_LIMITATIONS` with a specific,
@@ -116,7 +120,7 @@ When adding a new adapter (one of the 8 Tier-1/Tier-2 frameworks):
 3. Never add a framework-specific scenario to this file; if the new adapter
    needs a new invariant tested, that invariant must apply to all frameworks
    (extend `CONFORMANCE_SCENARIOS`) or it doesn't belong in the shared suite.
-4. Nightly-matrix DoD (§8.4) for a Tier-1 adapter requires: listed in
+4. Nightly-matrix DoD (§8.4) for a deep, conformance-gated adapter requires: listed in
    `nightly-matrix.yml`'s framework matrix, has `scripts/verify_frameworks.py`
    entry, has `examples/<fw>/main.py` that exits 0 with no creds, and passes
    the conformance kit.

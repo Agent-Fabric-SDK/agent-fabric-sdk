@@ -115,25 +115,28 @@ GitHub Projects v2 board.
 
 | Milestone (exact title) | Ships version |
 | --- | --- |
-| `M1 — Model access (0.1.0)` | 0.1.0 |
-| `M2 — Tool access (0.2.0)` | 0.2.0 |
-| `M2.5 — Governance object (0.3.0)` | 0.3.0 |
-| `M2.7 — Publication (0.3.5)` | 0.3.5 |
-| `M2.8 — Derivation (0.3.8)` | 0.3.8 |
-| `M2.9 — Fleet scanning (0.3.9)` | 0.3.9 |
-| `M3 — TypeScript (0.4.0)` | 0.4.0 |
-| `M4 — Provisioning (0.5.0)` | 0.5.0 |
-| `M5 — Hardening (1.0.0)` | 1.0.0 |
+| `Phase 1 — Build the MVP (0.1.0)` | 0.1.0 |
+| `Phase 2 — Differentiate, go beyond (0.2.0)` | 0.2.0 |
+| `Phase 3 — Platform capabilities (0.3.0)` | 0.3.0 |
+| `Phase 4 — Enterprise readiness (0.4.0)` | 0.4.0 |
+| `Phase 5 — Complete rollout (1.0.0)` | 1.0.0 |
 
-`M0 — Verify` has **no release version** — it is the §0.3 verification gate, not
-a shipped release.
+`Verification` and `Upstream gaps` have **no release version** and never
+complete. `Verification` is the §0.3 gate; `Upstream gaps` tracks asks only the
+Omni Gateway team can close. **Neither ever blocks a promotion** — do not wait
+for them to empty, because they are designed not to.
+
+Milestones prefixed `M0`–`M5` are the retired pre-phase scheme. Two survive,
+closed and suffixed `(obsolete)` — `M1 — Model access (0.1.0) (obsolete)` and
+`M5 — Hardening (1.0.0) (obsolete)` — purely so their delivered issues keep
+their history. Never assign new work to them, and never promote against them.
 
 **Release-ready signal:** a milestone reaching **0 open issues** is what
 indicates it's ready to promote. Check before opening the release PR:
 
 ```bash
 gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
-  --milestone "M1 — Model access (0.1.0)" --state open
+  --milestone "Phase 1 — Build the MVP (0.1.0)" --state open
 ```
 
 An empty result means the milestone's work has all landed on `develop`.
@@ -173,7 +176,7 @@ not a local `git merge` pushed straight to `main`.
 # 1. Open the release PR. Title carries the milestone + its version.
 gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --base main --head develop \
-  --title "Release: M1 — Model access (0.1.0)" \
+  --title "Release: Phase 1 — Build the MVP (0.1.0)" \
   --body "$(cat <<'EOF'
 Promotion of `develop` → `main`.
 
@@ -190,7 +193,7 @@ EOF
 # 2. After user approval, merge with a merge commit (no fast-forward, no squash).
 gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --merge \
-  --subject "Release: M1 — Model access (0.1.0) (#<release-pr#>)"
+  --subject "Release: Phase 1 — Build the MVP (0.1.0) (#<release-pr#>)"
 # (do NOT pass --delete-branch — develop is not disposable)
 
 # 3. After the merge lands, close the completed milestone (see
@@ -281,12 +284,12 @@ git branch -D <branch-name>
 # develop → main (release PR, then merge commit). Title = milestone + version.
 # Promote when the milestone has 0 open issues; close the milestone after merge.
 gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
-  --milestone "M1 — Model access (0.1.0)" --state open   # expect empty
+  --milestone "Phase 1 — Build the MVP (0.1.0)" --state open   # expect empty
 gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --base main --head develop \
-  --title "Release: M1 — Model access (0.1.0)" --body "<notes>"
+  --title "Release: Phase 1 — Build the MVP (0.1.0)" --body "<notes>"
 gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
-  --merge --subject "Release: M1 — Model access (0.1.0) (#<release-pr#>)"
+  --merge --subject "Release: Phase 1 — Build the MVP (0.1.0) (#<release-pr#>)"
 gh api -X PATCH repos/Agent-Fabric-SDK/agent-fabric-sdk/milestones/<number> \
   -f state=closed   # tagging still out of scope
 

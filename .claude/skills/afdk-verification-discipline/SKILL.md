@@ -116,8 +116,10 @@ has these blank (`—`). Key sections to know:
   bespoke request-header names in `_verify.py` remain `UNVERIFIED`/`build`-only.
 - **§4** — the four LIVE-verified policy rejection shapes (the discriminator is
   the error `type` + headers, **not** the status code).
-- **§8** — the eight framework constructor signatures, **all currently
-  `UNVERIFIED`**. This is the critical path for M1 (see `docs/m1-completion-checklist.md`).
+- **§8** — the framework constructor signatures, **all currently
+  `UNVERIFIED`**. Scope narrowed by the adapter cut (`BG §1.8`): LangGraph's
+  constructor plus the raw client still need constructor-level verification;
+  the other seven are verified at `connection_kwargs()` level only.
 - **§12.8** — the **Unblocking guidance**, ordered by confidence: safe to unblock
   now behind a live smoke test (OAuth token path), design-ready after one live GET
   (Exchange read, API Manager list/describe/policy), and **do NOT unblock** (LLM
@@ -188,9 +190,10 @@ fact is confirmed against the installed framework / real sandbox — not when th
 code that assumes it is written"). Do NOT unblock §12.8 category 3 surfaces (LLM
 data-plane, §3 token-attribution header) from static analysis alone.
 
-Before touching any `§`-cited guard, read that section of
-`spec/agent-fabric-sdk-build-plan.md` (the authoritative spec) —
-the constraints are deliberate, not accidental.
+Before touching any `§`-cited guard, read that section — a bare `§N.N` lives in
+`spec/archive/agent-fabric-sdk-build-plan-v1.md`, a `BG §N.N` in
+`spec/agent-fabric-sdk-build-guide.md`. The constraints are deliberate, not
+accidental.
 
 ---
 
@@ -233,5 +236,4 @@ treat these as blocking checks:
 **Repo:** `Agent-Fabric-SDK/agent-fabric-sdk` · branches `develop` → `main`.
 Files: `python/src/agent_fabric/core/_verify.py`, `docs/verified-apis.md`,
 `docs/unsupported-boundary.md`, `docs/m1-completion-checklist.md`,
-`python/scripts/verify_frameworks.py`, and the spec
-`spec/agent-fabric-sdk-build-plan.md`.
+`python/scripts/verify_frameworks.py`, and the specs under `spec/`.
