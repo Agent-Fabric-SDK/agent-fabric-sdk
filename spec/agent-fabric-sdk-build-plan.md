@@ -37,9 +37,10 @@ the LLM client — so they are kept textually distinct:
   citation in the tree means this. Do not add new ones.
 - **`Phase N`** — a milestone in this plan. Named, never numbered with `§`.
 
-Migrating the ~500 legacy citations is tracked separately and deliberately
-out of scope for the document swap: until it lands, a bare `§N.N` is a
-valid pointer into the archive, not a dangling reference.
+Migrating the ~500 legacy citations is deliberately **out of scope** for the
+document swap and still needs its own issue. Until that lands, a bare `§N.N`
+is a valid pointer into the archive, not a dangling reference — which is the
+whole reason the archive is retained rather than deleted.
 
 ## The product thesis
 
