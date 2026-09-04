@@ -1,5 +1,5 @@
 export default {
-  verification: 'Verification policy (§0.3)',
+  verification: 'Verification policy',
   governance: 'Governance',
   environments: 'Governance & environments',
   attribution: 'Attribution & cost',
