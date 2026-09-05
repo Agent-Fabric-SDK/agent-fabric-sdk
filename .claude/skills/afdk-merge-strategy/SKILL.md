@@ -21,7 +21,8 @@ different purposes:
 Picking the right method per direction keeps both logs useful and `git revert`
 clean. This skill covers the merge *method* and gates only — for branch
 naming/setup see [[afdk-git-workflow]], for the PR lifecycle see
-[[afdk-pr-workflow]]. Release **tagging** is intentionally out of scope here.
+[[afdk-pr-workflow]]. Release **tagging** is intentionally out of scope here —
+it's owned by [[afdk-release]], which runs *after* the promotion merge lands.
 
 ## The rule
 
@@ -142,8 +143,8 @@ gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
 An empty result means the milestone's work has all landed on `develop`.
 
 **After the promotion merge lands,** close the milestone (this is separate from
-release **tagging**, which is still out of scope — though the milestone's
-version string is exactly what a tag would carry):
+release **tagging** — that's [[afdk-release]]'s job, run after this; the
+milestone's version string is exactly what its tag carries):
 
 ```bash
 gh api -X PATCH \
@@ -197,7 +198,7 @@ gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
 # (do NOT pass --delete-branch — develop is not disposable)
 
 # 3. After the merge lands, close the completed milestone (see
-#    "Milestone / version awareness" above). Tagging remains out of scope.
+#    "Milestone / version awareness" above). Then tag + release: [[afdk-release]].
 ```
 
 Notes:
@@ -206,8 +207,9 @@ Notes:
   direction (see the "Never" list above).
 - **Do not pass `--delete-branch`.** `develop` is the long-lived integration
   branch.
-- Release **tagging** is deliberately not covered by this skill — follow
-  whatever tagging convention the user specifies at release time.
+- Release **tagging** is deliberately not covered by this skill — it's owned
+  by [[afdk-release]], which tags `main`'s new tip and cuts the GitHub Release
+  once this promotion merge has landed.
 - After the merge, `develop` already contains everything now on `main` (it
   was the source), so no fast-forward of `develop` is needed. The merge
   commit lives only on `main`.
@@ -291,7 +293,7 @@ gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
 gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
   --merge --subject "Release: Phase 1 — Build the MVP (0.1.0) (#<release-pr#>)"
 gh api -X PATCH repos/Agent-Fabric-SDK/agent-fabric-sdk/milestones/<number> \
-  -f state=closed   # tagging still out of scope
+  -f state=closed   # then tag + release: [[afdk-release]]
 
 # Hotfix on main (squash), then cherry-pick onto develop
 gh pr merge <hotfix-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
