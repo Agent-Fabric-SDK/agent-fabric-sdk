@@ -32,6 +32,7 @@ Milestones are `Phase 1`–`Phase 5` plus the standing `Verification` and
 | [`afdk-git-workflow`](afdk-git-workflow/SKILL.md) | Starting or continuing work on an issue — finding/filing it, cutting the branch, worktrees, committing, pushing. Triggers on "work an issue" / "work on #N" phrasing or before any edit/commit/push. |
 | [`afdk-pr-workflow`](afdk-pr-workflow/SKILL.md) | Once a branch is pushed and ready for a PR — local pre-PR gate mirroring CI, drafting/creating the PR, post-merge issue-close verification, worktree teardown. |
 | [`afdk-merge-strategy`](afdk-merge-strategy/SKILL.md) | Merging a PR into `develop` or promoting `develop` to `main` — merge method per direction, approval gates, hotfix handling, revert recipes. |
+| [`afdk-release`](afdk-release/SKILL.md) | Tagging a release and cutting the GitHub Release after a promotion merge lands on `main` — the PEP 440 milestone-driven tag convention, the pre-release ladder (`.devN` → `aN`/`bN`/`rcN` → final), where the version string is bumped, `gh release create`, and hotfix tags. The tagging half [[afdk-merge-strategy]] leaves out. |
 | [`afdk-filing-issues`](afdk-filing-issues/SKILL.md) | Filing, opening, or reporting a new GitHub issue (bug or enhancement) against this repo. |
 | [`afdk-issue-relationships`](afdk-issue-relationships/SKILL.md) | Linking issues that already exist — sub-issues, blocked-by/blocking, cross-link "related" comments. Runs after filing, not as part of it. |
 | [`afdk-docs-authoring`](afdk-docs-authoring/SKILL.md) | Writing or substantially rewriting a page under `website/pages/**.mdx` — layout, `_meta.js` ordering, the SDK-developer audience contract, VERIFICATION-STATUS framing, trademark/support boundary, "cite a symbol, not path:line". |
@@ -56,6 +57,10 @@ The lifecycle of a change runs roughly:
    against it, re-checking the same invariants from the outside.
 4. **`afdk-merge-strategy`** governs how the approved PR lands on `develop`
    and how `develop` is later promoted to `main`.
+5. **`afdk-release`** turns that promotion into a named version — tagging
+   `main`'s new tip (PEP 440, milestone-driven) and cutting the GitHub Release
+   with curated notes. It runs *after* the promotion merge, and is the tagging
+   half `afdk-merge-strategy` deliberately defers.
 
 Every stage re-touches the same three invariants from a different angle:
 verification discipline (never invent an endpoint/header/class name), the
