@@ -98,10 +98,14 @@ fetched token — but it does mean the control-plane surfaces (`registry`,
 
 ## A typed governed error taxonomy
 
-`classify()` maps the proxy's four live rejection shapes to typed exceptions —
-`AuthError` (401), `PIIDetected` (403), `TokenBudgetExceeded` (429), plus upstream
-passthrough — so you branch on governance outcomes instead of parsing bodies.
-See [Error taxonomy](/errors).
+`classify()` maps the proxy's six rejection shapes to typed exceptions —
+`PIIDetected` (403), `TokenBudgetExceeded` (429), `PromptInjectionBlocked`
+(`x-injection-protection`), a generic `PolicyViolation` fall-through for
+content-moderation, `UpstreamRequestError` (4xx) and `UpstreamModelError` (5xx),
+plus `AuthError` (401) for the separate consumer-auth case — so you branch on
+governance outcomes instead of parsing bodies. Four are live-verified; the
+injection and content-moderation bodies are pending sandbox capture (#253). See
+[Error taxonomy](/errors).
 
 Those exception types are the client-side mirror of the policies the gateway
 enforces. The **LLM** lane below is the one this SDK targets today; the same

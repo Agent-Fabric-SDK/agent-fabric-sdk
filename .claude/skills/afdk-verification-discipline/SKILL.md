@@ -115,7 +115,10 @@ has these blank (`—`). Key sections to know:
   direct-proxy attribution unit is the `client_id` credential (LIVE); the
   bespoke request-header names in `_verify.py` remain `UNVERIFIED`/`build`-only.
 - **§4** — the four LIVE-verified policy rejection shapes (the discriminator is
-  the error `type` + headers, **not** the status code).
+  the error `type` + headers, **not** the status code). `classify()` types two
+  further shapes — injection (`x-injection-protection: blocked`) and
+  content-moderation (fall-through) — whose bodies are pending live capture
+  (#253); the six-shape taxonomy is indexed in `tests/fixtures/rejections/README.md`.
 - **§8** — the framework constructor signatures, **all currently
   `UNVERIFIED`**. Scope narrowed by the adapter cut (`BG §1.8`): LangGraph's
   constructor plus the raw client still need constructor-level verification;

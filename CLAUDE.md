@@ -73,8 +73,11 @@ package. Two mechanisms in `core/_verify.py` enforce this:
 the worklist of what is blocked. When you confirm a value against a sandbox:
 flip its row there **and** set `verified=True` in `_verify.py`. What is verified
 today: the LLM proxy data plane (base URL shape with **no `/v1`**, the
-`client_id`/`client_secret` header pair, streaming, the four rejection shapes),
-the OAuth2 token path, and the CLI-plugin REST contract (§12, from static
+`client_id`/`client_secret` header pair, streaming, the four live-verified
+rejection shapes — `classify()` types two further shapes, injection (by the
+`x-injection-protection` header) and content-moderation (fall-through), whose
+bodies are pending live capture, #253), the OAuth2 token path, and the
+CLI-plugin REST contract (§12, from static
 analysis). Still blocked: Exchange→MCP tool discovery, the provisioning
 control-plane, and the exact framework adapter class names/kwargs (§8–§10).
 

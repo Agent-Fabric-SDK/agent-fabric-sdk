@@ -42,7 +42,7 @@ tree and the real `website/pages/` tree, not guessed.
 
 | Code surface | Docs page(s) | Why |
 | --- | --- | --- |
-| `python/src/agent_fabric/core/errors.py` | `website/pages/errors.mdx` | The four live-verified rejection shapes and the typed-exception taxonomy documented there come straight from `classify()` and the exception classes here. |
+| `python/src/agent_fabric/core/errors.py` | `website/pages/errors.mdx` | The six-shape rejection taxonomy (four live-verified, plus injection and content-moderation whose bodies are pending capture, #253) and the typed-exception taxonomy documented there come straight from `classify()` and the exception classes here. |
 | `python/src/agent_fabric/core/config.py`, `core/auth.py` | `website/pages/reference/configuration.mdx` | `Fabric.from_env()` precedence (kwargs → env vars → `.agent-fabric.toml` → defaults) and the three required LLM-proxy values are documented there. |
 | `python/src/agent_fabric/core/_verify.py`, `docs/verified-apis.md` | `website/pages/concepts/verification.mdx` + `website/pages/reference/unsupported-boundary.mdx` | Verification status legend, `_verify.blocked(...)` guards, and the unsupported-boundary list are the public face of §0.3. |
 | `python/src/agent_fabric/llm/*` (`catalog.py`, `client.py`) | `website/pages/feature-overview.mdx`, `website/pages/concepts/attribution.mdx` | Model catalog shape, capability flags, and the live-verified attribution headers. |
