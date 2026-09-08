@@ -112,7 +112,7 @@
   <text x="1220" y="398" font-size="12" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">FabricAsyncClient &#183; FabricClient (sync)</text>
   <text x="1220" y="420" font-size="11.5" fill="#475569">One shared httpx client, handed to every adapter.</text>
   <text x="1220" y="438" font-size="11.5" fill="#475569">Injects headers on every outbound request.</text>
-  <text x="1220" y="462" font-size="11.5" fill="#64748B">Retries 429 / 502 / 503 / 504 with backoff + jitter.</text>
+  <text x="1220" y="462" font-size="11.5" fill="#64748B">Retries 502 / 503 / 504 (transient) with backoff + jitter.</text>
   <text x="1220" y="476" font-size="11.5" fill="#64748B">Policy rejections are terminal &#8212; never retried.</text>
 
   <!-- error strip -->

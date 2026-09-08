@@ -355,3 +355,151 @@ def test_sync_swap_transport_takes_effect_on_the_next_request() -> None:
         assert client.get("https://x").status_code == 500
         client._swap_transport(httpx.MockTransport(lambda r: httpx.Response(200)))
         assert client.get("https://x").status_code == 200
+
+
+# --- policy refusals are terminal: no retry (#183, §2.4) -------------------
+# classify() maps EVERY 429 to TokenBudgetExceeded (a PolicyViolation), so a 429
+# is terminal like any other policy refusal — retrying it just burns the same
+# already-exhausted budget window (Scenario B: 50k records overnight). The
+# transport is the SOLE retry authority (every OpenAI-SDK construction site sets
+# max_retries=0), so the guarantee is proven here.
+
+
+async def test_does_not_retry_429_budget_refusal() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(429)  # empty body, no retry-after (docs §4)
+
+    async with _client(handler, FabricConfig(max_retries=3)) as client:
+        resp = await client.get("https://x")
+    assert resp.status_code == 429
+    assert calls["n"] == 1  # terminal on the first hit — never retried (§2.4, #183)
+
+
+async def test_does_not_retry_403_policy_rejection() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(403)  # e.g. PII detected
+
+    async with _client(handler, FabricConfig(max_retries=3)) as client:
+        resp = await client.get("https://x")
+    assert resp.status_code == 403
+    assert calls["n"] == 1
+
+
+async def test_429_is_terminal_but_5xx_still_retries() -> None:
+    """AC #3: the no-retry rule is status-specific, not a blanket disable. A
+    transient 503 is still retried to exhaustion while a 429 budget refusal is
+    terminal on the first hit."""
+    n429 = {"n": 0}
+
+    def h429(request: httpx.Request) -> httpx.Response:
+        n429["n"] += 1
+        return httpx.Response(429)
+
+    async with _client(h429, FabricConfig(max_retries=2)) as client:
+        await client.get("https://x")
+    assert n429["n"] == 1  # terminal
+
+    n503 = {"n": 0}
+
+    def h503(request: httpx.Request) -> httpx.Response:
+        n503["n"] += 1
+        return httpx.Response(503)
+
+    async with _client(h503, FabricConfig(max_retries=2)) as client:
+        await client.get("https://x")
+    assert n503["n"] == 3  # max_retries=2 → 3 attempts; 5xx stays retryable
+
+
+def test_sync_does_not_retry_429_budget_refusal() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(429)
+
+    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+        resp = client.get("https://x")
+    assert resp.status_code == 429
+    assert calls["n"] == 1
+
+
+def test_sync_does_not_retry_403_policy_rejection() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(403)
+
+    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+        resp = client.get("https://x")
+    assert resp.status_code == 403
+    assert calls["n"] == 1
+
+
+# --- the guarantee holds through the native framework clients (AC #4) ------
+# fabric.llm.client() and the adapters set the OpenAI SDK's own max_retries=0 and
+# hand it our shared client, so the transport's no-429-retry is the whole story:
+# a budget refusal reaches the wire exactly once.
+
+
+async def test_openai_client_does_not_retry_429_end_to_end() -> None:
+    openai = pytest.importorskip("openai")
+    from agent_fabric.llm.client import LLMClient
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(429, json={"error": "budget exhausted"})
+
+    cfg = FabricConfig(
+        llm_proxy_url="https://proxy",
+        llm_proxy_client_id="cid",
+        llm_proxy_client_secret="sec",
+        max_retries=3,
+    )
+    shared = FabricAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
+    async with shared:
+        oai = LLMClient(cfg, shared).client()
+        with pytest.raises(openai.APIStatusError):
+            await oai.chat.completions.create(
+                model="gpt-4o", messages=[{"role": "user", "content": "hi"}]
+            )
+    assert calls["n"] == 1  # SDK max_retries=0 + transport no-429-retry → one wire hit
+
+
+async def test_langgraph_adapter_does_not_retry_429_end_to_end() -> None:
+    pytest.importorskip("langchain_openai")
+    openai = pytest.importorskip("openai")
+    from agent_fabric.integrations.langgraph import LangGraphAdapter
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(429, json={"error": "budget exhausted"})
+
+    cfg = FabricConfig(
+        llm_proxy_url="https://proxy",
+        llm_proxy_client_id="cid",
+        llm_proxy_client_secret="sec",
+        max_retries=3,
+    )
+    shared = FabricAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
+    adapter = LangGraphAdapter(cfg, shared)
+    # Composition: the adapter disables the framework's own retry and hands it our
+    # shared client, so the transport is what governs the retry policy.
+    kw = adapter.connection_kwargs()
+    assert kw["max_retries"] == 0
+    assert kw["http_async_client"] is shared
+    async with shared:
+        model = adapter.chat_model("gpt-4o")
+        with pytest.raises(openai.APIStatusError):
+            await model.ainvoke("hi")
+    assert calls["n"] == 1
