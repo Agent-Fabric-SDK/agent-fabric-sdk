@@ -16,7 +16,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 from contextlib import AbstractContextManager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from .core import _verify
 from .core.auth import AnypointConnectedApp, AuthProvider
@@ -35,6 +35,8 @@ from .registry.governance import GovernanceCriteria
 from .tools.session import ToolSet
 
 if TYPE_CHECKING:
+    from openai import AsyncOpenAI, OpenAI
+
     from .integrations._base import Adapter
     from .integrations.adk import ADKAdapter
     from .integrations.agent_framework import AgentFrameworkAdapter
@@ -103,7 +105,7 @@ class Fabric:
         adk: ADKAdapter
         strands: StrandsAdapter
         agent_framework: AgentFrameworkAdapter
-        openai: OpenAIAgentsAdapter
+        openai_agents: OpenAIAgentsAdapter
         anthropic: AnthropicAdapter
         crewai: CrewAIAdapter
         llamaindex: LlamaIndexAdapter
@@ -137,6 +139,27 @@ class Fabric:
     @property
     def llm(self) -> LLMClient:
         return self._llm
+
+    @overload
+    def openai(self, *, sync: Literal[False] = ..., **kw: Any) -> AsyncOpenAI: ...
+
+    @overload
+    def openai(self, *, sync: Literal[True], **kw: Any) -> OpenAI: ...
+
+    def openai(self, *, sync: bool = False, **kw: Any) -> AsyncOpenAI | OpenAI:
+        """The headline two-line ergonomic (`BG §1.1`): a native OpenAI client
+        pointed at the governed proxy, with nothing new to learn.
+
+        This is a *real method*, not a lazy adapter — it shadows ``__getattr__``,
+        so ``fabric.openai()`` never probes for (or demands the install of) the
+        OpenAI Agents SDK. It delegates to :meth:`LLMClient.client`, returning a
+        real ``openai.AsyncOpenAI`` (or ``OpenAI`` with ``sync=True``), governed
+        on identical terms. The Agents SDK adapter now lives at
+        ``fabric.openai_agents`` (§3.3).
+        """
+        if sync:
+            return self._llm.client(sync=True, **kw)
+        return self._llm.client(sync=False, **kw)
 
     @property
     def registry(self) -> ExchangeRegistry:

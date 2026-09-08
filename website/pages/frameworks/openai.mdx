@@ -16,7 +16,7 @@ verified headers, and hands it to the Agents SDK ready-made.
 ## Install
 
 ```bash
-pip install "agent-fabric[openai]"
+pip install "agent-fabric[openai-agents]"
 ```
 
 ## Quickstart
@@ -25,7 +25,7 @@ pip install "agent-fabric[openai]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.openai import model
+from agent_fabric.integrations.openai_agents import model
 
 llm = model("gpt-4o")
 ```
@@ -55,13 +55,13 @@ JS** (`@openai/agents`).
 from agent_fabric import Fabric
 
 async with Fabric.from_env() as fabric:
-    llm = fabric.openai.model("gpt-4o")
+    llm = fabric.openai_agents.model("gpt-4o")
 ```
 
 **2. Module-level factory** (shortest):
 
 ```python
-from agent_fabric.integrations.openai import model
+from agent_fabric.integrations.openai_agents import model
 
 llm = model("gpt-4o")
 ```
@@ -75,7 +75,7 @@ from agents import OpenAIChatCompletionsModel
 async with Fabric.from_env() as fabric:
     llm = OpenAIChatCompletionsModel(
         model="gpt-4o",
-        **fabric.openai.connection_kwargs(),
+        **fabric.openai_agents.connection_kwargs(),
     )
 ```
 
@@ -113,7 +113,8 @@ pre-built `AsyncOpenAI` instance.
 
 > The `openai-agents` package is distinct from the plain `openai` client —
 > `agents.OpenAIChatCompletionsModel` lives in the Agents SDK, not in the base
-> OpenAI Python SDK. Installing `agent-fabric[openai]` pulls in
-> `openai-agents` for you.
+> OpenAI Python SDK. Installing `agent-fabric[openai-agents]` pulls in
+> `openai-agents` for you. For the raw governed client with no framework, use
+> `fabric.openai()` (from `agent-fabric[llm]`) instead.
 
 <AdapterErrorTaxonomyNote />

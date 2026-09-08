@@ -72,13 +72,15 @@ jobs:
         # fails fast (with a clear message) if a stray key is added here, so the
         # list can't silently drift into permanently-red jobs again (#140).
         # These are the eight supported frameworks (§8) — note the OpenAI Agents
-        # SDK key is `openai` (its extra and examples/ dir are both `openai`).
+        # SDK key is `openai_agents` (its extra is `openai-agents`, normalised by
+        # pip, and its examples/ dir is `openai_agents`). `fabric.openai()` is a
+        # separate raw-client method, not this adapter (#277).
         framework:
           - langgraph
           - adk
           - strands
           - agent_framework
-          - openai
+          - openai_agents
           - anthropic
           - crewai
           - llamaindex
