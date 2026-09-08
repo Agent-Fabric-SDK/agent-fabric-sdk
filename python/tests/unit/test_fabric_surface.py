@@ -36,6 +36,40 @@ def test_unknown_attribute_raises_attribute_error() -> None:
         _ = fab.not_a_framework
 
 
+def test_openai_agents_adapter_import_error_names_the_new_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Agents SDK adapter lives at ``fabric.openai_agents`` and its curated
+    ImportError points at ``agent-fabric[openai-agents]`` (#277)."""
+    monkeypatch.setattr("agent_fabric.fabric._framework_installed", lambda _probe: False)
+    fab = Fabric(_cfg())
+    with pytest.raises(ImportError) as exc:
+        _ = fab.openai_agents
+    assert 'agent-fabric[openai-agents]' in str(exc.value)
+
+
+def test_openai_is_a_real_method_not_the_agents_adapter() -> None:
+    """``fabric.openai()`` is the raw governed client (`BG §1.1`), returning a
+    native ``openai.AsyncOpenAI`` (or ``OpenAI`` with ``sync=True``) — not the
+    Agents SDK adapter (#277)."""
+    openai = pytest.importorskip("openai")
+
+    with Fabric(_cfg()) as fab:
+        assert isinstance(fab.openai(), openai.AsyncOpenAI)
+        assert isinstance(fab.openai(sync=True), openai.OpenAI)
+
+
+def test_openai_never_probes_the_agents_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Because ``openai()`` is a real method it shadows ``__getattr__``: with the
+    Agents SDK 'not installed', it still returns a client rather than raising the
+    curated ImportError for ``agent-fabric[openai-agents]`` (#277)."""
+    openai = pytest.importorskip("openai")
+    monkeypatch.setattr("agent_fabric.fabric._framework_installed", lambda _probe: False)
+
+    with Fabric(_cfg()) as fab:
+        assert isinstance(fab.openai(), openai.AsyncOpenAI)
+
+
 def test_run_context_binds_correlation_id() -> None:
     from agent_fabric.core.telemetry import current_correlation_id
 

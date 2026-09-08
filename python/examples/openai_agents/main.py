@@ -47,7 +47,7 @@ def main() -> None:
         m = model(model_id)
     except ImportError:
         print("OpenAI Agents SDK not installed. Install it with:")
-        print('    pip install "agent-fabric[openai]"')
+        print('    pip install "agent-fabric[openai-agents]"')
         return
     except ConfigError as e:
         print(f"Config error: {e}")

@@ -58,7 +58,7 @@ FRAMEWORKS: list[tuple[str, str, str, str]] = [
      "strands.models.openai.OpenAIModel"),
     ("agent_framework", "agent_fabric.integrations.agent_framework", "chat_client",
      "agent_framework.openai.OpenAIChatClient"),
-    ("openai", "agent_fabric.integrations.openai_agents", "model",
+    ("openai_agents", "agent_fabric.integrations.openai_agents", "model",
      "agents.OpenAIChatCompletionsModel"),
     ("anthropic", "agent_fabric.integrations.anthropic", "client",
      "anthropic.AsyncAnthropic"),

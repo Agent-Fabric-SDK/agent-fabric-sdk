@@ -1,4 +1,4 @@
-"""OpenAI Agents SDK adapter (``fabric.openai``) (§3.3). Tier 1.
+"""OpenAI Agents SDK adapter (``fabric.openai_agents``) (§3.3). Tier 1.
 
 The OpenAI Agents SDK (pip ``openai-agents``, import ``agents``) models a
 provider as an ``OpenAIChatCompletionsModel`` wrapping an ``AsyncOpenAI`` client.
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class OpenAIAgentsAdapter(Adapter):
-    extra = "openai"
+    extra = "openai-agents"
 
     def _proxy_openai_client(self) -> Any:
         """A native ``AsyncOpenAI`` client bound to the proxy: our shared http
@@ -58,5 +58,5 @@ class OpenAIAgentsAdapter(Adapter):
 def model(model: str, **kw: Any) -> OpenAIChatCompletionsModel:
     """Module-level convenience: a native ``OpenAIChatCompletionsModel`` at the
     proxy using a cached default env-configured Fabric. Equivalent to
-    ``Fabric.from_env().openai.model(model, **kw)``."""
+    ``Fabric.from_env().openai_agents.model(model, **kw)``."""
     return default_adapter(OpenAIAgentsAdapter).model(model, **kw)

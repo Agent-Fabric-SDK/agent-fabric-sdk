@@ -39,8 +39,8 @@ ADAPTERS: dict[str, AdapterSpec] = {
         "agent_framework", ".agent_framework", "AgentFrameworkAdapter", "agent_framework", 1,
         "agent_framework",
     ),
-    "openai": AdapterSpec(
-        "openai", ".openai_agents", "OpenAIAgentsAdapter", "openai", 1, "agents"
+    "openai_agents": AdapterSpec(
+        "openai_agents", ".openai_agents", "OpenAIAgentsAdapter", "openai-agents", 1, "agents"
     ),
     "anthropic": AdapterSpec(
         "anthropic", ".anthropic", "AnthropicAdapter", "anthropic", 1, "anthropic"

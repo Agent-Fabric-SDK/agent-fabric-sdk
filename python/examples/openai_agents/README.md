@@ -20,13 +20,13 @@ into `agents.Agent(model=...)`.
 ## Run
 
 ```bash
-pip install "agent-fabric[openai]"
+pip install "agent-fabric[openai-agents]"
 
 export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
 export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
 export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
-python examples/openai/main.py
+python examples/openai_agents/main.py
 ```
 
 ## The manual equivalent

@@ -36,7 +36,7 @@ llm = ["openai>=1.30"]
 langgraph = ["langchain-openai>=0.1", "langchain-core>=0.2"]
 adk = ["google-adk>=0.2", "litellm>=1.84"]
 agent_framework = ["agent-framework>=0.1"]
-openai = ["openai-agents>=0.1", "openai>=1.30"]
+openai-agents = ["openai-agents>=0.1", "openai>=1.30"]
 anthropic = ["anthropic>=0.40"]
 crewai = ["crewai>=0.80"]
 llamaindex = ["llama-index-llms-openai-like>=0.1"]
@@ -57,7 +57,7 @@ cli = ["typer>=0.12", "pyyaml>=6.0", "rich>=13.0"]
 
 # --- Everything, for convenience ---
 all = [
-    "agent-fabric[llm,langgraph,adk,strands,agent_framework,openai,anthropic,crewai,llamaindex,mcp,otel,cli]",
+    "agent-fabric[llm,langgraph,adk,strands,agent_framework,openai-agents,anthropic,crewai,llamaindex,mcp,otel,cli]",
 ]
 
 dev = [

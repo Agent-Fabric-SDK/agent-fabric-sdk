@@ -61,7 +61,7 @@ the confirmed class path → remove/relax the code's UNVERIFIED note.**
 | Google ADK | 1 | `google.adk.models.lite_llm.LiteLlm` | ⬜ install `[adk]` + run harness | ⬜ | ⬜ |
 | Strands | 1 | `strands.models.openai.OpenAIModel` | ⬜ install `[strands]` + run harness | ⬜ | ⬜ |
 | MS Agent Framework | 1 | `agent_framework.openai.OpenAIChatClient` | 🔒 adapter raises `blocked on verification` — class path/kwarg unconfirmed; package renamed classes recently | ⬜ | ⬜ |
-| OpenAI Agents SDK | 1 | `agents.OpenAIChatCompletionsModel` | ⬜ install `[openai]` + run harness | ⬜ | ⬜ |
+| OpenAI Agents SDK | 1 | `agents.OpenAIChatCompletionsModel` | ⬜ install `[openai-agents]` + run harness | ⬜ | ⬜ |
 | Anthropic SDK | 1 | `anthropic.AsyncAnthropic` | ⬜ install `[anthropic]` + run harness | ⬜ | ⬜ |
 | CrewAI | 1 | `crewai.LLM` | ⬜ install `[crewai]` + run harness | ⬜ | ⬜ |
 | LlamaIndex | 2 | `llama_index.llms.openai_like.OpenAILike` | ⬜ install `[llamaindex]` + run harness | ⬜ | ⬜ |

@@ -65,7 +65,7 @@ pip install -e ".[llm,langgraph]"   # base + raw client + one framework
 ```
 
 Extras are one per framework (`langgraph`, `adk`, `strands`, `agent_framework`,
-`openai`, `anthropic`, `crewai`, `llamaindex`) plus `mcp`, `a2a`, `otel`, `cli`,
+`openai-agents`, `anthropic`, `crewai`, `llamaindex`) plus `mcp`, `a2a`, `otel`, `cli`,
 `local`, and `all`. Configuration and first-agent walkthroughs live on the
 [documentation site](https://agent-fabric-sdk.github.io/agent-fabric-sdk/).
 
