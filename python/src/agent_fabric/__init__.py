@@ -18,6 +18,7 @@ docs/verified-apis.md.
 
 from __future__ import annotations
 
+from .core.budget import Budget
 from .core.config import FabricConfig, Region
 from .core.errors import (
     AuthError,
@@ -58,6 +59,7 @@ __all__ = [
     "AssetRef",
     "AssetType",
     "AuthError",
+    "Budget",
     "ConfigError",
     "Contact",
     "ContentSafetyBlocked",
