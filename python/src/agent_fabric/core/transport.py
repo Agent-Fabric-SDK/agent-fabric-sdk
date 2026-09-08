@@ -10,9 +10,12 @@ The client:
       - attribution headers (application, business group) — header NAMES are
         UNVERIFIED (docs/verified-apis.md §3), emitted via loud placeholders
       - bearer token, refreshed lazily
-  * retries on 429/502/503/504 with exponential backoff + jitter, honouring
-    Retry-After
-  * does NOT retry other 4xx — gateway policy rejections are terminal (§2.4)
+  * retries transient upstream/gateway failures (502/503/504) with exponential
+    backoff + jitter, honouring Retry-After
+  * does NOT retry 4xx — gateway policy rejections are terminal (§2.4). This
+    includes 429: on this proxy a 429 is a token-budget refusal
+    (TokenBudgetExceeded), and retrying it only burns the same exhausted window
+    (§2.4, #183). retry_after is still surfaced for wait_for_reset() (#186).
   * refreshes the token and retries exactly once on 401 (§2.2)
 
 For frameworks that only accept a ``default_headers`` dict (not a client), pass
@@ -39,7 +42,11 @@ CORRELATION_HEADER = "X-Correlation-Id"
 # §2/§3) and ignores the bearer, so we fill the slot with a harmless sentinel
 # whenever no explicit key is configured.
 PROXY_API_KEY_SENTINEL = "client-id-enforced"
-_RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
+# 429 is deliberately NOT here: on this proxy every 429 is a token-budget
+# refusal that classify() maps to TokenBudgetExceeded (a PolicyViolation), and a
+# PolicyViolation is terminal — retrying it only burns the same exhausted budget
+# window (§2.4, #183). Only genuinely transient upstream/gateway failures retry.
+_RETRYABLE_STATUS = frozenset({502, 503, 504})
 _BACKOFF_BASE_S = 0.5
 _BACKOFF_CAP_S = 30.0
 
