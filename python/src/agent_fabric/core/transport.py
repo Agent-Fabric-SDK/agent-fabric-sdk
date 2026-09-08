@@ -141,11 +141,40 @@ class FabricAsyncClient(httpx.AsyncClient):
             # own Authorization if one was set at the call site.
             request.headers.setdefault("Authorization", f"Bearer {token}")
 
+    # --- lifecycle hooks (the skeleton's attachment points, BG §1.1) --------
+    # These are the *logical* per-``send()`` seams the Phase 1 six-piece minimum
+    # plugs into, distinct from the per-wire ``_inject_headers`` event hook.
+    # Internal (underscore-prefixed) extension points for the SDK's own layers,
+    # NOT public API. Defaults are no-ops: a hookless client behaves exactly as
+    # before. Subclasses/layers override; do not call these directly.
+
+    async def _on_request(self, request: httpx.Request) -> None:
+        """Called once, before the retry loop. Attachment point for correlation
+        IDs, cost tags and span start (budget/telemetry issues plug in here)."""
+
+    async def _on_response(self, request: httpx.Request, response: httpx.Response) -> None:
+        """Called once with the final response returned to the caller (after
+        retries and any 401 refresh settle). Attachment point for budget parsing,
+        span end and ``classify()``."""
+
+    async def _on_refusal(self, violation: object) -> None:
+        """Refusal seam for Phase 2 reaction handlers. Defined here so the
+        attachment point exists; there is no caller until ``classify()`` (#181)
+        produces a typed violation. ``violation`` is typed ``object`` until then."""
+
+    def _swap_transport(self, transport: httpx.AsyncBaseTransport) -> None:
+        """Replace the underlying transport on a live client. httpx resolves the
+        transport per-send from ``self._transport`` (we mount nothing), so the
+        next request uses ``transport`` with no reconstruction. This is the seam
+        ``simulate()`` (#190) and ``fabric mock`` (#187) swap a fixture into."""
+        self._transport = transport
+
     async def send(
         self,
         request: httpx.Request,
         **kwargs: object,
     ) -> httpx.Response:
+        await self._on_request(request)
         attempts = self._cfg.max_retries + 1
         refreshed_once = False
         last_response: httpx.Response | None = None
@@ -170,10 +199,19 @@ class FabricAsyncClient(httpx.AsyncClient):
                 await asyncio.sleep(delay)
                 continue
 
-            return response
+            return await self._finish(request, response)
 
         assert last_response is not None  # attempts >= 1
-        return last_response
+        return await self._finish(request, last_response)
+
+    async def _finish(self, request: httpx.Request, response: httpx.Response) -> httpx.Response:
+        """Fire the response hook exactly once, on the response actually returned.
+        Both return paths funnel through here; the retry/refresh ``continue``
+        branches do not, so intermediate responses never reach ``_on_response``.
+        A transport-level error escapes ``super().send()`` before we get here, so
+        a hook can never mask the underlying HTTP error."""
+        await self._on_response(request, response)
+        return response
 
 
 class FabricClient(httpx.Client):
@@ -205,7 +243,26 @@ class FabricClient(httpx.Client):
     def _inject_headers(self, request: httpx.Request) -> None:
         _apply_base_headers(self._cfg, request, request_correlation_id())
 
+    # --- lifecycle hooks (BG §1.1) ------------------------------------------
+    # Synchronous twins of the async seams, kept in lockstep so a blocking caller
+    # is governed identically. Defaults are no-ops; internal, not public API.
+
+    def _on_request(self, request: httpx.Request) -> None:
+        """Called once, before the retry loop (see :meth:`FabricAsyncClient._on_request`)."""
+
+    def _on_response(self, request: httpx.Request, response: httpx.Response) -> None:
+        """Called once with the final response returned to the caller."""
+
+    def _on_refusal(self, violation: object) -> None:
+        """Refusal seam for Phase 2; no caller until ``classify()`` (#181)."""
+
+    def _swap_transport(self, transport: httpx.BaseTransport) -> None:
+        """Replace the underlying transport on a live client; the next request
+        uses it (see :meth:`FabricAsyncClient._swap_transport`)."""
+        self._transport = transport
+
     def send(self, request: httpx.Request, **kwargs: object) -> httpx.Response:
+        self._on_request(request)
         attempts = self._cfg.max_retries + 1
         last_response: httpx.Response | None = None
 
@@ -221,10 +278,16 @@ class FabricClient(httpx.Client):
                 time.sleep(delay)
                 continue
 
-            return response
+            return self._finish(request, response)
 
         assert last_response is not None  # attempts >= 1
-        return last_response
+        return self._finish(request, last_response)
+
+    def _finish(self, request: httpx.Request, response: httpx.Response) -> httpx.Response:
+        """Fire the response hook exactly once, on the response actually returned
+        (see :meth:`FabricAsyncClient._finish`)."""
+        self._on_response(request, response)
+        return response
 
 
 def build_http_client(cfg: FabricConfig, auth: AuthProvider | None) -> FabricAsyncClient:
