@@ -7,9 +7,11 @@ import { Callout } from 'nextra/components'
 # Budget & pacing
 
 <Callout type="info">
-  **Phase 1 — designed, not yet shipped.** The API shape below is a proposal so
-  the design can be argued about concretely; the committed part is the
-  behaviour and the acceptance bar. See [Roadmap](/roadmap) and
+  **Phase 1 — the `Budget` object ships; pacing is next.** The object below
+  (`limit` / `remaining` / `reset_at` / `observed_at` / `fraction_used`), updated
+  in-band from every response, is implemented. The two pacing helpers —
+  `pace()` and `wait_for_reset()` — are designed but **not yet shipped**; that
+  API shape is still a proposal. See [Roadmap](/roadmap) and
   [Verification policy](/concepts/verification).
 </Callout>
 
@@ -31,7 +33,7 @@ fabric.budget.observed_at    # when headers were last seen (staleness)
 fabric.budget.fraction_used  # 0.0–1.0
 ```
 
-And two helpers that use it:
+And two helpers that use it — **designed, not yet shipped** (the next piece):
 
 ```python
 await fabric.budget.wait_for_reset()          # sleeps until reset_at
@@ -102,4 +104,4 @@ last-known-good. See [Roadmap](/roadmap).
 
 ---
 
-**Status: Phase 1 — not yet shipped.**
+**Status: Phase 1 — the `Budget` object is shipped; `pace()` / `wait_for_reset()` are next.**

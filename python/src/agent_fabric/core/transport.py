@@ -33,6 +33,7 @@ import httpx
 
 from . import _verify
 from .auth import AuthProvider
+from .budget import Budget
 from .config import FabricConfig
 from .telemetry import ensure_correlation_id, request_correlation_id
 
@@ -125,12 +126,18 @@ class FabricAsyncClient(httpx.AsyncClient):
         self,
         cfg: FabricConfig,
         auth: AuthProvider | None,
+        *,
+        budget: Budget | None = None,
         **kw: object,
     ) -> None:
         self._cfg = cfg
         # NB: httpx.AsyncClient uses ``self._auth`` internally, so we must NOT
         # store our token provider there — super().__init__() would clobber it.
         self._token_provider = auth
+        # Optional in-band budget collaborator (§1.3, #185). When attached, the
+        # response hook feeds it; when None the hook stays a byte-identical no-op,
+        # so the control-plane token-fetch client tracks no budget.
+        self._budget = budget
         super().__init__(
             timeout=cfg.timeout_s,
             event_hooks={"request": [self._inject_headers]},
@@ -162,7 +169,13 @@ class FabricAsyncClient(httpx.AsyncClient):
     async def _on_response(self, request: httpx.Request, response: httpx.Response) -> None:
         """Called once with the final response returned to the caller (after
         retries and any 401 refresh settle). Attachment point for budget parsing,
-        span end and ``classify()``."""
+        span end and ``classify()``.
+
+        Feeds the attached :class:`Budget` from the response's ``x-token-*``
+        headers (#185); a no-op when none is attached. A subclass that overrides
+        this hook must call ``super()._on_response(...)`` to keep budget tracking."""
+        if self._budget is not None:
+            self._budget.observe(response)
 
     async def _on_refusal(self, violation: object) -> None:
         """Refusal seam for Phase 2 reaction handlers. Defined here so the
@@ -250,8 +263,9 @@ class FabricClient(httpx.Client):
     deliberately not conflated.
     """
 
-    def __init__(self, cfg: FabricConfig, **kw: object) -> None:
+    def __init__(self, cfg: FabricConfig, *, budget: Budget | None = None, **kw: object) -> None:
         self._cfg = cfg
+        self._budget = budget  # see FabricAsyncClient.__init__ (§1.3, #185)
         super().__init__(
             timeout=cfg.timeout_s,
             event_hooks={"request": [self._inject_headers]},
@@ -269,7 +283,11 @@ class FabricClient(httpx.Client):
         """Called once, before the retry loop (see :meth:`FabricAsyncClient._on_request`)."""
 
     def _on_response(self, request: httpx.Request, response: httpx.Response) -> None:
-        """Called once with the final response returned to the caller."""
+        """Called once with the final response returned to the caller. Feeds the
+        attached :class:`Budget` (#185); a no-op when none is attached. A subclass
+        that overrides this must call ``super()._on_response(...)``."""
+        if self._budget is not None:
+            self._budget.observe(response)
 
     def _on_refusal(self, violation: object) -> None:
         """Refusal seam for Phase 2; no caller until ``classify()`` (#181)."""
@@ -308,12 +326,20 @@ class FabricClient(httpx.Client):
         return response
 
 
-def build_http_client(cfg: FabricConfig, auth: AuthProvider | None) -> FabricAsyncClient:
-    """Factory for the shared client (§2.3)."""
-    return FabricAsyncClient(cfg, auth)
+def build_http_client(
+    cfg: FabricConfig,
+    auth: AuthProvider | None,
+    *,
+    budget: Budget | None = None,
+) -> FabricAsyncClient:
+    """Factory for the shared client (§2.3). Pass ``budget`` to track the in-band
+    token window on every response (§1.3, #185); omit it for the control-plane
+    token-fetch client, which observes no budget."""
+    return FabricAsyncClient(cfg, auth, budget=budget)
 
 
-def build_sync_http_client(cfg: FabricConfig) -> FabricClient:
+def build_sync_http_client(cfg: FabricConfig, *, budget: Budget | None = None) -> FabricClient:
     """Factory for the shared blocking client (§2.3). See :class:`FabricClient`
-    for why it takes no :class:`AuthProvider`."""
-    return FabricClient(cfg)
+    for why it takes no :class:`AuthProvider`. Pass ``budget`` to share one budget
+    object with the async client (§1.3, #185)."""
+    return FabricClient(cfg, budget=budget)

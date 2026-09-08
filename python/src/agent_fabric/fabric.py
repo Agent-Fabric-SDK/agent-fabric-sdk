@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 from .core import _verify
 from .core.auth import AnypointConnectedApp, AuthProvider
+from .core.budget import Budget
 from .core.config import FabricConfig
 from .core.telemetry import run_context
 from .core.transport import (
@@ -118,7 +119,12 @@ class Fabric:
     ) -> None:
         self._cfg = config or FabricConfig.from_env()
         self._auth = auth if auth is not None else self._default_auth(self._cfg)
-        self._http: FabricAsyncClient = build_http_client(self._cfg, self._auth)
+        # One Budget per Fabric (never global, §1.3 / #185): both transports feed
+        # it in-band from every response's x-token-* headers.
+        self._budget = Budget()
+        self._http: FabricAsyncClient = build_http_client(
+            self._cfg, self._auth, budget=self._budget
+        )
         # Built only if someone asks for a blocking client, so the common async
         # path never opens a connection pool it will not use.
         self._sync_http: FabricClient | None = None
@@ -139,6 +145,14 @@ class Fabric:
     @property
     def llm(self) -> LLMClient:
         return self._llm
+
+    @property
+    def budget(self) -> Budget:
+        """The token-budget window for this Fabric, updated in-band from every
+        response's ``x-token-*`` headers (§1.3, #185). Unobserved (all fields
+        ``None``) until the first call returns; there is no budget-query endpoint,
+        so it is only as fresh as ``budget.observed_at`` (upstream gap #2)."""
+        return self._budget
 
     @overload
     def openai(self, *, sync: Literal[False] = ..., **kw: Any) -> AsyncOpenAI: ...
@@ -175,7 +189,9 @@ class Fabric:
 
     def _sync_http_client(self) -> FabricClient:
         if self._sync_http is None:
-            self._sync_http = build_sync_http_client(self._cfg)
+            # Same Budget object as the async client, so a blocking caller updates
+            # fabric.budget on identical terms (§1.3, #185).
+            self._sync_http = build_sync_http_client(self._cfg, budget=self._budget)
         return self._sync_http
 
     async def aclose(self) -> None:

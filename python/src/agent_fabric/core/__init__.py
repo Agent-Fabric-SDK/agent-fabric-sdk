@@ -5,6 +5,7 @@ HARD RULE (§1.1): nothing in this package may import from
 """
 
 from .auth import AnypointConnectedApp, AuthProvider, ChainedAuth, StaticToken
+from .budget import Budget
 from .cache import TTLCache
 from .config import FabricConfig, Region
 from .errors import (
@@ -37,6 +38,7 @@ __all__ = [
     "AnypointConnectedApp",
     "AuthError",
     "AuthProvider",
+    "Budget",
     "ChainedAuth",
     "ConfigError",
     "ContentSafetyBlocked",
