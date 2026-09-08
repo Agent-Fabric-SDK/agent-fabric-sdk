@@ -38,6 +38,10 @@ Two audiences, two doc sets:
   **<https://agent-fabric-sdk.github.io/agent-fabric-sdk/>**. Install and
   configure, per-framework model access, the governed error taxonomy, and what
   to trust today — everything you need to point your agent at a governed proxy.
+- **See it run** → runnable demos live in the companion repo
+  **[agent-fabric-sdk-demos](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk-demos)**:
+  the framework-free client, native framework objects, the governed error
+  taxonomy, and the screen-recording scripts.
 - **Understand or contribute to the repo:**
   - [`ARCHITECTURE.md`](ARCHITECTURE.md) — how the SDK is built: the layered
     stack, the framework-free core, verification discipline, the error taxonomy,
