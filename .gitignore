@@ -32,6 +32,9 @@ node_modules/
 # Claude Code worktrees (isolated agent workspaces)
 .claude/worktrees/
 
+# Playwright MCP scratch output (local agent tooling)
+.playwright-mcp/
+
 # Local fabric config (secrets / dev creds — never commit)
 .agent-fabric.local.toml
 fabric.lock.local
