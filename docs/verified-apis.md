@@ -157,13 +157,20 @@ headers.
    Budget state is header-only: `x-token-limit`, `x-token-remaining`,
    `x-token-reset` (**milliseconds** to reset). There is **NO** `retry-after`.
 
-`core/errors.classify()` implements this (tests: `test_llm_proxy_contract.py`):
-error `type == "pii_detected"` → `PIIDetected` (checked *before* the 401/403→auth
-rule; parses `entities` from the message); `429` → `TokenBudgetExceeded` with
-`retry_after` derived from `x-token-reset` (ms→s); non-auth 4xx with a nested
-`error` object → `UpstreamRequestError` (carries provider `code`/`type`/`param`);
-otherwise `PolicyViolation`. prompt-injection / content-safety bodies remain
-uncaptured and fall through to a generic `PolicyViolation`.
+`core/errors.classify()` implements this (tests: `test_llm_proxy_contract.py`,
+`test_rejection_contract.py`): error `type == "pii_detected"` → `PIIDetected`
+(checked *before* the 401/403→auth rule; parses `entities` from the message);
+header `x-injection-protection: blocked` → `PromptInjectionBlocked` (the header,
+not the status, is the discriminator, so a bare `400` is unaffected); `429` →
+`TokenBudgetExceeded` with `retry_after` derived from `x-token-reset` (ms→s);
+non-auth 4xx with a nested `error` object → `UpstreamRequestError` (carries
+provider `code`/`type`/`param`); `5xx` → `UpstreamModelError`; otherwise
+`PolicyViolation`. The full six-shape taxonomy is indexed in
+`tests/fixtures/rejections/README.md`. The **injection body** and
+**content-moderation / federated-guardrail** shapes remain uncaptured (the
+latter falls through to a generic `PolicyViolation`) — re-confirming both against
+current docs and a sandbox is tracked in #253 (§0.3: no invented docs URL or
+version is recorded for them).
 
 | Policy | Exchange asset (verified) | Status | Rejection shape | Date | Source |
 |---|---|---|---|---|---|

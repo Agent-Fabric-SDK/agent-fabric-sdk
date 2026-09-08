@@ -168,9 +168,12 @@ def classify(response: httpx.Response, *, correlation_id: str | None = None) -> 
       and a ``www-authenticate`` header → auth.
     * **Upstream provider passthrough** (e.g. OpenAI ``model_not_found``) is a
       non-429 4xx with a nested error object carrying ``code``/``type``/``param``.
+    * **Injection protection** rejects with the ``x-injection-protection:
+      blocked`` header (the header, not the status, is the discriminator; #181)
+      → :class:`PromptInjectionBlocked`.
 
-    Policies still not observed live (prompt-injection, content-safety) fall
-    through to a generic :class:`PolicyViolation` whose message says so.
+    Content moderation / federated guardrails are still under-documented and
+    fall through to a generic :class:`PolicyViolation` whose message says so.
     """
 
     request_id = response.headers.get("x-request-id")
@@ -200,6 +203,22 @@ def classify(response: httpx.Response, *, correlation_id: str | None = None) -> 
                 "(or completion) contained personally identifiable information. "
                 "Remove or redact the flagged values, or relax the policy's entity "
                 "list / action in API Manager."
+            ),
+            **kw,
+        )
+
+    # Injection-protection policy: discriminated by the ``x-injection-protection:
+    # blocked`` header, NOT the status code (#181, docs §4). Checked before the
+    # generic 4xx / nested-error branch so an injection block wins even if its
+    # body happens to be shaped like an upstream error envelope. A 400 WITHOUT
+    # this header is an ordinary refusal, never PromptInjectionBlocked (AC (a)).
+    if response.headers.get("x-injection-protection") == "blocked":
+        return PromptInjectionBlocked(
+            f"Request blocked by the injection-protection policy ({status}).",
+            remediation=(
+                "The prompt-injection-protection policy flagged this request as a "
+                "prompt-injection attempt. Review and sanitise the untrusted input "
+                "in the prompt, or adjust the policy's sensitivity in API Manager."
             ),
             **kw,
         )
@@ -243,9 +262,10 @@ def classify(response: httpx.Response, *, correlation_id: str | None = None) -> 
             policy="unknown",
             remediation=(
                 "A gateway policy refused this request. This is terminal and was NOT "
-                "retried. Only PII (403) and token-budget (429) rejections are "
-                "identified from live captures so far; prompt-injection / "
-                "content-safety discrimination is pending capture (§8.2). Inspect "
+                "retried. PII (403), token-budget (429) and prompt-injection "
+                "(x-injection-protection) rejections are identified specifically; "
+                "content-moderation / federated-guardrail shapes are still "
+                "under-documented (#253) and fall through to here. Inspect "
                 ".response for the raw body."
             ),
             **kw,
