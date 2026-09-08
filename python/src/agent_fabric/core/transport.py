@@ -179,7 +179,8 @@ class FabricAsyncClient(httpx.AsyncClient):
         refreshed_once = False
         last_response: httpx.Response | None = None
 
-        for attempt in range(attempts):
+        attempt = 0
+        while attempt < attempts:
             response = await super().send(request, **kwargs)  # type: ignore[arg-type]
             last_response = response
 
@@ -190,13 +191,18 @@ class FabricAsyncClient(httpx.AsyncClient):
                 refreshed_once = True
                 await response.aclose()
                 await provider.invalidate()
-                # Event hooks re-run on the next send() → fresh token injected.
+                # A 401 refresh is an auth re-send, not a rate-limit backoff, so
+                # it does NOT consume the retry budget (§2.2: "retry exactly once
+                # on 401"): re-send once with the fresh token regardless of
+                # `attempt`, so the retry still happens on the final attempt /
+                # max_retries=0. Event hooks re-run on send() → fresh token.
                 continue
 
             if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
                 delay = _retry_delay(attempt, response)
                 await response.aclose()
                 await asyncio.sleep(delay)
+                attempt += 1
                 continue
 
             return await self._finish(request, response)
@@ -205,11 +211,16 @@ class FabricAsyncClient(httpx.AsyncClient):
         return await self._finish(request, last_response)
 
     async def _finish(self, request: httpx.Request, response: httpx.Response) -> httpx.Response:
-        """Fire the response hook exactly once, on the response actually returned.
-        Both return paths funnel through here; the retry/refresh ``continue``
-        branches do not, so intermediate responses never reach ``_on_response``.
-        A transport-level error escapes ``super().send()`` before we get here, so
-        a hook can never mask the underlying HTTP error."""
+        """Fire the response hook exactly once, on the final response returned to
+        the caller. Retry/refresh ``continue`` branches close their intermediate
+        response and loop instead of funnelling through here, so ``_on_response``
+        only ever sees the response actually returned — never a closed one.
+
+        A transport-level error escapes ``super().send()`` before we reach here,
+        so ``_on_response`` cannot run to mask the underlying HTTP error (AC #4).
+        NB: that also means ``_on_request`` has no paired ``_on_response`` on a
+        network failure — the future span-lifecycle consumer (#192) must close
+        its span in a ``finally`` around the call, not rely on ``_on_response``."""
         await self._on_response(request, response)
         return response
 

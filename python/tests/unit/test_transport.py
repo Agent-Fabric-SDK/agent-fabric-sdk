@@ -262,6 +262,48 @@ async def test_on_request_called_once_across_retries() -> None:
     assert client.responses == [200]  # response hook sees only the final response
 
 
+async def test_hooks_fire_once_across_the_401_refresh_path() -> None:
+    """The 401→refresh→retry path re-sends on the same logical send(), so the
+    hooks must still fire exactly once — _on_response on the final 200, never on
+    the intermediate 401."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(401) if calls["n"] == 1 else httpx.Response(200)
+
+    client = _RecordingAsync(
+        FabricConfig(), StaticToken("t"), transport=httpx.MockTransport(handler)
+    )
+    async with client:
+        resp = await client.get("https://x")
+    assert resp.status_code == 200
+    assert calls["n"] == 2  # refreshed + retried once
+    assert client.requests == 1  # request hook still fires once for the logical send
+    assert client.responses == [200]  # never sees the intermediate 401
+
+
+async def test_401_refresh_retries_even_on_the_final_attempt() -> None:
+    """A 401 refresh is an auth re-send, not a rate-limit backoff, so it must
+    always get its one retry independent of max_retries. Regression: with
+    max_retries=0 the token was invalidated but the request was never re-sent,
+    and the stale (closed) 401 was returned to the caller and to _on_response."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(401) if calls["n"] == 1 else httpx.Response(200)
+
+    client = _RecordingAsync(
+        FabricConfig(max_retries=0), StaticToken("t"), transport=httpx.MockTransport(handler)
+    )
+    async with client:
+        resp = await client.get("https://x")
+    assert resp.status_code == 200
+    assert calls["n"] == 2  # refreshed + retried once, despite max_retries=0
+    assert client.responses == [200]  # never the closed 401
+
+
 async def test_on_response_not_called_when_transport_errors() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom")
