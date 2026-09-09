@@ -26,7 +26,14 @@ from collections.abc import Awaitable, Callable, MutableMapping
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
-from .fixtures import LIMIT_HEADER, REMAINING_HEADER, RESET_HEADER, Fixture, load
+from .fixtures import (
+    LIMIT_HEADER,
+    REMAINING_HEADER,
+    RESET_HEADER,
+    Fixture,
+    load,
+    replay_headers,
+)
 
 __all__ = ["ASGIApp", "SimulatorConfig", "SIMULATOR_HEADER", "SIM_MODEL_PREFIX", "build_app"]
 
@@ -55,20 +62,6 @@ _REJECTION_SHAPES = frozenset(
         "client-id-missing",
     }
 )
-
-# Header replay is an allow-list, not a deny-list: replay only the semantic and
-# discriminator headers a client (and classify()) actually consume, and let the
-# ASGI server generate framing (content-length, transfer-encoding, connection).
-# Gateway-identity headers (server, cf-ray, date, strict-transport-security, …)
-# are dropped — replaying them would undercut the x-fabric-simulator honesty
-# guarantee. content-type is carried via the response media_type, not here.
-# `x-request-id` is kept because classify() surfaces it as FabricError.request_id
-# (it is the upstream request id, not gateway identity).
-_KEEP_EXACT = frozenset(
-    {"www-authenticate", "x-injection-protection", "x-correlation-id", "x-request-id"}
-)
-_KEEP_PREFIX = ("x-token-", "x-llm-proxy-")
-
 
 class ASGIApp(Protocol):
     """The framework-free ASGI callable :func:`build_app` returns — so callers
@@ -100,18 +93,6 @@ class SimulatorConfig:
     token_reset_ms: int = 60_000
 
 
-def _replay_headers(fixture: Fixture) -> dict[str, str]:
-    """The semantic/discriminator subset of a fixture's captured headers to
-    replay verbatim (content-type excluded — it rides on media_type)."""
-    out: dict[str, str] = {}
-    for key, value in fixture.headers.items():
-        if key == "content-type":
-            continue
-        if key in _KEEP_EXACT or key.startswith(_KEEP_PREFIX):
-            out[key] = value
-    return out
-
-
 class _Simulator:
     """Holds the mutable ``x-token-*`` counter (guarded by an ``asyncio.Lock`` so
     concurrent requests can't race it) and builds every response."""
@@ -125,7 +106,7 @@ class _Simulator:
         """Build a starlette Response for a resolved fixture, always honesty-stamped."""
         from starlette.responses import Response
 
-        headers = _replay_headers(fixture)
+        headers = replay_headers(fixture)
         if extra:
             headers.update(extra)
         headers[SIMULATOR_HEADER] = "true"

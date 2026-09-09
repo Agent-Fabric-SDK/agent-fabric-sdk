@@ -42,7 +42,24 @@ __all__ = [
     "load",
     "parse_headers",
     "parse_status",
+    "replay_headers",
 ]
+
+# Header replay is an allow-list, not a deny-list: replay only the semantic and
+# discriminator headers a client (and classify()) actually consume, and let the
+# consumer generate framing (content-length, transfer-encoding, connection).
+# Gateway-identity headers (server, cf-ray, date, strict-transport-security, …)
+# are dropped — replaying them would undercut the x-fabric-simulator honesty
+# guarantee and, for in-process injection, misrepresent a fixture as a live
+# gateway response. content-type is NOT in the allow-list: the ASGI simulator
+# carries it via the response media_type, and in-process injection re-adds it
+# from Fixture.content_type — so it is never double-set. `x-request-id` is kept
+# because classify() surfaces it as FabricError.request_id (it is the upstream
+# request id, not gateway identity).
+_KEEP_EXACT = frozenset(
+    {"www-authenticate", "x-injection-protection", "x-correlation-id", "x-request-id"}
+)
+_KEEP_PREFIX = ("x-token-", "x-llm-proxy-")
 
 
 def parse_headers(text: str) -> dict[str, str]:
@@ -232,3 +249,21 @@ def load(shape: str) -> Fixture:
     return Fixture(
         shape=shape, status=status, headers=headers, body=body, content_type=content_type
     )
+
+
+def replay_headers(fixture: Fixture) -> dict[str, str]:
+    """The semantic/discriminator subset of a fixture's captured headers to replay
+    verbatim, per the :data:`_KEEP_EXACT` / :data:`_KEEP_PREFIX` allow-list.
+
+    content-type is excluded (the ASGI app rides it on the response media_type;
+    in-process injection re-adds it from ``Fixture.content_type``), so a caller
+    that needs it must set it explicitly rather than expect it here. Shared by the
+    simulator app and ``simulate()`` (#187/#190) so both replay one identical
+    subset."""
+    out: dict[str, str] = {}
+    for key, value in fixture.headers.items():
+        if key == "content-type":
+            continue
+        if key in _KEEP_EXACT or key.startswith(_KEEP_PREFIX):
+            out[key] = value
+    return out
