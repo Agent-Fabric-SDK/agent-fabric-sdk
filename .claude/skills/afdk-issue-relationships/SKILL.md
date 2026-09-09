@@ -11,6 +11,23 @@ Plain `#NN` mentions in an issue body create a backlink in the timeline but are 
 
 This skill is for **linking issues that already exist**. For drafting and filing the issue itself, use [[afdk-filing-issues]] first; come here once both issues exist and you need to wire the relationship.
 
+## Deferred scope always gets its own issue
+
+Any slice of work that is **explicitly deferred or ruled out of scope but still needs to happen** must become a dedicated GitHub issue in the same motion — the moment the deferral is decided, not "later". This holds wherever the deferral surfaces:
+
+- **At filing** — a surface scoped out via an issue's `## Out of scope` section (see [[afdk-filing-issues]]).
+- **In review** — a fix a PR review punts as "out of scope for this PR" / "follow-up" (see [[afdk-pr-review]]).
+- **Mid-branch** — a piece of the current issue's own scope dropped or postponed while implementing (see [[afdk-git-workflow]]).
+
+The two-step is fixed: **file the dedicated issue first** ([[afdk-filing-issues]] owns its labels + milestone), **then wire the relationship** with the right tool below (sub-issue, blocked-by, or cross-link comment) so the deferral is traceable both ways. A comment that says "we'll do this later" with no issue behind it is not a deferral — it is a silent drop.
+
+| Excuse | Reality |
+| --- | --- |
+| "It's small, someone will remember" | Memory is not a tracker. If it's worth deferring, it's worth an issue. |
+| "I'll file it after this PR merges" | "After" is where deferred work goes to die. File it when you defer it. |
+| "The comment / PR thread already records it" | Threads are unsearchable backlog; an issue with a milestone is the plan. |
+| "It might not even be needed" | Then say that in the issue and let triage close it — don't decide by omission. |
+
 ## Target repo
 
 ```
