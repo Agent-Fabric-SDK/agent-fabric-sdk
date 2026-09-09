@@ -24,6 +24,8 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import httpx
 
 
@@ -83,6 +85,37 @@ class TokenBudgetExceeded(PolicyViolation):
     def __init__(self, message: str, *, retry_after: float | None = None, **kw: Any) -> None:
         super().__init__(message, **kw)
         self.retry_after = retry_after
+
+
+class BudgetReserveReached(FabricError):
+    """Raised by :meth:`Budget.pace` *before* it lets a request through that would
+    cross the caller's reserve (§1.3, #186).
+
+    Deliberately NOT a :class:`PolicyViolation`: that base marks a gateway-enforced
+    refusal that is terminal and never retried. This is the client-side opposite —
+    a pre-emptive signal, raised locally from observed budget headers before any
+    request is sent, that the caller is *expected* to recover from (typically
+    ``await budget.wait_for_reset()`` then continue). Classifying it as a refusal
+    would misrepresent it at the framework boundary.
+
+    Carries the observed budget state at the moment pacing tripped so a handler can
+    decide without re-reading the object: ``fraction_used`` (0.0-1.0), the
+    ``reserve`` that was requested, and ``reset_at`` (``None`` if the window has not
+    been observed yet)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        fraction_used: float,
+        reserve: float,
+        reset_at: datetime | None = None,
+        **kw: Any,
+    ) -> None:
+        super().__init__(message, **kw)
+        self.fraction_used = fraction_used
+        self.reserve = reserve
+        self.reset_at = reset_at
 
 
 class PromptInjectionBlocked(PolicyViolation):
