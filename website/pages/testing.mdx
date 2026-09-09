@@ -7,8 +7,11 @@ import { Callout } from 'nextra/components'
 # Testing & conformance
 
 <Callout type="info">
-  **Phase 1 — designed, not yet shipped.** The API and CLI shapes below are a
-  proposal; the committed part is the behaviour and the acceptance bar. See
+  **Phase 1 — `simulate()` ships; the conformance plugin is the follow-up.**
+  In-process refusal injection (`fabric.simulate()`) is shipped. The pytest
+  conformance plugin below is designed, not yet shipped — its API and CLI
+  shapes are a proposal, tracked as
+  [#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191). See
   [Roadmap](/roadmap) and [Verification policy](/concepts/verification).
 </Callout>
 
@@ -17,14 +20,41 @@ Two test-time tools, and the second one is the more important of the pair.
 ## `simulate()` — in-process, no server
 
 A context manager that makes the next N calls through a `Fabric` return a
-chosen refusal. No network, no server, fast enough for unit tests.
+chosen refusal — the **same captured rejection fixture** `classify()` and the
+[local simulator](/simulator) are tested against, so it lights up as exactly
+that typed refusal, not a hand-rolled stand-in. No network, no server, fast
+enough for unit tests:
 
 ```python
-async def test_agent_masks_pii(fabric):
-    with fabric.simulate(PIIDetected, pii_types=["CREDIT_CARD"], times=1):
+from agent_fabric import Fabric, PIIDetected
+
+async def test_agent_masks_pii():
+    fabric = Fabric.from_env()
+    with fabric.simulate(PIIDetected):
         result = await triage_agent.run(ticket_with_card_number)
     assert "****" in result.draft_reply
 ```
+
+`times=N` (default `1`) sets how many calls are refused before requests proceed
+normally; retries of a single logical call count once, and the previous
+transport is restored on exit even if the block raises (nesting composes).
+Every injected response carries `x-fabric-simulator: true`, so a simulated
+refusal is never mistaken for a real gateway response in a log or trace.
+
+The selectable refusals are the ones `classify()` produces from a captured
+fixture: `TokenBudgetExceeded`, `PIIDetected`, `PromptInjectionBlocked`,
+`UpstreamRequestError`, `UpstreamModelError`, `AuthError`, and the generic
+`PolicyViolation` (the still-under-documented content-moderation shape,
+[#253](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/253)).
+Asking for a refusal with no captured fixture — e.g. `ContentSafetyBlocked` —
+is a clear `ValueError`, never a silent miss.
+
+<Callout type="info">
+  `simulate()` injects the fixture **verbatim**. Shaping the body — specific
+  PII entity types, a custom message, a shrinking budget window — is the
+  follow-up [#188](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/188),
+  shared with the simulator's scenario scripting.
+</Callout>
 
 ## The conformance plugin — run it against *your* agent
 
@@ -79,11 +109,18 @@ They read the **same rejection fixtures**, so they cannot drift apart.
 
 ## Acceptance bar
 
-- `simulate()` works with no network and no server running.
+- `simulate()` works with no network and no server running. ✅
+- `times=N` is honoured exactly; call N+1 proceeds normally, and nesting or an
+  exception restores the previous transport. ✅
+- It replays the *same fixtures* `classify()` and the simulator are tested
+  against, so the three fail together if the gateway contract ever drifts. ✅
 - The plugin registers as a pytest entry point, and
-  `pytest --fabric-conformance` prints a scenario table.
-- Exemptions must be asserted in code; a silent skip fails the suite.
+  `pytest --fabric-conformance` prints a scenario table —
+  [#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191).
+- Exemptions must be asserted in code; a silent skip fails the suite —
+  [#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191).
 
 ---
 
-**Status: Phase 1 — not yet shipped.**
+**Status: Phase 1 — `simulate()` is shipped; the conformance plugin is
+[#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191).**

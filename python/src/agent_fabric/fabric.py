@@ -38,6 +38,7 @@ from .tools.session import ToolSet
 if TYPE_CHECKING:
     from openai import AsyncOpenAI, OpenAI
 
+    from .core.errors import FabricError
     from .integrations._base import Adapter
     from .integrations.adk import ADKAdapter
     from .integrations.agent_framework import AgentFrameworkAdapter
@@ -186,6 +187,43 @@ class Fabric:
     def run_context(self, run_id: str | None = None) -> AbstractContextManager[str]:
         """Bind a correlation ID for one logical agent run (§2.3)."""
         return run_context(run_id)
+
+    def simulate(
+        self, error: type[FabricError], *, times: int = 1
+    ) -> AbstractContextManager[None]:
+        """Inject a real gateway refusal in-process, no server (#190, BG §1.5).
+
+        Swaps a fixture-returning transport onto this Fabric's HTTP client(s) for
+        the next ``times`` calls, so the branch of your agent that handles a typed
+        refusal runs with no network and no gateway::
+
+            with fabric.simulate(PIIDetected):
+                # every call in here fails as a real PIIDetected, then normal
+                await agent.ainvoke(...)
+
+        The injected body is the **same captured fixture** ``classify()`` and the
+        ``fabric mock`` server are tested against — so it lights up as exactly the
+        typed refusal you asked for, not a hand-rolled stand-in — and every
+        injected response carries ``x-fabric-simulator: true`` (BG §1.4).
+
+        ``times`` counts logical calls (retries of one call count once); call
+        ``times``+1 onward proceeds normally. Nesting composes and the previous
+        transport is restored on exit, even if the block raises.
+
+        Swaps the async client always, and the blocking client only if it has
+        already been built (``client(sync=True)`` was called earlier); a sync
+        client created *inside* the block is not retro-swapped. Raises
+        ``ValueError`` for a refusal type with no captured fixture (e.g.
+        :class:`~agent_fabric.core.errors.ContentSafetyBlocked`, still
+        under-documented, #253). Body-shaping (specific PII entities, a custom
+        message) is the follow-up #188; this injects the fixture verbatim.
+        """
+        from .simulator.inject import simulate as _simulate
+
+        clients: list[Any] = [self._http]
+        if self._sync_http is not None:
+            clients.append(self._sync_http)
+        return _simulate(clients, error, times=times)
 
     def _sync_http_client(self) -> FabricClient:
         if self._sync_http is None:
