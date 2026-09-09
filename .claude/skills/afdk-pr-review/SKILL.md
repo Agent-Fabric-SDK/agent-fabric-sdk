@@ -187,6 +187,15 @@ product or endorses it. Keep the "for consuming Agent Fabric" framing.
 
 See [[afdk-testing]] for the full testing conventions.
 
+### 10. Deferred fixes become tracked issues
+
+If a review comment defers a fix — "out of scope for this PR", "follow-up",
+"not blocking, do later" — that deferred work must get its own GitHub issue,
+not just a comment thread. File it via [[afdk-filing-issues]] and wire it per
+[[afdk-issue-relationships]] ("Deferred scope always gets its own issue")
+before the PR merges. A `--comment` that punts work with no linked issue is
+exactly how deferred fixes get lost.
+
 ## Running the checks locally
 
 All Python commands run from `python/`:
@@ -240,3 +249,4 @@ Avoid a blanket "looks good" with no evidence. Quote the rule and the `§N.N`.
 | Upper version pin added to an extra | Contradicts "floors, never ceilings" (§8.4). |
 | `pytest.skip`/`xfail` in the conformance suite instead of `KNOWN_LIMITATIONS` | Silent skip hides an unsupported framework (§8.1). |
 | Wording implying first-party MuleSoft/Salesforce product | Trademark misuse (§0.4). |
+| Review defers a fix ("do later") with no follow-up issue filed | Deferred work with no issue is a silent drop — file + wire it ([[afdk-issue-relationships]]). |

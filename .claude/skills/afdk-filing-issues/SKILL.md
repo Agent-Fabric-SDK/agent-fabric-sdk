@@ -159,8 +159,11 @@ How to apply the verdict:
 - **In scope, this issue:** name the concrete module(s)/file(s) in the
   Proposal and add the matching `area:*` label.
 - **In scope, but deliberately deferred:** say so in `## Out of scope` and file
-  (or note the need for) a linked follow-up via [[afdk-issue-relationships]].
-  Never silently drop a surface.
+  a dedicated follow-up issue for the deferred slice, then wire it via
+  [[afdk-issue-relationships]] ("Deferred scope always gets its own issue").
+  This is the general rule, not a cross-surface special case — **any** slice of
+  work deferred but still needed gets its own issue. Never silently drop a
+  surface *or* a deferred piece of work.
 - **Genuinely not affected:** state that explicitly (e.g. "TypeScript parity:
   not affected, no TS code exists yet"). A one-line "not affected" is the proof
   you checked, not noise.
@@ -457,8 +460,9 @@ Unverified(...) placeholder or _verify.blocked(...) guard to add/remove>
 - **docs/verified-apis.md:** <new/changed row, or "not affected">
 
 ## Out of scope
-<what this issue intentionally does NOT cover — name any in-scope surface
-deliberately deferred to a follow-up>
+<what this issue intentionally does NOT cover. Any slice named here that still
+needs doing gets its own dedicated follow-up issue, wired per
+[[afdk-issue-relationships]] — a deferral is not a drop.>
 
 ## Acceptance criteria
 - [ ] <observable behavior>

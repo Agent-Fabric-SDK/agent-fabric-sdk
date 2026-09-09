@@ -217,6 +217,12 @@ it). The user decides whether to: (a) pause #N until the prerequisite lands,
 (b) expand #N's scope explicitly, or (c) take a different approach. One
 issue = one branch is only meaningful if scope stays honest.
 
+The same discipline covers work **dropped or postponed** mid-branch, not just
+prerequisites: if a slice of #N's own scope gets deferred, file a dedicated
+issue for it before you set it aside, then wire it per
+[[afdk-issue-relationships]] ("Deferred scope always gets its own issue"). A
+`TODO` in the code or a "left for later" note in the PR is not a tracker.
+
 ## Base branch
 
 **Always `develop`.** Never branch from `main`, never PR into `main`. `main`
