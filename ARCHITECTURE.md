@@ -18,11 +18,23 @@ the repo — branch/PR flow, testing surfaces, coding conventions — see
 
 ![Agent Fabric SDK — from your framework, through the SDK's config/native-object/transport/classify stages, to the governed Omni Gateway and upstream model providers.](website/public/img/sdk-architecture.png)
 
-The SDK is a thin, framework-native client for a **governed gateway**. Your agent
-code stays in whatever framework you already use; the SDK's only job is to build
-that framework's *own* native client object, inject governance and attribution
-headers into the transport, and turn the gateway's policy rejections into typed,
-actionable errors. The gateway — not the SDK — enforces policy.
+The SDK is a thin, framework-native client for a **governed gateway** — but it is
+*not* sold as a way to reach the Omni Gateway, because a stock OpenAI client with a
+`base_url` and two headers already does that. Its value is structural: **the
+wrapper is the skeleton** (`BG §1.1`). It is the single point in the process where
+every request enters and every response leaves, so it is the only place where
+budget headers, error classification, correlation IDs, cost tags, OTel spans,
+simulation, and refusal handlers can all attach without the developer wiring each
+one.
+
+The skeleton is worth exactly the sum of what hangs on it — which is why the
+**six-piece minimum** ships as one milestone rather than spread across the
+roadmap: typed refusals, a budget object + pacing, a local gateway simulator,
+`simulate()` + the conformance plugin, OTel GenAI instrumentation, and
+correlation IDs + cost tags (`BG §1.2`–`BG §1.7`). Your agent code stays in
+whatever framework you already use; the SDK builds that framework's *own* native
+client object and attaches governance and attribution to the one transport it
+owns. The gateway — not the SDK — enforces policy.
 
 ---
 
@@ -33,17 +45,21 @@ layer may import a higher one.**
 
 ```
 integrations/   per-framework adapters — return NATIVE framework objects, never wrappers
-      ↓         (langgraph · adk · strands · agent_framework · openai · crewai · anthropic · llamaindex)
+      ↓         (langgraph · adk · strands · agent_framework · openai_agents · anthropic · crewai · llamaindex)
 tools/          MCP session management, tool discovery/filtering — resolves registry handles
       ↓
 registry/       Exchange discovery, typed governed-state assets
       ↓
 llm/            framework-free OpenAI-compatible client factory + model catalog
       ↓
-core/           config · auth · transport · errors · telemetry · region  — ZERO framework deps (httpx + pydantic only)
-
-provisioning/   separate, CI-oriented entry point: declarative specs · plan/diff/apply · governance lint · CLI
+core/           config · auth · transport · errors · budget · telemetry · cache · _verify  — ZERO framework deps (httpx + pydantic only)
 ```
+
+**Not in the stack — `provisioning/`.** The declarative control plane
+(specs · plan/diff/apply · governance lint · CLI) is on the build plan's
+*Do not build* list — it must not compete with API Manager/Terraform — and its
+endpoints are `_verify.blocked`. Treat it as legacy scaffolding: reachable, but
+do not deepen it (see "Still blocked", below).
 
 **The hard rule (§1.1):** `core/` has no dependency on any agent framework.
 Each `integrations/*` adapter may depend on exactly one framework, and nothing
@@ -74,6 +90,36 @@ framework that may not be installed.
 - **Configuration** resolves in a fixed precedence — constructor kwargs → env
   vars → `.agent-fabric.toml` → default (§2.1) — and reports every missing field
   at once rather than one failure per run. `Fabric.from_env()` is the entry point.
+- **The transport is the attachment point.** `FabricAsyncClient` exposes four
+  internal lifecycle hooks — no-op by default, **not** public API, mirrored on the
+  sync twin `FabricClient` — so the six-piece minimum *attaches* rather than
+  re-wiring `send()` (`BG §1.1`, #179/#287). This is what makes the skeleton one
+  milestone instead of six ad-hoc integrations:
+
+  | Hook | When it fires | What attaches |
+  | --- | --- | --- |
+  | `_on_request` | once, before the retry loop | correlation ID + cost-tag headers (`BG §1.7`); OTel span **start** (`BG §1.6`) |
+  | `_on_response` | once, on the final response (via `_finish()`) | `Budget` parse from `x-token-*` (`BG §1.3`); span **end**; classification |
+  | `_on_refusal` | Phase-2 seam — no caller until `classify()` wires it (#181) | typed-refusal handlers (`BG §1.2`) |
+  | `_swap_transport` | fixture seam | `simulate()` (#190) and `fabric mock` (#187) swap a fixture in (`BG §1.4`/`BG §1.5`) |
+
+  Three contracts matter: **override the hook, not `send()`**; a subclass that
+  overrides `_on_response` **must call `super()._on_response(...)`** or budget
+  tracking silently breaks; and because a transport-level error escapes before
+  `_finish` runs, a span opened in `_on_request` has **no paired `_on_response`**
+  — span consumers must close in a `finally`, never relying on the response hook.
+  A hookless client behaves exactly as it did before the hooks were added. The
+  full contracts live in the `core/transport.py` docstrings.
+- **`Governance`** (`governance.py`) is a second top-level object alongside
+  `Fabric`, outside the linear import stack — it depends only on `core`. It is
+  ONE object behind three verbs (§6.2–§6.4): `simulate()` (an ephemeral local
+  gateway harness), `export()` (emit the governed-state manifest), and `resolve()`
+  (reconcile a running `Fabric` against it, raising `GovernanceDrift` on
+  mismatch); a separate platform-team-only `apply()` is the deliberate escape
+  hatch. **All of these are currently `_verify.blocked`** — the `simulate()`
+  harness included — pending the §6 verification items, so today the object is the
+  shape, not yet the behaviour. Do not confuse it with `registry/governance.py`,
+  which types governed-state *assets* one layer down.
 
 Every governed surface ships in three ergonomic forms that must stay in lockstep:
 the `fabric.<framework>` factory, a `connection_kwargs()` accessor, and a
@@ -152,8 +198,12 @@ code alone.** The captures established, for example, that:
   verbatim → `UpstreamRequestError` (terminal, but distinct from a policy refusal).
 - A **5xx** is a retryable provider outage → `UpstreamModelError`.
 
-Policies not yet observed live (prompt-injection, content-safety) deliberately
-fall through to a generic `PolicyViolation` whose message *says so* rather than
+A **prompt-injection** block is typed on its own signal: the
+`x-injection-protection: blocked` response header decides `PromptInjectionBlocked`
+*before* the generic 4xx / nested-error branch, even though its rejection *body*
+is still pending live capture (#253). Only **content-moderation /
+federated-guardrail** shapes remain under-documented, and those deliberately fall
+through to a generic `PolicyViolation` whose message *says so* rather than
 pretending to a precision the captures don't yet support — the same §0.3 honesty
 as the verification ledger. All errors subclass `FabricError`, which carries the
 correlation/request IDs and the raw response for inspection.
@@ -166,7 +216,9 @@ Not every framework gets the same CI guarantee, and the roster is deliberately
 scoped rather than exhaustive. The former Tier 1 / Tier 2 split is **retired**
 along with the eight-adapter roster:
 
-- **Deep — conformance-gated, *blocking* CI:** LangGraph, and only LangGraph.
+- **Deep — conformance-gated, *blocking* CI (target state):** LangGraph, and only
+  LangGraph. *Today,* until #197 lands, the full eight-adapter matrix still runs
+  in blocking CI (see the closing note below).
 - **Supported at `connection_kwargs()`:** Google ADK, Strands, Microsoft Agent
   Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex. Verified at
   the kwargs level rather than the constructor level.
@@ -211,6 +263,11 @@ Anthropic-native Messages API route, an open verification item, §0.3).
   (source of truth for what is verified vs. blocked).
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch/PR/release flow, testing surfaces,
   coding conventions.
+- [`CLAUDE.md`](CLAUDE.md) — repo guidance for Claude Code: the invariants, the
+  layer rule, and the skill index in operational form.
+- [`.claude/skills/README.md`](.claude/skills/README.md) — the `afdk-*` skill
+  index; the trigger-based path into the rules above (including
+  `afdk-implementing-features`, the implement-stage skill).
 - `website/` — the consumer "how to use the SDK" documentation.
 
 ---
