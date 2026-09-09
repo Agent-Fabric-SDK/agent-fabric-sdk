@@ -66,7 +66,9 @@ pip install -e ".[llm,langgraph]"   # base + raw client + one framework
 
 Extras are one per framework (`langgraph`, `adk`, `strands`, `agent_framework`,
 `openai-agents`, `anthropic`, `crewai`, `llamaindex`) plus `mcp`, `a2a`, `otel`, `cli`,
-`local`, and `all`. Configuration and first-agent walkthroughs live on the
+`local`, `test` (the [conformance pytest plugin](https://agent-fabric-sdk.github.io/agent-fabric-sdk/testing) —
+`pytest --fabric-conformance --agent=my_app.agent:build`), and `all`.
+Configuration and first-agent walkthroughs live on the
 [documentation site](https://agent-fabric-sdk.github.io/agent-fabric-sdk/).
 
 ## What's verified (§0.3)

@@ -58,9 +58,19 @@ otel = ["opentelemetry-api>=1.24", "opentelemetry-sdk>=1.24"]
 # --- CLI + provisioning (§5) ---
 cli = ["typer>=0.12", "pyyaml>=6.0", "rich>=13.0"]
 
+# --- Conformance pytest plugin (BG §1.5): `agent-fabric[test]` ---
+# The public, run-it-against-your-own-agent plugin
+# (`pytest --fabric-conformance --agent=my_app:build`), registered via the
+# pytest11 entry point below. pytest-asyncio so a customer's own async agent
+# tests — and the `fabric` fixture used with `simulate()` — run under the
+# repo-standard asyncio_mode="auto". The plugin itself needs no framework and no
+# `[llm]`; it drives the agent through the customer's own Fabric. Floors only,
+# no upper pins (§8.4).
+test = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
 # --- Everything, for convenience ---
 all = [
-    "agent-fabric[llm,langgraph,adk,strands,agent_framework,openai-agents,anthropic,crewai,llamaindex,mcp,otel,cli,local]",
+    "agent-fabric[llm,langgraph,adk,strands,agent_framework,openai-agents,anthropic,crewai,llamaindex,mcp,otel,cli,local,test]",
 ]
 
 dev = [
@@ -78,6 +88,15 @@ dev = [
 
 [project.scripts]
 agent-fabric = "agent_fabric.provisioning.cli:app"
+
+[project.entry-points.pytest11]
+# Registers the conformance plugin (BG §1.5). Entry points are package metadata,
+# so this loads on EVERY pytest run once agent-fabric is installed — even under
+# `[dev]` alone with no `[test]` extra. That is why plugin.py and its module-top
+# imports stay framework-free and openai-free (only stdlib + pytest + the
+# framework-free suite/report siblings); the harness that pulls in Fabric is
+# imported lazily. The plugin is inert unless `--fabric-conformance` is passed.
+agent_fabric_conformance = "agent_fabric.conformance.plugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_fabric"]
@@ -193,3 +212,20 @@ source_modules = [
     "agent_fabric.integrations",
 ]
 forbidden_modules = ["agent_fabric.simulator"]
+
+[[tool.importlinter.contracts]]
+name = "conformance is a dev-only sibling (BG §1.5)"
+type = "forbidden"
+# The conformance kit's pytest plugin auto-loads via a pytest11 entry point and
+# its harness reuses the simulator. Like the simulator, it is a dev-only sibling:
+# no production layer may import it, so nothing it pulls in (pytest, the harness's
+# Fabric wiring) can drift onto the base `import agent_fabric` path. The kit
+# importing core/fabric and the simulator downward is allowed.
+source_modules = [
+    "agent_fabric.core",
+    "agent_fabric.llm",
+    "agent_fabric.registry",
+    "agent_fabric.tools",
+    "agent_fabric.integrations",
+]
+forbidden_modules = ["agent_fabric.conformance"]
