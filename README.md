@@ -84,3 +84,15 @@ and the exact framework adapter class names/kwargs.
 The discipline behind this is documented in
 [`ARCHITECTURE.md` → Verification discipline](ARCHITECTURE.md#verification-discipline-03);
 the row-by-row worklist is [`docs/verified-apis.md`](docs/verified-apis.md).
+
+## Conformance exemptions
+
+The [conformance plugin](https://agent-fabric-sdk.github.io/agent-fabric-sdk/testing)
+holds the SDK to the same bar it asks of your agent. Where a framework
+legitimately cannot satisfy a scenario, the reason is asserted in code
+(`KNOWN_LIMITATIONS`) and published here as credibility — never a silent skip
+(§8.1):
+
+| Framework | Scenario | Why it's exempt |
+| --- | --- | --- |
+| ADK, CrewAI | correlation ID propagated | LiteLLM owns the transport, so the SDK's `httpx` client cannot be injected — the correlation ID ends up per-client, not per-run. A LiteLLM logger callback may recover trace correlation later. |
