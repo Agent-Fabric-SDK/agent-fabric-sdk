@@ -26,6 +26,7 @@ from agent_fabric.core.errors import (
     UpstreamRequestError,
     classify,
 )
+from agent_fabric.simulator.fixtures import parse_headers
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 REJECTIONS = _FIXTURES / "rejections"
@@ -33,13 +34,10 @@ LIVE = _FIXTURES / "anypoint" / "llm_proxy"
 
 
 def _headers(path: Path) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for line in path.read_text().splitlines():
-        if line.startswith("HTTP/") or ":" not in line:
-            continue
-        k, _, v = line.partition(":")
-        out[k.strip().lower()] = v.strip()
-    return out
+    """Delegate to the simulator's shared loader so the classify() contract and
+    the #187 replay parse the identical files with the identical rule — BG §1.4's
+    "same files, both fail together" holds by construction, not convention."""
+    return parse_headers(path.read_text())
 
 
 def _response(base: Path, slug: str, status: int) -> httpx.Response:

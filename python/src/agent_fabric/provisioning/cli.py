@@ -123,6 +123,36 @@ def verify() -> None:
     _blocked("Exchange descriptor read + live introspection (§7.4, §7.9)")
 
 
+@app.command()
+def mock(
+    port: int = typer.Option(8080, "--port", help="TCP port to bind"),
+    host: str = typer.Option("127.0.0.1", "--host", help="host/interface to bind"),
+) -> None:
+    """Run the local gateway simulator (BG §1.4).
+
+    Serves the same captured fixtures ``core.errors.classify()`` is tested
+    against, so a stock client pointed at ``AGENT_FABRIC_LLM_PROXY_URL=http://{host}:{port}``
+    sees the real rejection shapes locally. Every response carries
+    ``x-fabric-simulator: true`` — it is a fixture replay, never a real gateway.
+
+    Needs the ``[local]`` extra (starlette + uvicorn); this is NOT one of the
+    verification-gated platform commands, so a missing extra is an install
+    prompt (exit 1), not a ``blocked on verification`` message (exit 3).
+    """
+    from ..simulator import server
+
+    try:
+        server.serve(host=host, port=port)
+    except ImportError as exc:
+        typer.secho(
+            'The local gateway simulator needs the [local] extra. Install it with:\n'
+            '    pip install "agent-fabric[local]"',
+            fg="yellow",
+            err=True,
+        )
+        raise typer.Exit(1) from exc
+
+
 def main() -> None:  # pragma: no cover
     try:
         app()

@@ -48,8 +48,19 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev,llm,cli]"
+      # [local] here (and only here) so the simulator's ASGI tests execute; the
+      # base-only and typecheck jobs deliberately omit it (importorskip guards
+      # skip the ASGI tests there, proving import agent_fabric.simulator stays
+      # green without starlette/uvicorn).
+      - run: pip install -e ".[dev,llm,cli,local]"
       - run: pytest -q
+      # The local gateway simulator's out-of-process boot (BG §1.4) is
+      # local_gateway-marked and deselected from the default run above. It is
+      # pure-Python (no docker), so run it explicitly here where [local] is
+      # installed — the one marker path that is now safe in CI (sandbox stays
+      # off, needing real Anypoint creds).
+      - name: local gateway simulator boot (BG §1.4)
+        run: pytest -q -m local_gateway
 
   # Nightly framework matrix (§8.4) — runs the conformance kit against the
   # LATEST release of each framework and opens an issue on failure. Scheduled

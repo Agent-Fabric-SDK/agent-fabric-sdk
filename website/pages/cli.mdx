@@ -7,9 +7,11 @@ import { Callout } from 'nextra/components'
 # CLI & decorators
 
 <Callout type="info">
-  **Phase 1 — designed, not yet shipped.** Command and decorator names below
-  are a proposal; the committed part is the behaviour and the acceptance bar.
-  See [Roadmap](/roadmap) and [Verification policy](/concepts/verification).
+  **Phase 1 — mostly designed, not yet shipped.** One command has landed: the
+  local simulator, run as `agent-fabric mock` (see [Local simulator](/simulator)).
+  The remaining commands and the decorator names below are a proposal; the
+  committed part is the behaviour and the acceptance bar. See
+  [Roadmap](/roadmap) and [Verification policy](/concepts/verification).
 </Callout>
 
 Two on-ramps. Everything on the [Roadmap](/roadmap)'s six-piece list attaches
@@ -41,7 +43,7 @@ migration later.
 ```bash
 fabric init          # writes .agent-fabric.toml, prints which env vars are missing
 fabric doctor        # checks creds, reaches the gateway, reports budget state
-fabric mock          # the local simulator
+fabric mock          # the local simulator — SHIPPED, run as: agent-fabric mock
 fabric test          # the conformance suite
 ```
 
@@ -70,4 +72,5 @@ is the difference between an afternoon of guessing and thirty seconds.
 
 ---
 
-**Status: Phase 1 — not yet shipped.**
+**Status: Phase 1 — `agent-fabric mock` (the local simulator) is shipped;
+`init` / `doctor` / `test` and the decorators are designed, not yet shipped.**
