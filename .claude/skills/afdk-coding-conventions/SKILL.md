@@ -1,6 +1,6 @@
 ---
 name: afdk-coding-conventions
-description: Use when authoring or reviewing any Python code in the agent-fabric SDK (python/src/agent_fabric/**) — typing under mypy --strict, ruff rules, the import-linter layering + framework-free core rule, lazy framework imports in adapters, the §N.N build-plan citation habit, the "floors never ceilings" extras rule, the 3.10 floor, and trademark-descriptive language. This is the read-the-doc backstop for the trigger-based matcher.
+description: Use when authoring or reviewing any Python code in the agent-fabric SDK (python/src/agent_fabric/**) — typing under mypy --strict, ruff rules, the import-linter layering + framework-free core rule, lazy framework imports in adapters, the `BG §N.N` vs bare-`§` citation habit, the "floors never ceilings" extras rule, the 3.10 floor, and trademark-descriptive language. This is the read-the-doc backstop for the trigger-based matcher.
 ---
 
 # AFDK Coding Conventions
@@ -34,8 +34,10 @@ Trigger this skill when about to:
 
 - Add or edit anything under `python/src/agent_fabric/**` — especially `core/`
   (the framework-free layer) or `integrations/**` (the adapters).
-- Add or edit a framework adapter (LangGraph, ADK, Strands, Microsoft Agent
-  Framework, OpenAI Agents SDK, Anthropic, CrewAI, LlamaIndex).
+- Add or edit a framework adapter — **LangGraph** is the one deep,
+  conformance-gated adapter; the other seven (ADK, Strands, Microsoft Agent
+  Framework, OpenAI Agents SDK, Anthropic, CrewAI, LlamaIndex) are supported at
+  `connection_kwargs()` only (`BG §1.8`). See the "Adapter depth" checklist item.
 - Touch `pyproject.toml` extras, mypy, ruff, or the import-linter contracts.
 - Review a PR diff that touches any of the above (see [[afdk-pr-review]]).
 
@@ -107,6 +109,16 @@ Walk this against the build plan before writing code:
       `fabric.<framework>` factory, a `connection_kwargs()` accessor, and a
       module-level factory (see `langgraph.py`). Keep all three when adding an
       adapter.
+- [ ] **Adapter depth (`BG §1.8`)** — the roster is *one deep, seven shallow*.
+      **LangGraph** is the one deep, conformance-gated adapter; the other seven
+      (ADK, Strands, Microsoft Agent Framework, OpenAI Agents SDK, Anthropic,
+      CrewAI, LlamaIndex) are supported at `connection_kwargs()` only — that
+      accessor is their entire supported surface. Every adapter returns the
+      framework's **own native object** (e.g. `ChatOpenAI`), never a wrapper.
+      This is a deliberate scope decision, not a technical ceiling: deepening
+      one of the seven is demand-driven and gated on an issue (#223 picks the
+      second deep adapter from Phase 1 demand; #244 covers the rest in Phase 5).
+      Do not add constructor-level depth to a shallow adapter ad hoc.
 - [ ] **Trademark-descriptive language (§0.4)** — "Agent Fabric", "Anypoint",
       "Omni Gateway", "MuleSoft" are Salesforce trademarks. Write the package as
       a descriptive third-party SDK ("an SDK for consuming Agent
