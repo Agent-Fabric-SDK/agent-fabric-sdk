@@ -172,6 +172,16 @@ latter falls through to a generic `PolicyViolation`) — re-confirming both agai
 current docs and a sandbox is tracked in #253 (§0.3: no invented docs URL or
 version is recorded for them).
 
+**Simulator budget overlay (UNVERIFIED, #253).** The live `200` success capture
+carries **no** `x-token-*` budget headers — those are observed only on the
+token-rate-limit `429` (item 4 above). The local gateway simulator
+(`agent-fabric mock`, BG §1.4) *synthesises* a plausible, monotonically
+decreasing `x-token-*` window on its happy-path `200` purely so `Budget` and its
+pacing can be exercised locally. This is a serve-time overlay, **not** confirmed
+real-proxy behaviour: whether the production proxy emits `x-token-*` on a `200`
+is unverified and tracked under #253. Nothing in `core/`/`llm/` depends on it —
+only `simulator/app.py` (`SimulatorConfig`) emits it.
+
 | Policy | Exchange asset (verified) | Status | Rejection shape | Date | Source |
 |---|---|---|---|---|---|
 | client-id-enforcement | `client-id-enforcement` `1.3.3` | VERIFIED (LIVE) | `401` + `www-authenticate: Client-ID-Enforcement`, `{"error":"Client ID is not present"}` | 2026-08-28 | live probe |

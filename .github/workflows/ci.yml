@@ -48,7 +48,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev,llm,cli]"
+      # [local] here (and only here) so the simulator's ASGI tests execute; the
+      # base-only and typecheck jobs deliberately omit it (importorskip guards
+      # skip the ASGI tests there, proving import agent_fabric.simulator stays
+      # green without starlette/uvicorn).
+      - run: pip install -e ".[dev,llm,cli,local]"
       - run: pytest -q
 
   # Nightly framework matrix (§8.4) — runs the conformance kit against the
