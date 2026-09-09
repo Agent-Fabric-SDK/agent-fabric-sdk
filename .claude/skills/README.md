@@ -30,6 +30,7 @@ Milestones are `Phase 1`–`Phase 5` plus the standing `Verification` and
 | [`afdk-testing`](afdk-testing/SKILL.md) | Writing, reviewing, or expanding tests — routes to the right pytest surface (unit / conformance / fixture-driven / sandbox / local_gateway) and enforces the "never a silent skip" conformance rule. |
 | [`afdk-pr-review`](afdk-pr-review/SKILL.md) | Reviewing an agent-fabric-sdk PR — checks the architectural invariants (layering, verification discipline, error-taxonomy correctness, floors-never-ceilings, §N.N hygiene, py.typed/mypy --strict, trademark wording) before `gh pr review`. |
 | [`afdk-git-workflow`](afdk-git-workflow/SKILL.md) | Starting or continuing work on an issue — finding/filing it, cutting the branch, worktrees, committing, pushing. Triggers on "work an issue" / "work on #N" phrasing or before any edit/commit/push. |
+| [`afdk-implementing-features`](afdk-implementing-features/SKILL.md) | Writing the code for a feature — after the issue+branch exist, before the PR. Routes to the right pattern: attaching a cross-cutting feature to a transport lifecycle hook (the "wrapper is the skeleton" seam), adding/deepening a framework adapter (the `ADAPTERS`-registry checklist), extending `classify()`, or adding a config setting. Defers code-quality to [[afdk-coding-conventions]] and verification to [[afdk-verification-discipline]]. |
 | [`afdk-pr-workflow`](afdk-pr-workflow/SKILL.md) | Once a branch is pushed and ready for a PR — local pre-PR gate mirroring CI, drafting/creating the PR, post-merge issue-close verification, worktree teardown. |
 | [`afdk-merge-strategy`](afdk-merge-strategy/SKILL.md) | Merging a PR into `develop` or promoting `develop` to `main` — merge method per direction, approval gates, hotfix handling, revert recipes. |
 | [`afdk-release`](afdk-release/SKILL.md) | Tagging a release and cutting the GitHub Release after a promotion merge lands on `main` — the PEP 440 milestone-driven tag convention, the pre-release ladder (`.devN` → `aN`/`bN`/`rcN` → final), where the version string is bumped, `gh release create`, and hotfix tags. The tagging half [[afdk-merge-strategy]] leaves out. |
@@ -46,12 +47,15 @@ The lifecycle of a change runs roughly:
 1. **`afdk-filing-issues`** (+ **`afdk-issue-relationships`** if it links to
    other work) creates the issue that authorizes the change — "the issue is
    the plan."
-2. **`afdk-git-workflow`** cuts the branch and governs commits. While editing,
-   **`afdk-coding-conventions`** governs the code itself and
-   **`afdk-verification-discipline`** governs any claim about a MuleSoft
-   endpoint/header/class name. **`afdk-testing`** governs what you write to
-   prove it. **`afdk-docs-sync`** (paired with **`afdk-docs-authoring`` for the
-   actual prose) governs whether website must move in lockstep.
+2. **`afdk-git-workflow`** cuts the branch and governs commits.
+   **`afdk-implementing-features`** is the IMPLEMENT stage in between — it routes
+   the actual code to the right pattern (which transport hook a cross-cutting
+   feature attaches to, the adapter-registry checklist, extending `classify()`,
+   adding a config setting). While editing, **`afdk-coding-conventions`** governs
+   the code itself and **`afdk-verification-discipline`** governs any claim about
+   a MuleSoft endpoint/header/class name. **`afdk-testing`** governs what you
+   write to prove it. **`afdk-docs-sync`** (paired with **`afdk-docs-authoring`**
+   for the actual prose) governs whether website must move in lockstep.
 3. **`afdk-pr-workflow`** opens the PR once the branch is ready;
    **`afdk-pr-review`** is the checklist a reviewer (human or agent) runs
    against it, re-checking the same invariants from the outside.
