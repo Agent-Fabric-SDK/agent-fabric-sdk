@@ -23,9 +23,14 @@ an epoch (docs/verified-apis.md §4) — so ``reset_at`` is anchored to
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 import httpx
+
+from .errors import BudgetReserveReached
 
 # The three budget headers, VERIFIED (LIVE) against the token-rate-limit policy
 # (docs/verified-apis.md §4, row `Token rate limiting`). Named here so the one
@@ -106,3 +111,55 @@ class Budget:
             self.remaining = remaining
         if reset_ms is not None:
             self.reset_at = ts + timedelta(milliseconds=reset_ms)
+
+    @asynccontextmanager
+    async def pace(self, *, reserve: float = 0.0) -> AsyncIterator[None]:
+        """Guard a request so it is refused *before* it crosses your reserve, not
+        after a 429 comes back (§1.3, #186).
+
+        ``reserve`` is the fraction of the window to keep in hand (``0.0``-``1.0``):
+        ``reserve=0.10`` trips at 90% used, ``reserve=0.0`` (the default) only at
+        full exhaustion. On entry, if the observed :attr:`fraction_used` has reached
+        ``1.0 - reserve``, :class:`~agent_fabric.core.errors.BudgetReserveReached` is
+        raised and the guarded block never runs — so the request that would cross
+        the reserve is never issued. Recover with :meth:`wait_for_reset` and retry::
+
+            try:
+                async with fabric.budget.pace(reserve=0.05):
+                    await enrich(batch)
+            except BudgetReserveReached:
+                await fabric.budget.wait_for_reset()
+
+        An **unobserved** budget (no call has returned yet, so
+        :attr:`fraction_used` is ``None``) lets the block through: with nothing
+        observed there is no basis to refuse, and blocking forever on a cold start
+        would be worse than one request that discovers the real headroom.
+        """
+        if not 0.0 <= reserve <= 1.0:
+            raise ValueError(f"reserve must be within [0.0, 1.0], got {reserve!r}")
+        used = self.fraction_used
+        if used is not None and used >= 1.0 - reserve:
+            raise BudgetReserveReached(
+                f"Budget reserve reached: {used:.1%} of the window used, "
+                f"reserve is {reserve:.1%} (trips at {1.0 - reserve:.1%}).",
+                fraction_used=used,
+                reserve=reserve,
+                reset_at=self.reset_at,
+            )
+        yield
+
+    async def wait_for_reset(self, *, now: datetime | None = None) -> None:
+        """Sleep until :attr:`reset_at`, then return — the recovery half of pacing
+        (§1.3, #186).
+
+        A single sleep, never a spin loop. If the window is unobserved
+        (:attr:`reset_at` is ``None``) or already past, this returns immediately —
+        there is nothing to wait for. ``now`` is injectable for tests; production
+        passes nothing and the wall clock (UTC) is used.
+        """
+        if self.reset_at is None:
+            return
+        current = now if now is not None else _utcnow()
+        delay = (self.reset_at - current).total_seconds()
+        if delay > 0:
+            await asyncio.sleep(delay)

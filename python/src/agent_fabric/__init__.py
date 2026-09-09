@@ -22,6 +22,7 @@ from .core.budget import Budget
 from .core.config import FabricConfig, Region
 from .core.errors import (
     AuthError,
+    BudgetReserveReached,
     ConfigError,
     ContentSafetyBlocked,
     FabricError,
@@ -60,6 +61,7 @@ __all__ = [
     "AssetType",
     "AuthError",
     "Budget",
+    "BudgetReserveReached",
     "ConfigError",
     "Contact",
     "ContentSafetyBlocked",

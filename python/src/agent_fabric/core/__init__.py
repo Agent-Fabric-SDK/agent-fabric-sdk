@@ -10,6 +10,7 @@ from .cache import TTLCache
 from .config import FabricConfig, Region
 from .errors import (
     AuthError,
+    BudgetReserveReached,
     ConfigError,
     ContentSafetyBlocked,
     FabricError,
@@ -39,6 +40,7 @@ __all__ = [
     "AuthError",
     "AuthProvider",
     "Budget",
+    "BudgetReserveReached",
     "ChainedAuth",
     "ConfigError",
     "ContentSafetyBlocked",
