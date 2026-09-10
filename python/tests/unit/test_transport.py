@@ -6,8 +6,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from agent_fabric.core import telemetry
 from agent_fabric.core._verify import UnverifiedValueWarning
 from agent_fabric.core.auth import StaticToken
+from agent_fabric.core.budget import Budget
 from agent_fabric.core.config import FabricConfig
 from agent_fabric.core.telemetry import current_correlation_id, run_context
 from agent_fabric.core.transport import (
@@ -503,3 +505,198 @@ async def test_langgraph_adapter_does_not_retry_429_end_to_end() -> None:
         with pytest.raises(openai.APIStatusError):
             await model.ainvoke("hi")
     assert calls["n"] == 1
+
+
+# --- GenAI spans on the transport (#192, BG §1.6) --------------------------
+# The transport is where the span is opened, because every governed call flows
+# through send(). A GenAI request is a POST whose JSON body carries a `model`;
+# GETs / token fetches / bodyless calls get no span, so all the tests above stay
+# byte-identical. The span carries both the pinned gen_ai.* attributes and the
+# stable fabric.* attributes on ONE span (AC #5). Wired to a real in-memory
+# tracer here; skipped where the `otel` extra is not installed.
+
+_PROVIDER_HEADER = "x-llm-proxy-llm-provider"
+_LLM_CFG = FabricConfig(llm_proxy_url="https://proxy")
+
+
+def _tracer_exporter():
+    pytest.importorskip("opentelemetry.sdk")
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    provider = TracerProvider()
+    exporter = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    return provider.get_tracer("agent_fabric.test"), exporter
+
+
+def _use_tracer(monkeypatch):
+    tracer, exporter = _tracer_exporter()
+    monkeypatch.setattr(telemetry, "_tracer", lambda: tracer)
+    return exporter
+
+
+_SUCCESS_BODY = {
+    "model": "gpt-4o-2024-05-13",
+    "usage": {"input_tokens": 1420, "output_tokens": 310, "total_tokens": 1730},
+}
+
+
+async def test_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None:
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={_PROVIDER_HEADER: "openai", "x-token-remaining": "18450"},
+            json=_SUCCESS_BODY,
+        )
+
+    budget = Budget()
+    client = FabricAsyncClient(
+        _LLM_CFG, None, budget=budget, transport=httpx.MockTransport(handler)
+    )
+    # run_context is a sync CM (it binds a contextvar); nest it outside the async
+    # client so the correlation ID is bound for the duration of the post().
+    with run_context("run-7f3a"):
+        async with client:
+            resp = await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
+    assert resp.status_code == 200
+
+    (span,) = exporter.get_finished_spans()  # exactly ONE span (AC #5)
+    assert span.name == telemetry.SPAN_LLM_CHAT
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"  # from the REQUEST body
+    assert attrs["gen_ai.system"] == "openai"  # from the verified provider header
+    assert attrs["gen_ai.usage.input_tokens"] == 1420
+    assert attrs["gen_ai.usage.output_tokens"] == 310
+    assert attrs["fabric.policy.decision"] == "allow"
+    assert attrs["fabric.budget.remaining"] == 18450  # after _on_response fed the budget
+    assert attrs["fabric.correlation_id"] == "run-7f3a"  # equals the header actually sent
+
+
+async def test_llm_refusal_records_refuse_decision_and_policy_type(monkeypatch) -> None:
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429)  # empty body → TokenBudgetExceeded (docs §4)
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    async with client:
+        resp = await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
+    assert resp.status_code == 429
+
+    (span,) = exporter.get_finished_spans()
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"
+    assert attrs["fabric.policy.decision"] == "refuse"
+    assert attrs["fabric.policy.type"] == "token_budget"
+    assert "gen_ai.usage.input_tokens" not in attrs  # no usage on a refusal
+
+
+async def test_get_request_emits_no_span(monkeypatch) -> None:
+    # A bodyless GET is not a GenAI call: no span, so the header-injection and
+    # retry tests above remain byte-identical with telemetry on.
+    exporter = _use_tracer(monkeypatch)
+    transport = httpx.MockTransport(lambda r: httpx.Response(200))
+    client = FabricAsyncClient(_LLM_CFG, None, transport=transport)
+    async with client:
+        await client.get("https://proxy/thing")
+    assert exporter.get_finished_spans() == ()
+
+
+async def test_post_without_model_emits_no_span(monkeypatch) -> None:
+    # A POST that is not a model call (no `model` in the body) gets no span.
+    exporter = _use_tracer(monkeypatch)
+    transport = httpx.MockTransport(lambda r: httpx.Response(200))
+    client = FabricAsyncClient(_LLM_CFG, None, transport=transport)
+    async with client:
+        await client.post("https://proxy/thing", json={"hello": "world"})
+    assert exporter.get_finished_spans() == ()
+
+
+async def test_span_suppressed_when_telemetry_disabled(monkeypatch) -> None:
+    exporter = _use_tracer(monkeypatch)
+    cfg = FabricConfig(llm_proxy_url="https://proxy", telemetry=False)
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, json=_SUCCESS_BODY))
+    client = FabricAsyncClient(cfg, None, transport=transport)
+    async with client:
+        await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
+    assert exporter.get_finished_spans() == ()
+
+
+async def test_streaming_response_span_omits_usage(monkeypatch) -> None:
+    # A streaming (SSE) response carries no usage block on the envelope; usage
+    # from the terminal event is deferred to #193. The span still opens and
+    # records what it can (decision, provider).
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "text/event-stream; charset=utf-8",
+                _PROVIDER_HEADER: "openai",
+            },
+            content=b"event: response.created\n\n",
+        )
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    async with client:
+        await client.post("https://proxy/chat", json={"model": "gpt-4o", "stream": True})
+
+    (span,) = exporter.get_finished_spans()
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"
+    assert attrs["gen_ai.system"] == "openai"
+    assert attrs["fabric.policy.decision"] == "allow"
+    assert "gen_ai.usage.input_tokens" not in attrs
+    assert "gen_ai.usage.output_tokens" not in attrs
+
+
+async def test_transport_error_closes_span_without_masking(monkeypatch) -> None:
+    # #179: a transport error escapes before _finish, so the span cannot rely on
+    # _on_response — the context manager closes it in a finally. The underlying
+    # error must still propagate unmasked.
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom")
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    async with client:
+        with pytest.raises(httpx.ConnectError):
+            await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
+
+    (span,) = exporter.get_finished_spans()  # closed, not leaked
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"  # recorded at span start
+    assert "fabric.policy.decision" not in attrs  # never reached _finish
+
+
+def test_sync_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None:
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={_PROVIDER_HEADER: "openai", "x-token-remaining": "9000"},
+            json=_SUCCESS_BODY,
+        )
+
+    budget = Budget()
+    client = FabricClient(_LLM_CFG, budget=budget, transport=httpx.MockTransport(handler))
+    with client, run_context("run-sync"):
+        resp = client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
+    assert resp.status_code == 200
+
+    (span,) = exporter.get_finished_spans()
+    assert span.name == telemetry.SPAN_LLM_CHAT
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"
+    assert attrs["gen_ai.system"] == "openai"
+    assert attrs["gen_ai.usage.input_tokens"] == 1420
+    assert attrs["fabric.policy.decision"] == "allow"
+    assert attrs["fabric.budget.remaining"] == 9000
+    assert attrs["fabric.correlation_id"] == "run-sync"

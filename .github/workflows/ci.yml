@@ -51,8 +51,11 @@ jobs:
       # [local] here (and only here) so the simulator's ASGI tests execute; the
       # base-only and typecheck jobs deliberately omit it (importorskip guards
       # skip the ASGI tests there, proving import agent_fabric.simulator stays
-      # green without starlette/uvicorn).
-      - run: pip install -e ".[dev,llm,cli,local]"
+      # green without starlette/uvicorn). [otel] likewise: the GenAI-span
+      # assertions (BG §1.6, #192) importorskip opentelemetry.sdk, so they only
+      # actually execute in this job — the typecheck job stays [dev,llm,cli] and
+      # relies on the absence-only opentelemetry mypy override.
+      - run: pip install -e ".[dev,llm,cli,local,otel]"
       - run: pytest -q
       # The local gateway simulator's out-of-process boot (BG §1.4) is
       # local_gateway-marked and deselected from the default run above. It is
