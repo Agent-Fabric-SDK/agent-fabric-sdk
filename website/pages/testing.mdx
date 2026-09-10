@@ -7,12 +7,12 @@ import { Callout } from 'nextra/components'
 # Testing & conformance
 
 <Callout type="info">
-  **Phase 1 — `simulate()` ships; the conformance plugin is the follow-up.**
-  In-process refusal injection (`fabric.simulate()`) is shipped. The pytest
-  conformance plugin below is designed, not yet shipped — its API and CLI
-  shapes are a proposal, tracked as
-  [#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191). See
-  [Roadmap](/roadmap) and [Verification policy](/concepts/verification).
+  **Phase 1 — both ship.** In-process refusal injection (`fabric.simulate()`)
+  and the pytest conformance plugin
+  ([#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191)) are
+  both shipped. The plugin runs your agent **in process** through its own
+  `Fabric` — there is no separate server mode. See [Roadmap](/roadmap) and
+  [Verification policy](/concepts/verification).
 </Callout>
 
 Two test-time tools, and the second one is the more important of the pair.
@@ -115,12 +115,15 @@ They read the **same rejection fixtures**, so they cannot drift apart.
 - It replays the *same fixtures* `classify()` and the simulator are tested
   against, so the three fail together if the gateway contract ever drifts. ✅
 - The plugin registers as a pytest entry point, and
-  `pytest --fabric-conformance` prints a scenario table —
-  [#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191).
-- Exemptions must be asserted in code; a silent skip fails the suite —
-  [#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191).
+  `pytest --fabric-conformance --agent=my_app.agent:build` turns each scenario
+  into one pytest item and prints a scenario table. ✅
+- Exemptions must be asserted in code — a `KNOWN_LIMITATIONS` mapping next to
+  your factory (or `--fabric-known-limitations=module:NAME`), validated at
+  collection time so a bad key or empty reason fails the run loudly; a silent
+  skip is never possible. ✅
 
 ---
 
-**Status: Phase 1 — `simulate()` is shipped; the conformance plugin is
-[#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191).**
+**Status: Phase 1 — `simulate()` and the conformance plugin
+([#191](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/191)) are
+both shipped.**
