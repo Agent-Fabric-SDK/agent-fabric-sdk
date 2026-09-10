@@ -1,15 +1,15 @@
 """The conformance harness + suite, driven against toy agents (#191, BG §1.5).
 
 The plugin is the shipped surface, but the logic lives in
-:func:`agent_fabric.conformance.harness.run_conformance`: build a fresh
-``Fabric`` per scenario, arm the gateway with a captured fixture, drive
+:func:`donkey_kit.conformance.harness.run_conformance`: build a fresh
+``Donkey`` per scenario, arm the gateway with a captured fixture, drive
 ``agent.run(...)`` and observe. These tests exercise that logic directly against
 in-repo toy agents — a well-behaved one that passes every scenario, and four
 deliberately-broken ones that each break *exactly one* thing — so every test
 can assert both that the target scenario fails and that the other three still
 pass. A regression in any scenario's verdict is caught without a real gateway.
 
-The toy agents call ``fabric.openai()``, so this module needs ``openai`` (the
+The toy agents call ``donkey.openai()``, so this module needs ``openai`` (the
 plugin itself does not — see ``test_conformance_base_only``). Under ``[dev]``
 alone the whole module skips.
 """
@@ -24,18 +24,18 @@ pytest.importorskip("openai")
 
 import openai  # noqa: E402 — after importorskip
 
-from agent_fabric.conformance import run_conformance, validate_known_limitations  # noqa: E402
-from agent_fabric.conformance.harness import (  # noqa: E402
+from donkey_kit.conformance import run_conformance, validate_known_limitations  # noqa: E402
+from donkey_kit.conformance.harness import (  # noqa: E402
     ConformanceUsageError,
     _build_agent,
     _offline_config,
 )
-from agent_fabric.conformance.suite import SCENARIOS  # noqa: E402
-from agent_fabric.core.errors import classify  # noqa: E402
-from agent_fabric.core.telemetry import current_correlation_id  # noqa: E402
-from agent_fabric.fabric import Fabric  # noqa: E402
+from donkey_kit.conformance.suite import SCENARIOS  # noqa: E402
+from donkey_kit.core.errors import classify  # noqa: E402
+from donkey_kit.core.telemetry import current_correlation_id  # noqa: E402
+from donkey_kit.donkey import Donkey  # noqa: E402
 
-_LOG = logging.getLogger("agent_fabric.tests.toy_agent")
+_LOG = logging.getLogger("donkey_kit.tests.toy_agent")
 
 _MODEL = "gpt-5.1"
 
@@ -65,9 +65,9 @@ class GoodAgent:
     """Bridges refusals with classify(), never retries a refusal, logs the
     correlation id, and tolerates an absent budget."""
 
-    def __init__(self, fabric: Fabric) -> None:
-        self._client = fabric.openai()
-        self._budget = fabric.budget
+    def __init__(self, donkey: Donkey) -> None:
+        self._client = donkey.openai()
+        self._budget = donkey.budget
 
     async def run(self, prompt: str) -> str:
         try:
@@ -148,9 +148,9 @@ class CrashesWithoutBudgetAgent(GoodAgent):
 class SyncGoodAgent:
     """A well-behaved agent on the blocking client, to exercise sync arming."""
 
-    def __init__(self, fabric: Fabric) -> None:
-        self._client = fabric.openai(sync=True)
-        self._budget = fabric.budget
+    def __init__(self, donkey: Donkey) -> None:
+        self._client = donkey.openai(sync=True)
+        self._budget = donkey.budget
 
     def run(self, prompt: str) -> str:
         try:
@@ -256,42 +256,42 @@ def test_validate_known_limitations_returns_plain_dict() -> None:
 # --- factory introspection (_build_agent) ------------------------------------
 
 
-def _fresh_fabric() -> Fabric:
-    return Fabric(_offline_config())
+def _fresh_donkey() -> Donkey:
+    return Donkey(_offline_config())
 
 
-def test_build_agent_passes_fabric_positionally() -> None:
-    fab = _fresh_fabric()
+def test_build_agent_passes_donkey_positionally() -> None:
+    fab = _fresh_donkey()
     try:
         seen = {}
 
-        def factory(fabric: Fabric) -> str:
-            seen["fabric"] = fabric
+        def factory(donkey: Donkey) -> str:
+            seen["donkey"] = donkey
             return "agent"
 
         assert _build_agent(factory, fab) == "agent"
-        assert seen["fabric"] is fab
+        assert seen["donkey"] is fab
     finally:
         fab.close()
 
 
-def test_build_agent_passes_fabric_keyword_only() -> None:
-    fab = _fresh_fabric()
+def test_build_agent_passes_donkey_keyword_only() -> None:
+    fab = _fresh_donkey()
     try:
         seen = {}
 
-        def factory(*, fabric: Fabric) -> str:
-            seen["fabric"] = fabric
+        def factory(*, donkey: Donkey) -> str:
+            seen["donkey"] = donkey
             return "agent"
 
         assert _build_agent(factory, fab) == "agent"
-        assert seen["fabric"] is fab
+        assert seen["donkey"] is fab
     finally:
         fab.close()
 
 
-def test_build_agent_calls_zero_arg_factory_without_fabric() -> None:
-    fab = _fresh_fabric()
+def test_build_agent_calls_zero_arg_factory_without_donkey() -> None:
+    fab = _fresh_donkey()
     try:
         def factory() -> str:
             return "agent"
@@ -306,7 +306,7 @@ def test_build_agent_calls_zero_arg_factory_without_fabric() -> None:
 
 async def test_agent_without_run_raises_usage_error() -> None:
     class NoRun:
-        def __init__(self, fabric: Fabric) -> None:
+        def __init__(self, donkey: Donkey) -> None:
             pass
 
     with pytest.raises(ConformanceUsageError, match="run"):

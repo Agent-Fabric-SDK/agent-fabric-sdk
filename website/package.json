@@ -1,8 +1,8 @@
 {
-  "name": "agent-fabric-docs",
+  "name": "donkey-kit-docs",
   "version": "0.1.0",
   "private": true,
-  "description": "Documentation site for the Agent Fabric SDK",
+  "description": "Documentation site for the Donkey Development Kit",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -23,8 +23,8 @@ Two lines take you from "our enterprise has a governed tool catalog" to "my
 LangGraph agent can use it":
 
 ```python
-tools = await fabric.tools.discover(domain="hr", tags=["approved"])
-agent = create_react_agent(fabric.langgraph.chat_model("gpt-4o"), tools.langgraph())
+tools = await donkey.tools.discover(domain="hr", tags=["approved"])
+agent = create_react_agent(donkey.langgraph.chat_model("gpt-4o"), tools.langgraph())
 ```
 
 Everything else in this section — search filters, session management,
@@ -33,13 +33,13 @@ two lines hold up in production.
 
 ## What discovery returns
 
-`fabric.tools.discover(...)` is also the filter and search entry point. The
+`donkey.tools.discover(...)` is also the filter and search entry point. The
 same call narrows the catalog by name/description glob, governance, domain,
 tags, and asset type, so an agent binds only the tools it needs instead of the
 whole catalog:
 
 ```python
-tools = await fabric.tools.discover(
+tools = await donkey.tools.discover(
     search="*accounts*",     # glob over asset name + description
     governed_only=True,      # default criteria, or a GovernanceCriteria
     domain="hr",

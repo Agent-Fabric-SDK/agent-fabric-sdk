@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_fabric.simulator import fixtures as fx
+from donkey_kit.simulator import fixtures as fx
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 

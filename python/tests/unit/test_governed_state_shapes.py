@@ -15,8 +15,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_fabric.registry.governance import STRICT, Check, GovernanceCriteria, evaluate
-from agent_fabric.registry.models import AssetRef, McpServerHandle
+from donkey_kit.registry.governance import STRICT, Check, GovernanceCriteria, evaluate
+from donkey_kit.registry.models import AssetRef, McpServerHandle
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "anypoint"
 

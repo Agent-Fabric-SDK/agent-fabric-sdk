@@ -13,18 +13,18 @@ into `agents.Agent(model=...)`.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[OpenAI Agents SDK](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/openai)**.
+> **[OpenAI Agents SDK](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/openai)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[openai-agents]"
+pip install "donkey-kit[openai-agents]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/openai_agents/main.py
 ```
@@ -42,11 +42,11 @@ from agents import OpenAIChatCompletionsModel
 m = OpenAIChatCompletionsModel(
     model="gpt-4o",
     openai_client=AsyncOpenAI(
-        base_url=AGENT_FABRIC_LLM_PROXY_URL,
+        base_url=DONKEY_LLM_PROXY_URL,
         api_key="unused",  # proxy enforces client_id/client_secret headers
         default_headers={
-            "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-            "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+            "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+            "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
         },
         http_client=httpx.AsyncClient(...),  # your own transport, retries, hooks
         max_retries=0,
@@ -54,7 +54,7 @@ m = OpenAIChatCompletionsModel(
 )
 ```
 
-The factory (`agent_fabric.integrations.openai_agents.model`) fills in the
+The factory (`donkey_kit.integrations.openai_agents.model`) fills in the
 `AsyncOpenAI` client, headers, and the SDK's shared transport from one governed
 config source.
 

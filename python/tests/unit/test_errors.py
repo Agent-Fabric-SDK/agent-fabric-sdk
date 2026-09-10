@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from agent_fabric.core.errors import (
+from donkey_kit.core.errors import (
     AuthError,
     PolicyViolation,
     PromptInjectionBlocked,
@@ -12,7 +12,7 @@ from agent_fabric.core.errors import (
     UpstreamModelError,
     classify,
 )
-from agent_fabric.core.transport import CALL_ID_HEADER, CORRELATION_HEADER
+from donkey_kit.core.transport import CALL_ID_HEADER, CORRELATION_HEADER
 
 
 def _resp(status: int, headers: dict[str, str] | None = None) -> httpx.Response:
@@ -79,7 +79,7 @@ def _resp_with_ids(status: int, correlation: str, call: str) -> httpx.Response:
 
 
 def test_classify_reads_correlation_and_call_id_from_the_request() -> None:
-    """AC: FabricError.correlation_id equals the header that was sent; call_id
+    """AC: DonkeyError.correlation_id equals the header that was sent; call_id
     equals the per-call header. Both come from the response's request, so
     ``classify(err.response)`` needs no extra wiring."""
     err = classify(_resp_with_ids(400, "run-abc", "call-xyz"))

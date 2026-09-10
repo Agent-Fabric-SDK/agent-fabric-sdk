@@ -9,7 +9,7 @@ import NextImage from 'next/image'
  * replace it and cover the other repeated patterns (hero, status pills,
  * diagrams). Styles live in ../styles/globals.css. */
 
-// GitHub Pages serves the site under a project sub-path (e.g. /agent-fabric-sdk).
+// GitHub Pages serves the site under a project sub-path (e.g. /donkey-development-kit).
 // next/link auto-prepends basePath, but next/image's unoptimized loader does not
 // apply it to /public assets — so <Figure> prefixes root-absolute srcs itself.
 // Empty locally and on a custom domain, so it's a no-op there.

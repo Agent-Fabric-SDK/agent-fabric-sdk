@@ -1,13 +1,13 @@
 """GenAI span contract (#192, BG §1.6): a pinned OTel gen_ai.* namespace and a
-stable fabric.* namespace, dual-emitted on ONE span.
+stable donkey.* namespace, dual-emitted on ONE span.
 
 The acceptance bar this module encodes:
 
 - The semantic-convention version is pinned in a single constant, and the keys
   are transcribed literals — not re-exported from the installed
   ``opentelemetry.semconv`` package — so upgrading that package never silently
-  changes what we emit (AC #1/#2). Every gen_ai.* and fabric.* key has a test
-  asserting the exact string (AC #3); the fabric.* keys are public API, so a
+  changes what we emit (AC #1/#2). Every gen_ai.* and donkey.* key has a test
+  asserting the exact string (AC #3); the donkey.* keys are public API, so a
   rename breaks these tests loudly (AC #4).
 - ``build_genai_attributes`` is the pure assembler both namespaces flow through;
   it omits any field left ``None`` so an unobserved value is absent, never a
@@ -24,11 +24,11 @@ from __future__ import annotations
 
 import pytest
 
-from agent_fabric.core import telemetry
-from agent_fabric.core.errors import (
+from donkey_kit.core import telemetry
+from donkey_kit.core.errors import (
     AuthError,
     ContentSafetyBlocked,
-    FabricError,
+    DonkeyError,
     PIIDetected,
     PolicyViolation,
     PromptInjectionBlocked,
@@ -56,14 +56,14 @@ def test_gen_ai_keys_are_the_pinned_literal_strings() -> None:
     assert telemetry.GEN_AI_USAGE_OUTPUT_TOKENS == "gen_ai.usage.output_tokens"
 
 
-def test_fabric_keys_are_the_stable_public_literal_strings() -> None:
+def test_donkey_keys_are_the_stable_public_literal_strings() -> None:
     # These are PUBLIC API (AC #4): renaming one is a breaking change, and this
     # test is the tripwire that makes that break loud.
-    assert telemetry.FABRIC_CORRELATION_ID == "fabric.correlation_id"
-    assert telemetry.FABRIC_POLICY_DECISION == "fabric.policy.decision"
-    assert telemetry.FABRIC_POLICY_TYPE == "fabric.policy.type"
-    assert telemetry.FABRIC_BUDGET_REMAINING == "fabric.budget.remaining"
-    assert telemetry.FABRIC_COST_TEAM == "fabric.cost.team"
+    assert telemetry.DONKEY_CORRELATION_ID == "donkey.correlation_id"
+    assert telemetry.DONKEY_POLICY_DECISION == "donkey.policy.decision"
+    assert telemetry.DONKEY_POLICY_TYPE == "donkey.policy.type"
+    assert telemetry.DONKEY_BUDGET_REMAINING == "donkey.budget.remaining"
+    assert telemetry.DONKEY_COST_TEAM == "donkey.cost.team"
 
 
 def test_policy_decision_values_are_the_documented_literals() -> None:
@@ -91,11 +91,11 @@ def test_build_genai_attributes_emits_every_key_when_all_present() -> None:
         "gen_ai.request.model": "gpt-4o",
         "gen_ai.usage.input_tokens": 1420,
         "gen_ai.usage.output_tokens": 310,
-        "fabric.policy.decision": "allow",
-        "fabric.policy.type": "pii_detected",
-        "fabric.budget.remaining": 18450,
-        "fabric.cost.team": "support",
-        "fabric.correlation_id": "run-7f3a",
+        "donkey.policy.decision": "allow",
+        "donkey.policy.type": "pii_detected",
+        "donkey.budget.remaining": 18450,
+        "donkey.cost.team": "support",
+        "donkey.correlation_id": "run-7f3a",
     }
 
 
@@ -117,7 +117,7 @@ def test_build_genai_attributes_keeps_zero_token_counts() -> None:
     assert attrs["gen_ai.usage.output_tokens"] == 0
 
 
-# --- policy_type_slug: classified refusal -> fabric.policy.type -------------
+# --- policy_type_slug: classified refusal -> donkey.policy.type -------------
 
 
 @pytest.mark.parametrize(
@@ -130,7 +130,7 @@ def test_build_genai_attributes_keeps_zero_token_counts() -> None:
         (PolicyViolation("x", remediation="r"), "policy_violation"),
     ],
 )
-def test_policy_type_slug_maps_each_policy_violation(error: FabricError, expected: str) -> None:
+def test_policy_type_slug_maps_each_policy_violation(error: DonkeyError, expected: str) -> None:
     assert telemetry.policy_type_slug(error) == expected
 
 
@@ -140,10 +140,10 @@ def test_policy_type_slug_maps_each_policy_violation(error: FabricError, expecte
         AuthError("x"),
         UpstreamRequestError("x"),
         UpstreamModelError("x"),
-        FabricError("x"),
+        DonkeyError("x"),
     ],
 )
-def test_policy_type_slug_is_none_for_non_policy_errors(error: FabricError) -> None:
+def test_policy_type_slug_is_none_for_non_policy_errors(error: DonkeyError) -> None:
     # Auth / upstream / transport failures carry no governance allow-or-refuse
     # decision, so they map to None — the transport omits the decision rather
     # than misreporting one.
@@ -185,7 +185,7 @@ def _in_memory_tracer():
     provider = TracerProvider()
     exporter = InMemorySpanExporter()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    return provider.get_tracer("agent_fabric.test"), exporter
+    return provider.get_tracer("donkey_kit.test"), exporter
 
 
 def test_genai_span_puts_both_namespaces_on_one_span(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -208,14 +208,14 @@ def test_genai_span_puts_both_namespaces_on_one_span(monkeypatch: pytest.MonkeyP
     span = spans[0]
     assert span.name == telemetry.SPAN_LLM_CHAT
     attrs = dict(span.attributes)
-    # gen_ai.* (pinned) and fabric.* (stable) coexist on the same span.
+    # gen_ai.* (pinned) and donkey.* (stable) coexist on the same span.
     assert attrs["gen_ai.system"] == "openai"
     assert attrs["gen_ai.request.model"] == "gpt-4o"
     assert attrs["gen_ai.usage.input_tokens"] == 1420
     assert attrs["gen_ai.usage.output_tokens"] == 310
-    assert attrs["fabric.policy.decision"] == "allow"
-    assert attrs["fabric.budget.remaining"] == 18450
-    assert attrs["fabric.correlation_id"] == "run-7f3a"
+    assert attrs["donkey.policy.decision"] == "allow"
+    assert attrs["donkey.budget.remaining"] == 18450
+    assert attrs["donkey.correlation_id"] == "run-7f3a"
 
 
 def test_genai_span_records_a_refusal_decision(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -230,8 +230,8 @@ def test_genai_span_records_a_refusal_decision(monkeypatch: pytest.MonkeyPatch) 
 
     (span,) = exporter.get_finished_spans()
     attrs = dict(span.attributes)
-    assert attrs["fabric.policy.decision"] == "refuse"
-    assert attrs["fabric.policy.type"] == "token_budget"
+    assert attrs["donkey.policy.decision"] == "refuse"
+    assert attrs["donkey.policy.type"] == "token_budget"
 
 
 # --- set_error: refusals/exceptions mark the span ERROR (#193, AC #1/#4) -----

@@ -6,9 +6,9 @@ const withNextra = nextra({
   defaultShowCopyCode: true,
 })
 
-// Project sub-path for GitHub Pages (e.g. "/agent-fabric-sdk"). Left empty for
+// Project sub-path for GitHub Pages (e.g. "/donkey-development-kit"). Left empty for
 // `npm run dev` and for a future custom domain, so local/root hosting is
-// unaffected; the Pages workflow sets DOCS_BASE_PATH=/agent-fabric-sdk.
+// unaffected; the Pages workflow sets DOCS_BASE_PATH=/donkey-development-kit.
 const basePath = process.env.DOCS_BASE_PATH ?? ''
 
 export default withNextra({

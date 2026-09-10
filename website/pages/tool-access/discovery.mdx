@@ -2,7 +2,7 @@ import { Callout } from 'nextra/components'
 
 # Discovery, search & filter
 
-`fabric.tools.discover(...)` is the one entry point for finding governed tools.
+`donkey.tools.discover(...)` is the one entry point for finding governed tools.
 It narrows the catalog by **name/description (search)**, **governance**, domain,
 tags, asset type, and environment — so an agent binds only the tools it needs
 rather than the entire catalog. It returns a [`ToolSet`](/tool-access/binding)
@@ -13,10 +13,10 @@ whose per-framework methods hand back native tool objects.
 ```python
 # 1. Governed-only + name search:
 #    only governed tools whose name or description matches the glob "*accounts*".
-tools = await fabric.tools.discover(governed_only=True, search="*accounts*")
+tools = await donkey.tools.discover(governed_only=True, search="*accounts*")
 
 # 2. Everything governed in a domain:
-tools = await fabric.tools.discover(domain="hr", governed_only=True)
+tools = await donkey.tools.discover(domain="hr", governed_only=True)
 ```
 
 ## The full filter surface
@@ -24,7 +24,7 @@ tools = await fabric.tools.discover(domain="hr", governed_only=True)
 Every argument is optional and combines with `AND` semantics:
 
 ```python
-tools = await fabric.tools.discover(
+tools = await donkey.tools.discover(
     search="*accounts*",     # glob over asset name + description; None = no text filter
     governed_only=True,      # True = default criteria; or an explicit GovernanceCriteria
     domain="hr",             # catalog domain
@@ -65,7 +65,7 @@ Sandbox. `GovernanceCriteria` makes every condition explicit and independently
 checkable:
 
 ```python
-from agent_fabric.registry.governance import GovernanceCriteria, STRICT
+from donkey_kit.registry.governance import GovernanceCriteria, STRICT
 
 @dataclass(frozen=True)
 class GovernanceCriteria:
@@ -91,7 +91,7 @@ STRICT = GovernanceCriteria(
 `governed_only=STRICT` passes it straight through:
 
 ```python
-tools = await fabric.tools.discover(domain="hr", governed_only=STRICT)
+tools = await donkey.tools.discover(domain="hr", governed_only=STRICT)
 ```
 
 <Callout type="warning">
@@ -107,7 +107,7 @@ tools = await fabric.tools.discover(domain="hr", governed_only=STRICT)
 broken credential. `explain()` is a first-class, always-available method:
 
 ```python
-report = await fabric.registry.explain(ref, criteria=STRICT)
+report = await donkey.registry.explain(ref, criteria=STRICT)
 # GovernanceReport(governed=False, checks=[
 #     Check("api_instance_exists", True,  "instance 19283 in Sandbox"),
 #     Check("deployed",            True,  "gateway managed-omni-eu-1"),
@@ -127,7 +127,7 @@ message references `explain()` directly.
   is a breaking change reserved for a later major version.
 - **Warm the index.** The governance join is a bulk operation, not one API call
   per asset. A long-running agent process can build the index at startup with
-  `fabric.registry.warm(environment=...)` so first discovery is fast.
+  `donkey.registry.warm(environment=...)` so first discovery is fast.
 
 ## Related
 

@@ -3,12 +3,12 @@
 This document is the contributor-facing map of how the SDK is built — the layer
 boundaries, the design invariants, and the discipline that keeps the package
 trustworthy. It is a distillation, not the spec. The authoritative specs are
-[`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md)
+[`spec/donkey-development-kit-build-plan.md`](spec/donkey-development-kit-build-plan.md)
 (phases, milestones, standing invariants) and
-[`spec/agent-fabric-sdk-build-guide.md`](spec/agent-fabric-sdk-build-guide.md)
+[`spec/donkey-development-kit-build-guide.md`](spec/donkey-development-kit-build-guide.md)
 (feature scope, cited as `BG §N.N`). A **bare** `§N.N` reference below points
 into the archived v1 plan at
-[`spec/archive/agent-fabric-sdk-build-plan-v1.md`](spec/archive/agent-fabric-sdk-build-plan-v1.md),
+[`spec/archive/donkey-development-kit-build-plan-v1.md`](spec/archive/donkey-development-kit-build-plan-v1.md),
 which is where most existing citations in the tree still resolve. When a rule
 here feels arbitrary, read the cited section — the constraints are deliberate.
 
@@ -16,7 +16,7 @@ For *using* the SDK, see the consumer docs site (`website/`). For *working in*
 the repo — branch/PR flow, testing surfaces, coding conventions — see
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-![Agent Fabric SDK — from your framework, through the SDK's config/native-object/transport/classify stages, to the governed Omni Gateway and upstream model providers.](website/public/img/sdk-architecture.png)
+![Donkey Development Kit — from your framework, through the SDK's config/native-object/transport/classify stages, to the governed Omni Gateway and upstream model providers.](website/public/img/sdk-architecture.png)
 
 The SDK is a thin, framework-native client for a **governed gateway** — but it is
 *not* sold as a way to reach the Omni Gateway, because a stock OpenAI client with a
@@ -66,7 +66,7 @@ Each `integrations/*` adapter may depend on exactly one framework, and nothing
 in `integrations/` may be imported by `core`, `llm`, `registry`, or `tools`.
 This is enforced in CI by `import-linter` (`lint-imports`); a violating import
 fails the build. The `base-only` CI job additionally installs *only* the base
-package and imports `agent_fabric` to catch an accidental top-level framework
+package and imports `donkey_kit` to catch an accidental top-level framework
 import leaking into a lower layer.
 
 Because of that rule, adapters import their framework **lazily, inside methods** —
@@ -75,24 +75,24 @@ framework that may not be installed.
 
 ### How the pieces connect
 
-- **`Fabric`** is the public surface and orchestrator. It owns one shared
-  **`FabricAsyncClient`** (an `httpx.AsyncClient` subclass that injects the
+- **`Donkey`** is the public surface and orchestrator. It owns one shared
+  **`DonkeyAsyncClient`** (an `httpx.AsyncClient` subclass that injects the
   governance/attribution headers) and hands that single client to the LLM
   client, the registry, and every adapter — so there is exactly one transport and
   one header-injection point.
-- **Adapters are lazy attributes.** `Fabric.__getattr__` resolves
-  `fabric.<framework>` on first access through the `ADAPTERS` registry declared
+- **Adapters are lazy attributes.** `Donkey.__getattr__` resolves
+  `donkey.<framework>` on first access through the `ADAPTERS` registry declared
   in `integrations/__init__.py`. Accessing an adapter whose optional extra is not
   installed raises an `ImportError` carrying the exact `pip install` command —
   never a bare `ModuleNotFoundError`. Each adapter returns the framework's own
   object (e.g. a real `langchain_openai.ChatOpenAI`), so there is nothing to
   unlearn and a three-line escape hatch (`connection_kwargs()`) out of the SDK.
 - **Configuration** resolves in a fixed precedence — constructor kwargs → env
-  vars → `.agent-fabric.toml` → default (§2.1) — and reports every missing field
-  at once rather than one failure per run. `Fabric.from_env()` is the entry point.
-- **The transport is the attachment point.** `FabricAsyncClient` exposes four
+  vars → `.donkey-kit.toml` → default (§2.1) — and reports every missing field
+  at once rather than one failure per run. `Donkey.from_env()` is the entry point.
+- **The transport is the attachment point.** `DonkeyAsyncClient` exposes four
   internal lifecycle hooks — no-op by default, **not** public API, mirrored on the
-  sync twin `FabricClient` — so the six-piece minimum *attaches* rather than
+  sync twin `DonkeyClient` — so the six-piece minimum *attaches* rather than
   re-wiring `send()` (`BG §1.1`, #179/#287). This is what makes the skeleton one
   milestone instead of six ad-hoc integrations:
 
@@ -101,7 +101,7 @@ framework that may not be installed.
   | `_on_request` | once, before the retry loop | correlation ID + cost-tag headers (`BG §1.7`); OTel span **start** (`BG §1.6`) |
   | `_on_response` | once, on the final response (via `_finish()`) | `Budget` parse from `x-token-*` (`BG §1.3`); span **end**; classification |
   | `_on_refusal` | Phase-2 seam — no caller until `classify()` wires it (#181) | typed-refusal handlers (`BG §1.2`) |
-  | `_swap_transport` | fixture seam | `simulate()` (#190) and `fabric mock` (#187) swap a fixture in (`BG §1.4`/`BG §1.5`) |
+  | `_swap_transport` | fixture seam | `simulate()` (#190) and `donkey mock` (#187) swap a fixture in (`BG §1.4`/`BG §1.5`) |
 
   Three contracts matter: **override the hook, not `send()`**; a subclass that
   overrides `_on_response` **must call `super()._on_response(...)`** or budget
@@ -111,10 +111,10 @@ framework that may not be installed.
   A hookless client behaves exactly as it did before the hooks were added. The
   full contracts live in the `core/transport.py` docstrings.
 - **`Governance`** (`governance.py`) is a second top-level object alongside
-  `Fabric`, outside the linear import stack — it depends only on `core`. It is
+  `Donkey`, outside the linear import stack — it depends only on `core`. It is
   ONE object behind three verbs (§6.2–§6.4): `simulate()` (an ephemeral local
   gateway harness), `export()` (emit the governed-state manifest), and `resolve()`
-  (reconcile a running `Fabric` against it, raising `GovernanceDrift` on
+  (reconcile a running `Donkey` against it, raising `GovernanceDrift` on
   mismatch); a separate platform-team-only `apply()` is the deliberate escape
   hatch. **All of these are currently `_verify.blocked`** — the `simulate()`
   harness included — pending the §6 verification items, so today the object is the
@@ -122,7 +122,7 @@ framework that may not be installed.
   which types governed-state *assets* one layer down.
 
 Every governed surface ships in three ergonomic forms that must stay in lockstep:
-the `fabric.<framework>` factory, a `connection_kwargs()` accessor, and a
+the `donkey.<framework>` factory, a `connection_kwargs()` accessor, and a
 module-level factory.
 
 ---
@@ -205,7 +205,7 @@ is still pending live capture (#253). Only **content-moderation /
 federated-guardrail** shapes remain under-documented, and those deliberately fall
 through to a generic `PolicyViolation` whose message *says so* rather than
 pretending to a precision the captures don't yet support — the same §0.3 honesty
-as the verification ledger. All errors subclass `FabricError`, which carries the
+as the verification ledger. All errors subclass `DonkeyError`, which carries the
 correlation/request IDs and the raw response for inspection.
 
 ---
@@ -253,11 +253,11 @@ Anthropic-native Messages API route, an open verification item, §0.3).
 
 ## Related documents
 
-- [`spec/agent-fabric-sdk-build-plan.md`](spec/agent-fabric-sdk-build-plan.md) — the
+- [`spec/donkey-development-kit-build-plan.md`](spec/donkey-development-kit-build-plan.md) — the
   authoritative plan: phases, milestones, label taxonomy, standing invariants.
-- [`spec/agent-fabric-sdk-build-guide.md`](spec/agent-fabric-sdk-build-guide.md) —
+- [`spec/donkey-development-kit-build-guide.md`](spec/donkey-development-kit-build-guide.md) —
   feature-by-feature scope and acceptance bars; cited as `BG §N.N`.
-- [`spec/archive/agent-fabric-sdk-build-plan-v1.md`](spec/archive/agent-fabric-sdk-build-plan-v1.md) —
+- [`spec/archive/donkey-development-kit-build-plan-v1.md`](spec/archive/donkey-development-kit-build-plan-v1.md) —
   archived v1 plan, not authoritative; a bare `§N.N` resolves here.
 - [`docs/verified-apis.md`](docs/verified-apis.md) — the §0.3 verification ledger
   (source of truth for what is verified vs. blocked).
@@ -265,9 +265,9 @@ Anthropic-native Messages API route, an open verification item, §0.3).
   coding conventions.
 - [`CLAUDE.md`](CLAUDE.md) — repo guidance for Claude Code: the invariants, the
   layer rule, and the skill index in operational form.
-- [`.claude/skills/README.md`](.claude/skills/README.md) — the `afdk-*` skill
+- [`.claude/skills/README.md`](.claude/skills/README.md) — the `ddk-*` skill
   index; the trigger-based path into the rules above (including
-  `afdk-implementing-features`, the implement-stage skill).
+  `ddk-implementing-features`, the implement-stage skill).
 - `website/` — the consumer "how to use the SDK" documentation.
 
 ---

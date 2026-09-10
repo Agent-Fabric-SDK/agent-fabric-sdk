@@ -1,8 +1,8 @@
-"""``agent-fabric mock`` (BG §1.4): flag wiring and the missing-``[local]``-extra
+"""``donkey mock`` (BG §1.4): flag wiring and the missing-``[local]``-extra
 guidance.
 
 Needs only ``[dev]`` (typer): ``serve`` is monkeypatched so neither uvicorn nor
-starlette is required, and importing ``agent_fabric.simulator.server`` pulls in
+starlette is required, and importing ``donkey_kit.simulator.server`` pulls in
 no web framework at module top. So this runs in the base-only job too.
 """
 
@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
-from agent_fabric.provisioning.cli import app
+from donkey_kit.provisioning.cli import app
 
 runner = CliRunner()
 
@@ -33,12 +33,12 @@ def test_mock_missing_local_extra_prints_pip_install_and_exits_1(
     def _raise(**_: object) -> None:
         raise ImportError("No module named 'uvicorn'")
 
-    monkeypatch.setattr("agent_fabric.simulator.server.serve", _raise)
+    monkeypatch.setattr("donkey_kit.simulator.server.serve", _raise)
     result = runner.invoke(app, ["mock"])
 
     assert result.exit_code == 1  # install prompt, NOT the exit-3 verification block
     out = _combined(result)
-    assert 'pip install "agent-fabric[local]"' in out
+    assert 'pip install "donkey-kit[local]"' in out
     assert "blocked on verification" not in out  # this is not a §0.3 gate
 
 
@@ -48,7 +48,7 @@ def test_mock_wires_host_and_port_through_to_serve(monkeypatch: pytest.MonkeyPat
     def _spy(**kwargs: object) -> None:
         captured.update(kwargs)
 
-    monkeypatch.setattr("agent_fabric.simulator.server.serve", _spy)
+    monkeypatch.setattr("donkey_kit.simulator.server.serve", _spy)
     result = runner.invoke(app, ["mock", "--host", "0.0.0.0", "--port", "9999"])
 
     assert result.exit_code == 0
@@ -58,7 +58,7 @@ def test_mock_wires_host_and_port_through_to_serve(monkeypatch: pytest.MonkeyPat
 def test_mock_defaults_bind_localhost_8080(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
     monkeypatch.setattr(
-        "agent_fabric.simulator.server.serve", lambda **kw: captured.update(kw)
+        "donkey_kit.simulator.server.serve", lambda **kw: captured.update(kw)
     )
     result = runner.invoke(app, ["mock"])
 

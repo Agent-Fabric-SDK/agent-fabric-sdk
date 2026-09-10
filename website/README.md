@@ -1,7 +1,7 @@
-# Agent Fabric SDK — documentation site
+# Donkey Development Kit — documentation site
 
 A [Nextra](https://nextra.site) (Next.js + MDX) documentation site for the
-Agent Fabric SDK. Content lives in `pages/**/*.mdx`; navigation is
+Donkey Development Kit. Content lives in `pages/**/*.mdx`; navigation is
 declared in the `_meta.js` files next to the pages.
 
 ## Local development
@@ -22,14 +22,14 @@ npm run preview:pages
 To preview exactly as GitHub Pages serves it — under the project sub-path:
 
 ```bash
-DOCS_BASE_PATH=/agent-fabric-sdk npm run build
+DOCS_BASE_PATH=/donkey-development-kit npm run build
 npm run preview:pages
-# Open http://localhost:4173/agent-fabric-sdk/
+# Open http://localhost:4173/donkey-development-kit/
 ```
 
 The preview command serves the generated static files from `out/`, matching
 GitHub Pages more closely than the Next.js development server. The preview
-script maps the `/agent-fabric-sdk` project prefix back to the export root so
+script maps the `/donkey-development-kit` project prefix back to the export root so
 pages, stylesheets, fonts, and scripts resolve at the same URLs used after
 deployment. GitHub's Jekyll preview instructions do not apply here: this site
 is a Nextra/Next.js static export, and the Pages workflow disables Jekyll
@@ -40,9 +40,9 @@ before deployment.
 The site is published by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
 on every push to `main` that touches `website/**` (and on manual
 `workflow_dispatch`). The workflow builds the static export with
-`DOCS_BASE_PATH=/agent-fabric-sdk`, adds `.nojekyll`, and deploys the `out/`
+`DOCS_BASE_PATH=/donkey-development-kit`, adds `.nojekyll`, and deploys the `out/`
 artifact to Pages. The published site lives at
-`https://agent-fabric-sdk.github.io/agent-fabric-sdk/`.
+`https://donkey-development-kit.github.io/donkey-development-kit/`.
 
 **One-time setup:** in repo **Settings → Pages**, set **Source = "GitHub
 Actions"**. The workflow cannot flip that switch; until it is set, the deploy

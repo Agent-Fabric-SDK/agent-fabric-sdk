@@ -16,7 +16,7 @@ Refunds over €100 need a human. Today that is bespoke code, per team, per
 framework.
 
 ```python
-@fabric.tool(approval="required", risk="financial")
+@donkey.tool(approval="required", risk="financial")
 async def issue_refund(ticket_id: str, amount: float): ...
 ```
 
@@ -25,7 +25,7 @@ triggers the framework's own interrupt), records the pending approval against
 the correlation ID, and resumes when you resolve it:
 
 ```python
-await fabric.approvals.resolve(approval_id, approved_by=reviewer.id)
+await donkey.approvals.resolve(approval_id, approved_by=reviewer.id)
 ```
 
 ## Mapped onto what your framework already has

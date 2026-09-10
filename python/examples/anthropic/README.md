@@ -21,18 +21,18 @@ override `base_url` if needed.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[Anthropic SDK](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/anthropic)**.
+> **[Anthropic SDK](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/anthropic)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[anthropic]"
+pip install "donkey-kit[anthropic]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/anthropic/main.py
 ```
@@ -47,18 +47,18 @@ import httpx
 from anthropic import AsyncAnthropic
 
 c = AsyncAnthropic(
-    base_url=AGENT_FABRIC_LLM_PROXY_URL,   # UNVERIFIED: needs an Anthropic-native route
+    base_url=DONKEY_LLM_PROXY_URL,   # UNVERIFIED: needs an Anthropic-native route
     api_key="unused",                  # proxy enforces client_id/client_secret headers
     default_headers={
-        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+        "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+        "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
     },
     http_client=httpx.AsyncClient(...),  # your own transport, retries, hooks
     max_retries=0,
 )
 ```
 
-The factory (`agent_fabric.integrations.anthropic.client`) fills in `base_url`,
+The factory (`donkey_kit.integrations.anthropic.client`) fills in `base_url`,
 `api_key`, `default_headers`, and the SDK's shared transport from one governed
 config source.
 

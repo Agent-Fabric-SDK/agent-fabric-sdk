@@ -14,7 +14,7 @@ actually enforce on your laptop versus a shared control plane.
 ## The `Governance` object
 
 ```python
-from agent_fabric import Governance, GatewayTarget, PolicyBinding
+from donkey_kit import Governance, GatewayTarget, PolicyBinding
 
 gov = Governance(
     name="hr-agent",
@@ -34,8 +34,8 @@ gov = Governance(
 The same object attaches wherever a model or a tool is constructed:
 
 ```python
-model = fabric.langgraph.chat_model("gpt-4o", governance=gov)
-tools = await fabric.tools.discover(domain="hr", governed_only=True, governance=gov)
+model = donkey.langgraph.chat_model("gpt-4o", governance=gov)
+tools = await donkey.tools.discover(domain="hr", governed_only=True, governance=gov)
 ```
 
 ### `GatewayTarget` — the environment-varying part
@@ -51,12 +51,12 @@ class GatewayTarget:
 
     @classmethod
     def from_env(cls) -> "GatewayTarget":
-        """FABRIC_TARGET=local|sandbox|production selects a profile from
-        .agent-fabric.toml. Local requires no Anypoint credentials beyond
+        """DONKEY_TARGET=local|sandbox|production selects a profile from
+        .donkey-kit.toml. Local requires no Anypoint credentials beyond
         whatever registration the local gateway itself needs."""
 ```
 
-Profiles live in `.agent-fabric.toml`, committed to the repo — the same
+Profiles live in `.donkey-kit.toml`, committed to the repo — the same
 pattern as Terraform workspaces or Kustomize overlays:
 
 ```toml
@@ -77,7 +77,7 @@ environment = "Production"
 gateway_name = "prod-k8s-omni"
 ```
 
-`FABRIC_TARGET` selects the profile; `GatewayTarget.from_env()` resolves it
+`DONKEY_TARGET` selects the profile; `GatewayTarget.from_env()` resolves it
 into the object above.
 
 ## One object, three verbs — not one deploy
@@ -90,19 +90,19 @@ three verbs, at three different trust levels:
 | Verb | Target | Who runs it | What it does |
 |---|---|---|---|
 | `simulate()` | local | developer, laptop | Starts an ephemeral local Omni Gateway, applies the config, returns a live `base_url`. Nothing shared is touched. |
-| `export()` | sandbox, prod | developer, laptop | Compiles the object into a `fabric.yaml` fragment (see [Scan & publish](/publishing)). Writes a file. Touches nothing. |
+| `export()` | sandbox, prod | developer, laptop | Compiles the object into a `donkey.yaml` fragment (see [Scan & publish](/publishing)). Writes a file. Touches nothing. |
 | `resolve()` | sandbox, prod | agent process, runtime | **Read-only.** Looks up the already-provisioned gateway route, verifies the expected policies are actually applied, returns the `base_url`. Raises `GovernanceDrift` if reality does not match the declaration. |
 
 There is deliberately **no `apply()` on the runtime object.** Applying to
-sandbox and production goes through `agent-fabric apply` in CI, against the
+sandbox and production goes through `donkey apply` in CI, against the
 reviewed spec, under platform-controlled credentials, filtered by a policy
 allow-list. The lifecycle is linear:
 
 ```text
 agent code declares Governance
-   → export()  → fabric.yaml   → PR review
-   → CI: agent-fabric plan      → posted as PR comment
-   → merge: agent-fabric apply  → gateway provisioned
+   → export()  → donkey.yaml   → PR review
+   → CI: donkey plan      → posted as PR comment
+   → merge: donkey apply  → gateway provisioned
    → runtime: resolve()         → verifies + returns URL
 ```
 
@@ -180,14 +180,14 @@ There is no connected app, no client credentials, and no Secrets Manager
 locally. A `LocalCredentialShim` generates throwaway credentials and injects
 them into both the gateway config and the SDK client, so `${secret:...}`
 references in the spec resolve to dev values from a gitignored
-`.agent-fabric.local.toml`.
+`.donkey-kit.local.toml`.
 
 ## `simulate()` — the local harness
 
 ```python
 async with gov.simulate() as env:
-    model = fabric.langgraph.chat_model("gpt-4o", gateway=env.gateway)
-    tools = await fabric.tools.discover(domain="hr", gateway=env.gateway)
+    model = donkey.langgraph.chat_model("gpt-4o", gateway=env.gateway)
+    tools = await donkey.tools.discover(domain="hr", gateway=env.gateway)
     agent = create_react_agent(model, tools.langgraph())
     result = await agent.ainvoke({"messages": [("user", "…")]})
 assert env.policy_events("rate-limiting").count == 1
@@ -222,6 +222,6 @@ discovery/binding side of the same server.
 | The gateway in front of it | SDK spins up local Omni Gateway | SDK exports config; CI applies it |
 | Upstream URL in the config | container DNS name | user-supplied, from your deployment |
 
-To narrow that gap, `agent-fabric export --with-runtime` may emit a Dockerfile
+To narrow that gap, `donkey-kit export --with-runtime` may emit a Dockerfile
 and a plain Kubernetes manifest as a starting point — a convenience, never a
 deployment platform. The SDK does not become a deployment orchestrator.

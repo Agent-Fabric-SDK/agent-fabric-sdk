@@ -69,21 +69,21 @@ or how well a framework works:
     `llm()` → `OpenAILike` (`is_chat_model=True`)
   </Card>
   <Card title="No framework" href="/quickstart" badge="Live" badgeTone="live">
-    `fabric.llm.client()` → `openai.AsyncOpenAI` (or `OpenAI` with `sync=True`)
+    `donkey.llm.client()` → `openai.AsyncOpenAI` (or `OpenAI` with `sync=True`)
   </Card>
 </CardGrid>
 
 ## The shape is the same everywhere
 
 ```bash
-pip install "agent-fabric[<framework>]"
-export AGENT_FABRIC_LLM_PROXY_URL=…  AGENT_FABRIC_LLM_PROXY_CLIENT_ID=…  AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET=…
+pip install "donkey-kit[<framework>]"
+export DONKEY_LLM_PROXY_URL=…  DONKEY_LLM_PROXY_CLIENT_ID=…  DONKEY_LLM_PROXY_CLIENT_SECRET=…
 ```
 
 ```python
-from agent_fabric import Fabric
-async with Fabric.from_env() as fabric:
-    model = fabric.<framework>.<factory>("gpt-4o")   # native object at the proxy
+from donkey_kit import Donkey
+async with Donkey.from_env() as donkey:
+    model = donkey.<framework>.<factory>("gpt-4o")   # native object at the proxy
 ```
 
 Each page shows the factory name, the native class you get back, the three ways

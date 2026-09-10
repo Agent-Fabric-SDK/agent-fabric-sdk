@@ -9,10 +9,10 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from agent_fabric import Budget, Fabric
-from agent_fabric.core.budget import Budget as CoreBudget
-from agent_fabric.core.config import FabricConfig
-from agent_fabric.core.transport import FabricAsyncClient, FabricClient
+from donkey_kit import Budget, Donkey
+from donkey_kit.core.budget import Budget as CoreBudget
+from donkey_kit.core.config import DonkeyConfig
+from donkey_kit.core.transport import DonkeyAsyncClient, DonkeyClient
 
 _FIXED_NOW = datetime(2026, 9, 8, 14, 0, 0, tzinfo=timezone.utc)
 
@@ -116,8 +116,8 @@ async def test_async_client_updates_attached_budget_on_response() -> None:
             **{"x-token-limit": "1000", "x-token-remaining": "900", "x-token-reset": "1000"}
         )
 
-    client = FabricAsyncClient(
-        FabricConfig(), None, budget=b, transport=httpx.MockTransport(handler)
+    client = DonkeyAsyncClient(
+        DonkeyConfig(), None, budget=b, transport=httpx.MockTransport(handler)
     )
     async with client:
         await client.get("https://x")
@@ -128,8 +128,8 @@ async def test_async_client_updates_attached_budget_on_response() -> None:
 
 async def test_async_client_without_budget_is_a_noop_seam() -> None:
     """No budget attached → the hook stays byte-identical to a hookless client."""
-    client = FabricAsyncClient(
-        FabricConfig(), None, transport=httpx.MockTransport(lambda r: _resp(200))
+    client = DonkeyAsyncClient(
+        DonkeyConfig(), None, transport=httpx.MockTransport(lambda r: _resp(200))
     )
     async with client:
         resp = await client.get("https://x")
@@ -142,7 +142,7 @@ def test_sync_client_updates_attached_budget_on_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return _resp(**{"x-token-limit": "500", "x-token-remaining": "100"})
 
-    client = FabricClient(FabricConfig(), budget=b, transport=httpx.MockTransport(handler))
+    client = DonkeyClient(DonkeyConfig(), budget=b, transport=httpx.MockTransport(handler))
     with client:
         client.get("https://x")
     assert b.limit == 500
@@ -150,35 +150,35 @@ def test_sync_client_updates_attached_budget_on_response() -> None:
     assert b.fraction_used == 0.8
 
 
-# --- Fabric-level: budget is per-instance ----------------------------------
+# --- Donkey-level: budget is per-instance ----------------------------------
 
 
-def test_fabric_exposes_a_budget() -> None:
-    fabric = Fabric(FabricConfig())
-    assert isinstance(fabric.budget, Budget)
-    assert fabric.budget.observed_at is None  # unobserved until the first call returns
-    assert fabric._http._budget is fabric.budget  # the shared client feeds this object
+def test_donkey_exposes_a_budget() -> None:
+    donkey = Donkey(DonkeyConfig())
+    assert isinstance(donkey.budget, Budget)
+    assert donkey.budget.observed_at is None  # unobserved until the first call returns
+    assert donkey._http._budget is donkey.budget  # the shared client feeds this object
 
 
-def test_two_fabrics_never_share_budget_state() -> None:
-    """AC: per-Fabric, not global. Two instances with different credentials must
+def test_two_donkeys_never_share_budget_state() -> None:
+    """AC: per-Donkey, not global. Two instances with different credentials must
     not share budget state."""
-    f1 = Fabric(FabricConfig(llm_proxy_client_id="a"))
-    f2 = Fabric(FabricConfig(llm_proxy_client_id="b"))
+    f1 = Donkey(DonkeyConfig(llm_proxy_client_id="a"))
+    f2 = Donkey(DonkeyConfig(llm_proxy_client_id="b"))
     assert f1.budget is not f2.budget
     f1.budget.observe(_resp(**{"x-token-limit": "1000", "x-token-remaining": "1"}), now=_FIXED_NOW)
     assert f2.budget.remaining is None  # untouched
 
 
-async def test_fabric_budget_updates_through_the_shared_client() -> None:
-    fabric = Fabric(FabricConfig())
-    fabric._http._swap_transport(
+async def test_donkey_budget_updates_through_the_shared_client() -> None:
+    donkey = Donkey(DonkeyConfig())
+    donkey._http._swap_transport(
         httpx.MockTransport(
             lambda r: _resp(**{"x-token-limit": "2000", "x-token-remaining": "1500"})
         )
     )
-    async with fabric._http as client:
+    async with donkey._http as client:
         await client.get("https://proxy/chat/completions")
-    assert fabric.budget.limit == 2000
-    assert fabric.budget.remaining == 1500
-    assert fabric.budget.fraction_used == 0.25
+    assert donkey.budget.limit == 2000
+    assert donkey.budget.remaining == 1500
+    assert donkey.budget.fraction_used == 0.25

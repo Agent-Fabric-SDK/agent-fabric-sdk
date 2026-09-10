@@ -16,18 +16,18 @@ machinery rather than a simple method call.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[Google ADK](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/adk)**.
+> **[Google ADK](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/adk)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[adk]"
+pip install "donkey-kit[adk]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/adk/main.py
 ```
@@ -42,16 +42,16 @@ from google.adk.models.lite_llm import LiteLlm
 
 m = LiteLlm(
     model="openai/gpt-4o",  # LiteLLM's OpenAI-compatible route needs this prefix
-    api_base=AGENT_FABRIC_LLM_PROXY_URL,
+    api_base=DONKEY_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     extra_headers={
-        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+        "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+        "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
     },
 )
 ```
 
-The factory (`agent_fabric.integrations.adk.model`) fills in `api_base`,
+The factory (`donkey_kit.integrations.adk.model`) fills in `api_base`,
 `api_key`, `extra_headers`, and the `openai/` prefix from one governed
 config source.
 

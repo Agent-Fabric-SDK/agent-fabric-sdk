@@ -18,7 +18,7 @@ things so you don't have to:
   `McpServerHandle.auth_headers()` returns a ready-to-use header dict, and it
   is refreshed automatically on a `401`.
 - **Connection lifecycle.** MCP clients are stateful, and several frameworks
-  connect lazily. `fabric.tools.discover()` never opens a connection — it
+  connect lazily. `donkey.tools.discover()` never opens a connection — it
   returns handles. The underlying connection opens on first tool use.
 - **Multi-server aggregation.** `ToolSet` wraps N `McpServerHandle`s. When two
   servers expose a tool with the same name, the collision is resolved by
@@ -30,7 +30,7 @@ things so you don't have to:
   before you bind:
 
 ```python
-tools = await fabric.tools.discover(domain="hr")
+tools = await donkey.tools.discover(domain="hr")
 filtered = tools.filter(allow=["get_employee", "search_employees"])
 # or:
 filtered = tools.filter(deny=["delete_*"])
@@ -61,7 +61,7 @@ Each binding returns the framework's **native** tool type — a LangGraph
 exposes one method per installed integration:
 
 ```python
-ts = await fabric.tools.discover(domain="hr")
+ts = await donkey.tools.discover(domain="hr")
 ts.langgraph()          # -> list[BaseTool]
 ts.adk()                # -> list[McpToolset]
 ts.strands()            # -> list[MCPClient]

@@ -1,10 +1,10 @@
 """End-to-end tests of the shipped pytest plugin (#191, BG §1.5).
 
 These spawn a throwaway pytest session (via the ``pytester`` fixture) that loads
-our real ``pytest11`` plugin exactly as a customer's ``pytest --fabric-conformance
+our real ``pytest11`` plugin exactly as a customer's ``pytest --donkey-conformance
 --agent=my_app:build`` would, and assert the customer-visible behaviour:
 
-- inert with no ``--fabric-conformance`` flag (the default footprint is just CLI
+- inert with no ``--donkey-conformance`` flag (the default footprint is just CLI
   options + an unused fixture);
 - a clean ``UsageError`` (exit code 4, no traceback) when ``--agent`` is missing
   or a ``KNOWN_LIMITATIONS`` entry is invalid — validated at collection, never a
@@ -16,7 +16,7 @@ our real ``pytest11`` plugin exactly as a customer's ``pytest --fabric-conforman
 fresh process, which both auto-loads the installed entry-point plugin and puts
 the tmp dir on ``sys.path`` so ``--agent=<module>:build`` imports the file we
 wrote there. The runs that actually build an agent need ``openai`` (the agent
-calls ``fabric.openai()``); those tests skip without it. The inert/help and the
+calls ``donkey.openai()``); those tests skip without it. The inert/help and the
 two UsageError paths need neither ``openai`` nor a live gateway, so they run
 everywhere the base ``[dev]`` install does.
 """
@@ -36,16 +36,16 @@ _EXIT_USAGE_ERROR = 4
 _GOOD_AGENT = '''
 import logging
 import openai
-from agent_fabric.core.errors import classify
-from agent_fabric.core.telemetry import current_correlation_id
+from donkey_kit.core.errors import classify
+from donkey_kit.core.telemetry import current_correlation_id
 
 _LOG = logging.getLogger("customer.agent")
 
 
 class Agent:
-    def __init__(self, fabric):
-        self._client = fabric.openai()
-        self._budget = fabric.budget
+    def __init__(self, donkey):
+        self._client = donkey.openai()
+        self._budget = donkey.budget
 
     async def run(self, prompt):
         try:
@@ -58,19 +58,19 @@ class Agent:
         return resp.output_text
 
 
-def build(fabric):
-    return Agent(fabric)
+def build(donkey):
+    return Agent(donkey)
 '''
 
 # The headline bug: retries a terminal 429 budget refusal. Fails the retry scenario.
 _RETRY_BUG_AGENT = '''
 import openai
-from agent_fabric.core.errors import classify
+from donkey_kit.core.errors import classify
 
 
 class Agent:
-    def __init__(self, fabric):
-        self._client = fabric.openai()
+    def __init__(self, donkey):
+        self._client = donkey.openai()
 
     async def run(self, prompt):
         for attempt in range(3):
@@ -83,8 +83,8 @@ class Agent:
         raise AssertionError("unreachable")
 
 
-def build(fabric):
-    return Agent(fabric)
+def build(donkey):
+    return Agent(donkey)
 '''
 
 # No openai import on purpose: the invalid-exemption path must fail at
@@ -93,13 +93,13 @@ _BAD_KNOWN_LIMITATIONS_AGENT = '''
 KNOWN_LIMITATIONS = {"not_a_real_scenario": "this key names no scenario"}
 
 
-def build(fabric):
+def build(donkey):
     return object()
 '''
 
 
 def test_plugin_is_inert_without_the_flag(pytester: pytest.Pytester) -> None:
-    # With no --fabric-conformance, normal collection is untouched: an ordinary
+    # With no --donkey-conformance, normal collection is untouched: an ordinary
     # test in the project is collected and passes as if the plugin weren't there.
     pytester.makepyfile(test_ordinary="def test_ok():\n    assert True\n")
     result = pytester.runpytest_subprocess()
@@ -110,18 +110,18 @@ def test_options_are_registered(pytester: pytest.Pytester) -> None:
     # The plugin auto-loads via its entry point, so its options appear in --help
     # even though it stays inert. Proves the plugin is present in the subprocess.
     result = pytester.runpytest_subprocess("--help")
-    result.stdout.fnmatch_lines(["*--fabric-conformance*"])
+    result.stdout.fnmatch_lines(["*--donkey-conformance*"])
     result.stdout.fnmatch_lines(["*--agent*"])
 
 
-def test_fabric_fixture_is_available(pytester: pytest.Pytester) -> None:
-    # The `fabric` fixture is offered on every run (built from an offline config),
-    # so a customer can drive fabric.simulate(...) in their own tests.
+def test_donkey_fixture_is_available(pytester: pytest.Pytester) -> None:
+    # The `donkey` fixture is offered on every run (built from an offline config),
+    # so a customer can drive donkey.simulate(...) in their own tests.
     pytester.makepyfile(
-        test_uses_fabric=(
-            "def test_has_fabric(fabric):\n"
-            "    assert fabric is not None\n"
-            "    assert hasattr(fabric, 'simulate')\n"
+        test_uses_donkey=(
+            "def test_has_donkey(donkey):\n"
+            "    assert donkey is not None\n"
+            "    assert hasattr(donkey, 'simulate')\n"
         )
     )
     result = pytester.runpytest_subprocess()
@@ -129,9 +129,9 @@ def test_fabric_fixture_is_available(pytester: pytest.Pytester) -> None:
 
 
 def test_conformance_without_agent_is_a_usage_error(pytester: pytest.Pytester) -> None:
-    # --fabric-conformance with no --agent is a misuse: a clean UsageError
+    # --donkey-conformance with no --agent is a misuse: a clean UsageError
     # (exit 4), not a traceback and not a silently-empty run.
-    result = pytester.runpytest_subprocess("--fabric-conformance")
+    result = pytester.runpytest_subprocess("--donkey-conformance")
     assert result.ret == _EXIT_USAGE_ERROR
     result.stderr.fnmatch_lines(["*--agent*"])
 
@@ -141,7 +141,7 @@ def test_invalid_known_limitations_is_a_usage_error(pytester: pytest.Pytester) -
     # time (§8.1: asserted, never silent) — a UsageError before any scenario runs.
     pytester.makepyfile(brokenagent=_BAD_KNOWN_LIMITATIONS_AGENT)
     result = pytester.runpytest_subprocess(
-        "--fabric-conformance", "--agent=brokenagent:build"
+        "--donkey-conformance", "--agent=brokenagent:build"
     )
     assert result.ret == _EXIT_USAGE_ERROR
     result.stderr.fnmatch_lines(["*unknown scenario*"])
@@ -153,7 +153,7 @@ def test_good_agent_passes_all_scenarios_and_prints_the_table(
     pytest.importorskip("openai")
     pytester.makepyfile(goodagent=_GOOD_AGENT)
     result = pytester.runpytest_subprocess(
-        "--fabric-conformance", "--agent=goodagent:build", "-v"
+        "--donkey-conformance", "--agent=goodagent:build", "-v"
     )
     assert result.ret == _EXIT_OK
     # One pytest item per scenario, all green.
@@ -167,7 +167,7 @@ def test_retry_bug_agent_fails_the_retry_scenario(pytester: pytest.Pytester) -> 
     pytest.importorskip("openai")
     pytester.makepyfile(retryagent=_RETRY_BUG_AGENT)
     result = pytester.runpytest_subprocess(
-        "--fabric-conformance", "--agent=retryagent:build", "-v"
+        "--donkey-conformance", "--agent=retryagent:build", "-v"
     )
     assert result.ret == _EXIT_TESTS_FAILED
     # The retry scenario item is the one that fails, and its finding is shown.
@@ -178,6 +178,6 @@ def test_retry_bug_agent_fails_the_retry_scenario(pytester: pytest.Pytester) -> 
 def _scenario_names() -> list[str]:
     # Imported lazily so the module stays import-safe under base-only (the import
     # is framework-free, but keeping it out of module top mirrors the plugin).
-    from agent_fabric.conformance.suite import SCENARIOS
+    from donkey_kit.conformance.suite import SCENARIOS
 
     return [s.name for s in SCENARIOS]

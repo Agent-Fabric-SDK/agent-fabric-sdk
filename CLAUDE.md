@@ -24,10 +24,10 @@ rather than spread across the roadmap.
 
 Two documents in `spec/` are authoritative, with one job each:
 
-- **`spec/agent-fabric-sdk-build-plan.md`** — phases, milestones, label
+- **`spec/donkey-development-kit-build-plan.md`** — phases, milestones, label
   taxonomy, implementation order, and the standing invariants. Cite it by
   phase (`Phase 1`) or section name.
-- **`spec/agent-fabric-sdk-build-guide.md`** — feature-by-feature scope: what
+- **`spec/donkey-development-kit-build-guide.md`** — feature-by-feature scope: what
   each capability is, the scenario that justifies it, and its acceptance bar.
   **Cite it as `BG §1.1` … `BG §3.5`** — always with the `BG` prefix.
 
@@ -36,7 +36,7 @@ the issue is the plan.
 
 ### Citation convention — read this before adding a `§` reference
 
-`spec/archive/agent-fabric-sdk-build-plan-v1.md` is the **archived** v1 plan.
+`spec/archive/donkey-development-kit-build-plan-v1.md` is the **archived** v1 plan.
 Its three-pillar model, provisioning control plane, and eight-adapter
 conformance roster are cut, so it is not the authority for what to build. It
 is retained for exactly one reason: ~500 bare `§N.N` citations across ~70
@@ -63,7 +63,7 @@ A fabricated endpoint that 404s in a customer sandbox destroys trust in the whol
 package. Two mechanisms in `core/_verify.py` enforce this:
 
 - `_verify.blocked("…")` returns `NotImplementedError("blocked on verification: …")`.
-  Used where there is no defensible placeholder at all (e.g. `fabric.tools.discover`,
+  Used where there is no defensible placeholder at all (e.g. `donkey.tools.discover`,
   the provisioning control-plane APIs). **Do not replace these with guesses.**
 - `Unverified(...)` placeholder constants emit a one-time `UnverifiedValueWarning`
   when read and are fully overridable via config/env. A value flips to
@@ -105,7 +105,7 @@ core          (config, auth, transport, errors, telemetry, cache — FRAMEWORK-F
 ```
 
 **`core/` has zero agent-framework dependencies — httpx + pydantic only.** The
-`base-only` CI job installs *only* the base package and imports `agent_fabric`
+`base-only` CI job installs *only* the base package and imports `donkey_kit`
 to catch accidental top-level framework imports. Adapters import their framework
 **lazily inside methods**, never at module top level.
 
@@ -115,22 +115,22 @@ nothing but the linter stops a framework import from drifting into `core`.
 
 ### How the pieces connect
 
-- `Fabric` (`fabric.py`) is the public surface and orchestrator. It owns one
-  shared `FabricAsyncClient` (an `httpx.AsyncClient` subclass that injects
+- `Donkey` (`donkey.py`) is the public surface and orchestrator. It owns one
+  shared `DonkeyAsyncClient` (an `httpx.AsyncClient` subclass that injects
   governance/attribution headers) and hands it to the LLM client, registry, and
   every adapter, so there is one transport and one header-injection point.
-- **`FabricAsyncClient` is the skeleton, and the four transport lifecycle hooks
+- **`DonkeyAsyncClient` is the skeleton, and the four transport lifecycle hooks
   are its attachment points** (`BG §1.1`). Budget parsing, OTel spans,
   classification, and `simulate()` all hang off the same hooks — which is why
   the hooks land before the features that use them (#179). Building any of
   those features first means building it twice.
-- Per-framework adapters are **lazy attributes** resolved by `Fabric.__getattr__`
+- Per-framework adapters are **lazy attributes** resolved by `Donkey.__getattr__`
   via the `ADAPTERS` registry in `integrations/__init__.py`. Accessing an adapter
   whose extra is not installed raises `ImportError` with the exact `pip install`
   command — never a bare `ModuleNotFoundError`. Each adapter returns the
   **framework's own native object** (e.g. `ChatOpenAI`), not a wrapper.
-- Config resolves kwargs → env vars → `.agent-fabric.toml` → default (§2.1);
-  missing fields are reported all at once. `Fabric.from_env()` is the entry point.
+- Config resolves kwargs → env vars → `.donkey-kit.toml` → default (§2.1);
+  missing fields are reported all at once. `Donkey.from_env()` is the entry point.
 - `core/errors.classify()` maps the proxy's live rejection shapes to typed
   exceptions. The discriminator is the error **`type`** plus specific headers, not
   the status code alone (a PII block is a 403 but is not an auth error). See §4 of
@@ -141,7 +141,7 @@ nothing but the linter stops a framework import from drifting into `core`.
 The eight-adapter roster is **cut**. The plan keeps:
 
 - **LangGraph** — the one deep, conformance-gated adapter (#198).
-- **The raw client** — `fabric.llm.client()`, for the no-framework case.
+- **The raw client** — `donkey.llm.client()`, for the no-framework case.
 - **Seven frameworks at `connection_kwargs()` only** — ADK, Strands, MS Agent
   Framework, OpenAI Agents SDK, Anthropic, CrewAI, LlamaIndex. Verified at the
   `connection_kwargs()` level, not the constructor level.
@@ -180,14 +180,14 @@ pip install -e ".[dev,llm,cli]"   # what CI installs; add other extras as needed
 pytest -q                          # full suite
 pytest -q tests/unit               # unit only (what base-only CI runs)
 pytest -q tests/unit/test_errors.py::test_pii_detected   # single test
-mypy                               # mypy --strict, BLOCKING in CI (files=src/agent_fabric)
+mypy                               # mypy --strict, BLOCKING in CI (files=src/donkey_kit)
 ruff check .
 lint-imports                       # enforce the framework-free core rule (§1.1)
 ```
 
 Live/sandbox tests are **off by default** and gated by markers/env:
 `local_gateway` (needs a local Omni Gateway via docker, §6.5) and `sandbox`
-(needs `FABRIC_SANDBOX_TESTS=1` + a real Anypoint sandbox).
+(needs `DONKEY_SANDBOX_TESTS=1` + a real Anypoint sandbox).
 
 Verify framework constructor signatures against installed packages (executable
 form of the §8 verification step; also the nightly-matrix CI gate):
@@ -209,10 +209,10 @@ The docs site (`website/`, Nextra/Next.js): `cd website && npm install && npm ru
   nightly matrix finds breakage early. Known incompatibilities (e.g. `openai>=3`
   retyping the http client) are documented in `docs/verified-apis.md §8.1` as
   local dev constraints, **not** encoded as pins.
-- Every governed surface has three ergonomic forms: the `fabric.<framework>`
+- Every governed surface has three ergonomic forms: the `donkey.<framework>`
   factory, a `connection_kwargs()` accessor, and a module-level factory. Keep all
   three when adding an adapter (see README §2).
-- Never commit secrets: `.agent-fabric.local.toml`, `fabric.lock.local`, and
+- Never commit secrets: `.donkey-kit.local.toml`, `donkey.lock.local`, and
   `.env` are gitignored. The LLM proxy authenticates on a `client_id`/`client_secret`
   header pair (consumer auth) — separate from any Anypoint control-plane credential.
 - **Docs cite a symbol, not path:line.** Line numbers drift as soon as
@@ -227,7 +227,7 @@ The docs site (`website/`, Nextra/Next.js): `cd website && npm install && npm ru
 - **The issue is the plan.** Plan content for a change lives in the GitHub
   issue/PR, not in committed `plans/*.md` scratch files — this complements
   "the build plan is the spec" above. No code change happens without an issue
-  and a matching branch (see [[afdk-git-workflow]]).
+  and a matching branch (see [[ddk-git-workflow]]).
 - **Refusals are not backlog.** The build plan's *Do not build, at any phase*
   list is binding: no client-side policy enforcement, no client-side semantic
   caching, no provisioning control plane competing with API Manager/Terraform,
@@ -239,7 +239,7 @@ The docs site (`website/`, Nextra/Next.js): `cd website && npm install && npm ru
 
 ## Claude Code skills
 
-Skills under `.claude/skills/` are prefixed `afdk-` (Agent Fabric SDK) and are
+Skills under `.claude/skills/` are prefixed `ddk-` (Donkey Development Kit) and are
 the trigger-based path into this file's rules — the matcher loads the right
 skill when your phrasing matches its description. The full index, with a
 "when it fires" column for every skill and the sub-agent skill-loading rule,
@@ -247,24 +247,24 @@ is [`.claude/skills/README.md`](.claude/skills/README.md).
 
 One line per skill:
 
-- **`afdk-coding-conventions`** — writing/reviewing Python under `python/src/agent_fabric/**`.
-- **`afdk-testing`** — writing or expanding tests; which pytest surface to use.
-- **`afdk-pr-review`** — reviewing a PR against this repo's invariants.
-- **`afdk-git-workflow`** — issue → branch → commit lifecycle.
-- **`afdk-pr-workflow`** — pre-PR gate, opening the PR, post-merge checks.
-- **`afdk-merge-strategy`** — merging into `develop`, promoting to `main`.
-- **`afdk-filing-issues`** — filing a new GitHub issue.
-- **`afdk-issue-relationships`** — linking issues that already exist.
-- **`afdk-docs-authoring`** — writing/rewriting a `website/pages/**.mdx` page.
-- **`afdk-docs-sync`** — deciding whether a code change needs a matching website update.
-- **`afdk-verification-discipline`** — touching any Anypoint endpoint, header, class name, or kwarg.
+- **`ddk-coding-conventions`** — writing/reviewing Python under `python/src/donkey_kit/**`.
+- **`ddk-testing`** — writing or expanding tests; which pytest surface to use.
+- **`ddk-pr-review`** — reviewing a PR against this repo's invariants.
+- **`ddk-git-workflow`** — issue → branch → commit lifecycle.
+- **`ddk-pr-workflow`** — pre-PR gate, opening the PR, post-merge checks.
+- **`ddk-merge-strategy`** — merging into `develop`, promoting to `main`.
+- **`ddk-filing-issues`** — filing a new GitHub issue.
+- **`ddk-issue-relationships`** — linking issues that already exist.
+- **`ddk-docs-authoring`** — writing/rewriting a `website/pages/**.mdx` page.
+- **`ddk-docs-sync`** — deciding whether a code change needs a matching website update.
+- **`ddk-verification-discipline`** — touching any Anypoint endpoint, header, class name, or kwarg.
 
 If a phrasing slips past the matcher, invoke the skill (or read its doc)
 explicitly rather than proceeding without it — e.g. "working an issue" should
-still mean "invoke `afdk-git-workflow` before edits" even if the trigger
+still mean "invoke `ddk-git-workflow` before edits" even if the trigger
 didn't fire. Dispatching sub-agents has its own hard rule: see the
 "Parallel sub-agent work" section of `.claude/skills/README.md`.
 
 **Skill-editing exception:** edits scoped entirely to `.claude/skills/**` may
 go straight to `develop` after an approved recap + commit message — they skip
-the issue+branch+PR ceremony (see [[afdk-git-workflow]]).
+the issue+branch+PR ceremony (see [[ddk-git-workflow]]).

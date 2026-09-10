@@ -34,7 +34,7 @@ def _free_port() -> int:
 def simulator_base_url() -> Iterator[str]:
     uvicorn = pytest.importorskip("uvicorn")
     pytest.importorskip("starlette")
-    from agent_fabric.simulator import build_app
+    from donkey_kit.simulator import build_app
 
     port = _free_port()
     config = uvicorn.Config(build_app(), host="127.0.0.1", port=port, log_level="warning")
