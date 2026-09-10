@@ -131,6 +131,16 @@ agent→agent egress-telemetry path, not needed for direct LLM proxy calls.
 | Gateway identity on response | `core/transport.py` (`x-llm-proxy-llm-provider` → `gen_ai.system`, #192) | VERIFIED (LIVE) | `x-envoy-decorator-operation: api-instance-21133858.3e6ce455-…svc`; `x-correlation-id`; `x-llm-proxy-llm-provider/-llm-model/-routing-type` | 2026-08-28 | `responses.success.headers.txt` |
 | Agent→agent egress attribution header | `core/_verify.py` → transport | VERIFIED (build) | `x-anypoint-api-instance-id` → `agent-connection-telemetry` policy `sourceAgentId`; `tracing` labels `mulesoft.api.instance.id`, `mulesoft.api.type=llm` | 2026-08-28 | built `connection.json` (§12.6) |
 | Business-group attribution header name | `core/_verify.py` → transport | UNVERIFIED | not surfaced as a request header in the direct-proxy path | — | — |
+| Run correlation id **request** header (`X-Correlation-Id`, #195) | `core/_verify.py` `CORRELATION_ID_HEADER` → transport | UNVERIFIED | `x-correlation-id` is verified as a **response echo** (row above); that the gateway **reads** an inbound `X-Correlation-Id` as the run/trace join key is NOT confirmed. Placeholder, overridable via `correlation_header` / `AGENT_FABRIC_CORRELATION_HEADER`. | — | — |
+| Per-call id **request** header (`X-Fabric-Request-Id`, #195) | `core/_verify.py` `CALL_ID_HEADER` → transport | UNVERIFIED | client-generated per logical request, stable across that request's retries; no evidence the gateway reads this name yet. Placeholder, overridable via `call_id_header` / `AGENT_FABRIC_CALL_ID_HEADER`. | — | — |
+
+The two #195 rows are **request** headers the SDK *sends* (the client→gateway
+join keys behind `fabric.run()` and `FabricError.correlation_id`/`.call_id`).
+The verified `x-correlation-id` above is the gateway's **response** echo — a
+different direction. Until an inbound-read name is confirmed against a sandbox,
+both request-header names stay `Unverified(...)` placeholders and emit the §0.3
+one-time warning; a customer whose gateway reads different names points the SDK
+at them via config rather than the SDK guessing.
 
 ## 4. Policy rejection response shapes (capture as fixtures, §8.2)
 

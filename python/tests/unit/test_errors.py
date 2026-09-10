@@ -12,6 +12,7 @@ from agent_fabric.core.errors import (
     UpstreamModelError,
     classify,
 )
+from agent_fabric.core.transport import CALL_ID_HEADER, CORRELATION_HEADER
 
 
 def _resp(status: int, headers: dict[str, str] | None = None) -> httpx.Response:
@@ -61,3 +62,48 @@ def test_policy_violation_is_not_a_retryable_type() -> None:
     # A PolicyViolation must never be an UpstreamModelError (which the transport
     # would retry). Distinct branches of the taxonomy (§2.4).
     assert not issubclass(PolicyViolation, UpstreamModelError)
+
+
+# --- correlation/call id read-back (§2.3, #195) -----------------------------
+# classify() derives the run id and the per-call id from the response's own
+# request headers, so a caller bridging an openai error gets them for free.
+
+
+def _resp_with_ids(status: int, correlation: str, call: str) -> httpx.Response:
+    request = httpx.Request(
+        "POST",
+        "https://x",
+        headers={CORRELATION_HEADER: correlation, CALL_ID_HEADER: call},
+    )
+    return httpx.Response(status, request=request)
+
+
+def test_classify_reads_correlation_and_call_id_from_the_request() -> None:
+    """AC: FabricError.correlation_id equals the header that was sent; call_id
+    equals the per-call header. Both come from the response's request, so
+    ``classify(err.response)`` needs no extra wiring."""
+    err = classify(_resp_with_ids(400, "run-abc", "call-xyz"))
+    assert err.correlation_id == "run-abc"
+    assert err.call_id == "call-xyz"
+
+
+def test_classify_explicit_ids_override_the_request_headers() -> None:
+    """When a header name was overridden via config, auto-derivation can't see it,
+    so an explicitly passed id wins over whatever is on the request."""
+    err = classify(
+        _resp_with_ids(400, "run-abc", "call-xyz"),
+        correlation_id="explicit-run",
+        call_id="explicit-call",
+    )
+    assert err.correlation_id == "explicit-run"
+    assert err.call_id == "explicit-call"
+
+
+def test_classify_without_a_request_yields_no_ids() -> None:
+    """A response with no request set (httpx raises on access) must not blow up:
+    the ids are simply None, and request_id still comes from the response."""
+    resp = httpx.Response(500, headers={"x-request-id": "gw-1"})
+    err = classify(resp)
+    assert err.correlation_id is None
+    assert err.call_id is None
+    assert err.request_id == "gw-1"  # gateway's own id, from the response header

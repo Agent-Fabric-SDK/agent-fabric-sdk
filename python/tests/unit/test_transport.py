@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -13,6 +15,7 @@ from agent_fabric.core.budget import Budget
 from agent_fabric.core.config import FabricConfig
 from agent_fabric.core.telemetry import current_correlation_id, run_context
 from agent_fabric.core.transport import (
+    CALL_ID_HEADER,
     CORRELATION_HEADER,
     FabricAsyncClient,
     FabricClient,
@@ -187,6 +190,138 @@ def test_sync_requests_share_one_id_inside_a_run_context() -> None:
         client.get("https://x")
 
     assert seen == ["run-7", "run-7"]
+
+
+# --- the two ids: run correlation id vs per-call id (§2.3, #195) ------------
+# X-Correlation-Id groups a run (shared); X-Fabric-Request-Id pinpoints one
+# request within it (unique, but stable across that request's own retries).
+
+
+async def test_call_id_is_unique_per_call_and_distinct_from_run_id() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (request.headers[CORRELATION_HEADER], request.headers[CALL_ID_HEADER])
+        )
+        return httpx.Response(200)
+
+    async with _client(handler) as client:
+        with run_context("run-42"):
+            await client.get("https://x/a")
+            await client.get("https://x/b")
+
+    # Same run id on both calls; a fresh, distinct call id each time.
+    assert seen[0][0] == seen[1][0] == "run-42"
+    assert seen[0][1] != seen[1][1]
+    assert seen[0][1] != "run-42" and seen[1][1] != "run-42"
+
+
+async def test_call_id_is_stable_across_retries() -> None:
+    """A retried request is ONE logical call: its call id must not change between
+    the 503 attempts and the eventual 200, so the whole retry chain shares a call
+    id while the run id also stays put."""
+    calls = {"n": 0}
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        seen.append(
+            (request.headers[CORRELATION_HEADER], request.headers[CALL_ID_HEADER])
+        )
+        return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
+
+    async with _client(handler, FabricConfig(max_retries=3)) as client:
+        with run_context("run-r"):
+            await client.get("https://x")
+
+    assert calls["n"] == 3  # two retries then success
+    assert {c for c, _ in seen} == {"run-r"}  # run id constant
+    assert len({call for _, call in seen}) == 1  # ONE call id across all sends
+
+
+async def test_config_overrides_correlation_and_call_id_header_names() -> None:
+    """A customer whose gateway reads different inbound names points the SDK at
+    them via config; the override is used verbatim (§0.3 escape hatch, #195)."""
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(200)
+
+    cfg = FabricConfig(correlation_header="X-Trace-Id", call_id_header="X-Req-Seq")
+    async with _client(handler, cfg) as client:
+        with run_context("run-ovr"):
+            await client.get("https://x")
+
+    assert seen["x-trace-id"] == "run-ovr"
+    assert "x-req-seq" in seen
+    # The default placeholder names are NOT also sent when overridden.
+    assert CORRELATION_HEADER.lower() not in seen
+    assert CALL_ID_HEADER.lower() not in seen
+
+
+async def test_concurrent_runs_do_not_leak_correlation_ids() -> None:
+    """No leakage across concurrent runs (#195 AC): two runs racing on their own
+    asyncio tasks each stamp ONLY their own run id on the wire, even though they
+    share one FabricAsyncClient and interleave. The id is a contextvar, so each
+    ``asyncio.gather`` child runs in its own copied context — one run cannot see
+    the other's binding."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # Echo the correlation id the client stamped so the caller can prove
+        # which run id actually went on the wire for its own request.
+        return httpx.Response(200, headers={"x-echo": request.headers[CORRELATION_HEADER]})
+
+    async with _client(handler) as client:
+
+        async def one_run(run_id: str) -> set[str]:
+            seen: set[str] = set()
+            with run_context(run_id):
+                for _ in range(4):
+                    resp = await client.get("https://x")
+                    seen.add(resp.headers["x-echo"])
+                    await asyncio.sleep(0)  # yield so the two runs interleave
+            return seen
+
+        a, b = await asyncio.gather(one_run("run-a"), one_run("run-b"))
+
+    assert a == {"run-a"}  # run A only ever saw its own id on the wire
+    assert b == {"run-b"}
+
+
+async def test_run_id_reaches_a_request_fired_from_a_child_task() -> None:
+    """The bound run id survives an asyncio task boundary (#195 AC): a request
+    fired from a task spawned *inside* the run block still carries the run id,
+    because the child task copies the bound context at creation — nothing is
+    threaded through call arguments."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers[CORRELATION_HEADER])
+        return httpx.Response(200)
+
+    async with _client(handler) as client:
+        with run_context("run-child"):
+            await asyncio.create_task(client.get("https://x"))
+
+    assert seen == ["run-child"]
+
+
+def test_sync_call_id_is_stable_across_retries() -> None:
+    calls = {"n": 0}
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        seen.append(request.headers[CALL_ID_HEADER])
+        return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
+
+    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+        client.get("https://x")
+
+    assert calls["n"] == 3
+    assert len(set(seen)) == 1  # one call id across the retry chain
 
 
 def test_sync_retries_on_503_then_succeeds() -> None:
@@ -574,6 +709,26 @@ async def test_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None
     assert attrs["fabric.policy.decision"] == "allow"
     assert attrs["fabric.budget.remaining"] == 18450  # after _on_response fed the budget
     assert attrs["fabric.correlation_id"] == "run-7f3a"  # equals the header actually sent
+
+
+async def test_every_span_in_a_run_shares_the_run_id(monkeypatch) -> None:
+    """Per-run id on EVERY span in the block (#195 AC): two model calls inside one
+    ``fabric.run()`` open two spans, and both carry the same
+    ``fabric.correlation_id`` — the run id, not a fresh id per call."""
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={_PROVIDER_HEADER: "openai"}, json=_SUCCESS_BODY)
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    with run_context("run-multi"):
+        async with client:
+            await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "a"})
+            await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "b"})
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 2  # one span per model call
+    assert {dict(s.attributes)["fabric.correlation_id"] for s in spans} == {"run-multi"}
 
 
 async def test_llm_refusal_records_refuse_decision_and_policy_type(monkeypatch) -> None:

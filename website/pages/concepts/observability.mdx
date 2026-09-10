@@ -54,7 +54,7 @@ entry — not something a transitive dependency bump does behind your back.
 | `fabric.policy.decision` | `fabric.*` (stable) | `allow` on success; `refuse` on a classified policy refusal (which also sets the span's OTel status to `ERROR`). |
 | `fabric.policy.type` | `fabric.*` (stable) | The refusal type slug (e.g. `token_budget`, `pii_detected`) — see [Errors](/errors). |
 | `fabric.budget.remaining` | `fabric.*` (stable) | The remaining token budget after this call, from the `x-token-*` headers. |
-| `fabric.correlation_id` | `fabric.*` (stable) | The run correlation id actually sent on the request. |
+| `fabric.correlation_id` | `fabric.*` (stable) | The **run** correlation id actually sent on the request (the `X-Correlation-Id` header) — shared by every call in a `fabric.run()` block. The per-call id is deliberately *not* on the span; it lives on `FabricError.call_id` (see below). |
 
 <Callout type="warning">
   **The `fabric.*` keys are public API.** Renaming one is a breaking change,
@@ -70,6 +70,46 @@ Anthropic), so `gen_ai.system` is taken **only** from the verified
 response, the attribute is omitted rather than defaulted — a wrong provider
 label is worse than a missing one ([Verification policy](/concepts/verification),
 §0.3).
+
+## Grouping a run: the run id on the span, the call id on the error
+
+Bind a **run** id once and every governed call inside the block carries it — on
+the wire, on the span, and on any exception — with nothing threaded through your
+framework state:
+
+```python
+async with fabric.run(id=ticket.id):
+    await triage_agent.run(ticket)
+```
+
+`fabric.run(id=…)` returns a **dual sync/async** context manager, so plain
+`with fabric.run(...)` works too. Inside the block:
+
+- The **run id** becomes the `X-Correlation-Id` request header, the span's
+  `fabric.correlation_id`, and `FabricError.correlation_id`. It is shared by
+  every call in the block, so a Slack log line joins to the gateway's own record.
+- Each individual request also gets a fresh **per-call id** (the
+  `X-Fabric-Request-Id` header), unique per logical request and stable across
+  that request's retries. It surfaces on `FabricError.call_id` — **not** on the
+  span, because the span is already the per-call unit; the run id is what a span
+  needs to correlate *across* calls.
+
+Propagation is contextvar-based, so a run id set here reaches framework-spawned
+`asyncio` tasks (every LangGraph node, for instance) without you passing an
+argument through each function, and concurrent runs never leak into each other.
+Nested `fabric.run()` blocks rebind then restore; omitting `id` binds a
+generated "run of one". Correlation works with or without OpenTelemetry — the
+ids are pure headers and contextvars; the span only decorates when OTel is
+present.
+
+<Callout type="info">
+  The gateway echoes a `x-correlation-id` on its **response**, which is verified.
+  Whether it *reads* an inbound `X-Correlation-Id` (and `X-Fabric-Request-Id`) as
+  the join key is not yet confirmed, so those request-header **names** are
+  overridable placeholders — set `correlation_header` / `call_id_header` in
+  config if your gateway expects different names
+  ([Verification policy](/concepts/verification), §0.3).
+</Callout>
 
 ## Streaming, refusals, and exceptions
 

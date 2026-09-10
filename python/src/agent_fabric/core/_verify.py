@@ -81,6 +81,25 @@ ATTRIBUTION_BUSINESS_GROUP_HEADER = Unverified(
     doc_ref="docs/verified-apis.md §3",
 )
 
+# --- Correlation / call-id request headers (§2.3, #195) ---------------------
+# The gateway ECHOES `x-correlation-id` on RESPONSES (VERIFIED LIVE 2026-08-28,
+# docs §3). Whether it READS an INBOUND correlation header — and under what name
+# — is UNVERIFIED, as is any per-call request-id header. Both request-header
+# names are therefore placeholders, overridable per-Fabric via config
+# (``FabricConfig.correlation_header`` / ``.call_id_header``) so a customer can
+# point them at the real names without waiting for us. ``X-Correlation-Id`` is
+# the best guess precisely because it mirrors the verified response echo.
+CORRELATION_ID_HEADER = Unverified(
+    key="correlation.request_header",
+    placeholder="X-Correlation-Id",
+    doc_ref="docs/verified-apis.md §3",
+)
+CALL_ID_HEADER = Unverified(
+    key="correlation.call_id_header",
+    placeholder="X-Fabric-Request-Id",
+    doc_ref="docs/verified-apis.md §3",
+)
+
 # --- Control-plane token endpoint (§1) --------------------------------------
 # Path is appended to the region base URL. VERIFIED (§12.1) from static analysis
 # of the shipping `mulesoft-anypoint-cli-agent-fabric-plugin` (+ `anypoint-cli-

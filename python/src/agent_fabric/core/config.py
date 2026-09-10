@@ -55,6 +55,13 @@ class FabricConfig:
     application_name: str | None = None   # env: AGENT_FABRIC_APP_NAME
     business_group: str | None = None     # env: AGENT_FABRIC_BUSINESS_GROUP
 
+    # --- Correlation request-header NAME overrides (§2.3, #195) ---
+    # The gateway's inbound correlation/call-id header names are UNVERIFIED
+    # (docs §3); these let a customer point them at the real names without a
+    # release. Unset → the loud ``Unverified`` placeholders in ``core/_verify``.
+    correlation_header: str | None = None  # env: AGENT_FABRIC_CORRELATION_HEADER
+    call_id_header: str | None = None      # env: AGENT_FABRIC_CALL_ID_HEADER
+
     # --- Behaviour ---
     timeout_s: float = 60.0
     max_retries: int = 3
@@ -99,6 +106,10 @@ class FabricConfig:
             llm_proxy_key=_opt(pick("AGENT_FABRIC_LLM_PROXY_KEY", "llm_proxy_key", None)),
             application_name=_opt(pick("AGENT_FABRIC_APP_NAME", "application_name", None)),
             business_group=_opt(pick("AGENT_FABRIC_BUSINESS_GROUP", "business_group", None)),
+            correlation_header=_opt(
+                pick("AGENT_FABRIC_CORRELATION_HEADER", "correlation_header", None)
+            ),
+            call_id_header=_opt(pick("AGENT_FABRIC_CALL_ID_HEADER", "call_id_header", None)),
             timeout_s=_as_float(pick("AGENT_FABRIC_TIMEOUT_S", "timeout_s", 60.0)),
             max_retries=_as_int(pick("AGENT_FABRIC_MAX_RETRIES", "max_retries", 3)),
             registry_cache_ttl_s=_as_int(

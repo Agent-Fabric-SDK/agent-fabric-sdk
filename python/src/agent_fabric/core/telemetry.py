@@ -72,6 +72,17 @@ def new_correlation_id() -> str:
     return uuid.uuid4().hex
 
 
+def new_call_id() -> str:
+    """A fresh per-request **call id** (§2.3, #195).
+
+    Unlike the run/correlation id — which is contextvar-bound and shared across
+    every request in a :func:`run_context` / ``fabric.run()`` block — this is
+    generated anew for each logical request, so one call can be pinpointed within
+    a run. It is client-generated, so it exists even when a request fails before
+    any response (a transport error carries no gateway ``x-request-id``)."""
+    return uuid.uuid4().hex
+
+
 def current_correlation_id() -> str | None:
     return _correlation_id.get()
 
@@ -90,6 +101,64 @@ def run_context(run_id: str | None = None) -> Iterator[str]:
         yield rid
     finally:
         _correlation_id.reset(token)
+
+
+class RunScope:
+    """A **dual sync/async** context manager that binds the run correlation id
+    to :data:`_correlation_id` for the block (§2.3, #195).
+
+    This is what ``fabric.run(id=...)`` returns, so the same object works under
+    both ``with fabric.run(...)`` and ``async with fabric.run(...)`` — binding a
+    contextvar needs no ``await``, so both entry paths share one implementation.
+    The bound id reaches every model call made inside the block (including calls
+    on framework-spawned ``asyncio`` tasks, which copy the current context at
+    creation), so a run id set here propagates without threading it through any
+    framework state.
+
+    Nested scopes rebind and restore via the contextvar token, so an inner run
+    id shadows an outer one for its block and the outer id is restored on exit.
+    Enter and exit happen in the same task/context for both protocols, so the
+    ``reset(token)`` is always valid.
+
+    The ``id`` keyword is deliberately the only field today; #196 extends
+    ``fabric.run()`` with cost-attribution fields (enduser/team/project/env)
+    without a breaking change — they layer on as additional bound state, leaving
+    this correlation binding intact.
+    """
+
+    __slots__ = ("_run_id", "_token")
+
+    def __init__(self, run_id: str | None = None) -> None:
+        self._run_id = run_id
+        self._token: Any = None
+
+    def _bind(self) -> str:
+        rid = self._run_id or new_correlation_id()
+        self._token = _correlation_id.set(rid)
+        return rid
+
+    def _unbind(self) -> None:
+        if self._token is not None:
+            _correlation_id.reset(self._token)
+            self._token = None
+
+    def __enter__(self) -> str:
+        return self._bind()
+
+    def __exit__(self, *exc: Any) -> None:
+        self._unbind()
+
+    async def __aenter__(self) -> str:
+        return self._bind()
+
+    async def __aexit__(self, *exc: Any) -> None:
+        self._unbind()
+
+
+def run_scope(run_id: str | None = None) -> RunScope:
+    """Build a :class:`RunScope` — the dual sync/async run correlation binding
+    behind ``fabric.run(id=...)`` (§2.3, #195)."""
+    return RunScope(run_id)
 
 
 def ensure_correlation_id() -> str:
