@@ -700,3 +700,252 @@ def test_sync_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None:
     assert attrs["fabric.policy.decision"] == "allow"
     assert attrs["fabric.budget.remaining"] == 9000
     assert attrs["fabric.correlation_id"] == "run-sync"
+
+
+# --- refused requests and streaming span lifecycle (#193, BG §1.6) ----------
+# #193 adds two guarantees on top of #192's contract:
+#   1. a refusal closes a span with decision=refuse AND OTel status ERROR;
+#   2. a streamed completion produces EXACTLY ONE span whose gen_ai.usage.* are
+#      populated from the terminal SSE event, and the span is guaranteed to close
+#      on full drain, mid-iteration abandonment, and exception.
+# Streaming is the httpx transport-level `stream=True` (client.send(req,
+# stream=True)) — distinct from a `"stream": true` field in the JSON body.
+
+_PII_403 = {"error": {"type": "pii_detected", "message": '[{"pii_type": "EMAIL"}]'}}
+
+# A Chat-Completions SSE stream that ends with a usage event (as emitted with
+# stream_options={"include_usage": true}), then the [DONE] sentinel.
+_SSE_WITH_USAGE = [
+    b'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n',
+    b'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n',
+    b'data: {"choices":[{"delta":{}}],'
+    b'"usage":{"prompt_tokens":11,"completion_tokens":3,"total_tokens":14}}\n\n',
+    b"data: [DONE]\n\n",
+]
+
+
+class _AsyncSSE(httpx.AsyncByteStream):
+    """A minimal async byte stream so MockTransport can return a genuinely
+    unread (streamed) SSE body — `content=` would buffer it instead."""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+        self.closed = False
+
+    async def __aiter__(self):
+        for chunk in self._chunks:
+            yield chunk
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+class _SyncSSE(httpx.SyncByteStream):
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+        self.closed = False
+
+    def __iter__(self):
+        yield from self._chunks
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _sse_response(chunks) -> httpx.Response:
+    return httpx.Response(
+        200,
+        headers={"content-type": "text/event-stream", _PROVIDER_HEADER: "openai"},
+        stream=chunks,
+    )
+
+
+def _span_status_code():
+    from opentelemetry.trace import StatusCode
+
+    return StatusCode
+
+
+async def test_pii_refusal_span_has_refuse_decision_and_error_status(monkeypatch) -> None:
+    # AC #1: a 403 pii_detected produces a span with decision=refuse AND OTel
+    # status ERROR (not merely a refuse attribute — the span is a failed op).
+    StatusCode = _span_status_code()
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json=_PII_403)
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    async with client:
+        resp = await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "e@x.io"})
+    assert resp.status_code == 403
+
+    (span,) = exporter.get_finished_spans()
+    attrs = dict(span.attributes)
+    assert attrs["fabric.policy.decision"] == "refuse"
+    assert attrs["fabric.policy.type"] == "pii_detected"
+    assert span.status.status_code is StatusCode.ERROR
+
+
+async def test_transport_error_span_has_error_status(monkeypatch) -> None:
+    # AC #4: a transport error closes the span (context manager) AND leaves it in
+    # the ERROR state — the failure is not silently a successful-looking span.
+    StatusCode = _span_status_code()
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom")
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    async with client:
+        with pytest.raises(httpx.ConnectError):
+            await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code is StatusCode.ERROR
+
+
+async def test_streaming_span_captures_usage_from_terminal_chunk(monkeypatch) -> None:
+    # AC #2: a streamed completion produces EXACTLY ONE span, and gen_ai.usage.*
+    # are populated from the terminal SSE usage event once the stream is drained.
+    exporter = _use_tracer(monkeypatch)
+    sse = _AsyncSSE(_SSE_WITH_USAGE)
+
+    client = FabricAsyncClient(
+        _LLM_CFG, None, transport=httpx.MockTransport(lambda r: _sse_response(sse))
+    )
+    async with client:
+        req = client.build_request(
+            "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
+        )
+        resp = await client.send(req, stream=True)
+        # The span must NOT be finished mid-stream: usage isn't known yet.
+        assert exporter.get_finished_spans() == ()
+        lines = [line async for line in resp.aiter_lines()]
+
+    assert any("[DONE]" in line for line in lines)
+    assert sse.closed  # the underlying stream was closed, not leaked
+
+    (span,) = exporter.get_finished_spans()  # exactly ONE span for the whole stream
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"
+    assert attrs["gen_ai.system"] == "openai"
+    assert attrs["fabric.policy.decision"] == "allow"
+    assert attrs["gen_ai.usage.input_tokens"] == 11  # prompt_tokens from the usage event
+    assert attrs["gen_ai.usage.output_tokens"] == 3  # completion_tokens from the usage event
+
+
+async def test_streaming_span_closes_when_abandoned_mid_iteration(monkeypatch) -> None:
+    # AC #3: a stream abandoned after one chunk still closes its span (via the
+    # caller's response.aclose(), which routes through the wrapping stream).
+    exporter = _use_tracer(monkeypatch)
+    sse = _AsyncSSE(_SSE_WITH_USAGE)
+
+    client = FabricAsyncClient(
+        _LLM_CFG, None, transport=httpx.MockTransport(lambda r: _sse_response(sse))
+    )
+    async with client:
+        req = client.build_request(
+            "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
+        )
+        resp = await client.send(req, stream=True)
+        async for _chunk in resp.aiter_bytes():
+            break  # consume one chunk, then walk away
+        await resp.aclose()
+
+    (span,) = exporter.get_finished_spans()  # closed, not leaked
+    assert dict(span.attributes)["gen_ai.request.model"] == "gpt-4o"
+
+
+async def test_streaming_span_closes_on_exception_during_iteration(monkeypatch) -> None:
+    # AC #4: an exception raised mid-iteration still closes the span — a real
+    # consumer (httpx's own stream ctx, the OpenAI SDK) closes in a finally.
+    exporter = _use_tracer(monkeypatch)
+    sse = _AsyncSSE(_SSE_WITH_USAGE)
+
+    client = FabricAsyncClient(
+        _LLM_CFG, None, transport=httpx.MockTransport(lambda r: _sse_response(sse))
+    )
+    async with client:
+        req = client.build_request(
+            "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
+        )
+        resp = await client.send(req, stream=True)
+        with pytest.raises(RuntimeError):
+            try:
+                async for _chunk in resp.aiter_bytes():
+                    raise RuntimeError("consumer blew up mid-stream")
+            finally:
+                await resp.aclose()
+
+    (span,) = exporter.get_finished_spans()  # closed despite the exception
+    assert dict(span.attributes)["gen_ai.request.model"] == "gpt-4o"
+
+
+async def test_streaming_refusal_produces_one_span_with_error_status(monkeypatch) -> None:
+    # A refused stream request (stream=True but the proxy returns a buffered 403)
+    # is NOT an SSE body: the span closes immediately with decision=refuse and
+    # status ERROR — exactly one span, no wrapper, nothing to drain.
+    StatusCode = _span_status_code()
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json=_PII_403)
+
+    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    async with client:
+        req = client.build_request(
+            "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
+        )
+        resp = await client.send(req, stream=True)
+        # Refusal is buffered and terminal: the span is already closed.
+        (span,) = exporter.get_finished_spans()
+        await resp.aclose()
+    attrs = dict(span.attributes)
+    assert attrs["fabric.policy.decision"] == "refuse"
+    assert attrs["fabric.policy.type"] == "pii_detected"
+    assert span.status.status_code is StatusCode.ERROR
+    assert len(exporter.get_finished_spans()) == 1  # still exactly one
+
+
+def test_sync_streaming_span_captures_usage_from_terminal_chunk(monkeypatch) -> None:
+    # The blocking twin: send(stream=True) + iter_lines() drains the SSE body and
+    # the span carries usage from the terminal event, closed exactly once.
+    exporter = _use_tracer(monkeypatch)
+    sse = _SyncSSE(_SSE_WITH_USAGE)
+
+    client = FabricClient(_LLM_CFG, transport=httpx.MockTransport(lambda r: _sse_response(sse)))
+    with client:
+        req = client.build_request(
+            "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
+        )
+        resp = client.send(req, stream=True)
+        assert exporter.get_finished_spans() == ()  # not finished mid-stream
+        lines = list(resp.iter_lines())
+
+    assert any("[DONE]" in line for line in lines)
+    assert sse.closed
+
+    (span,) = exporter.get_finished_spans()
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"
+    assert attrs["gen_ai.usage.input_tokens"] == 11
+    assert attrs["gen_ai.usage.output_tokens"] == 3
+
+
+def test_sync_streaming_span_closes_when_abandoned_mid_iteration(monkeypatch) -> None:
+    exporter = _use_tracer(monkeypatch)
+    sse = _SyncSSE(_SSE_WITH_USAGE)
+
+    client = FabricClient(_LLM_CFG, transport=httpx.MockTransport(lambda r: _sse_response(sse)))
+    with client:
+        req = client.build_request(
+            "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
+        )
+        resp = client.send(req, stream=True)
+        for _chunk in resp.iter_bytes():
+            break
+        resp.close()
+
+    (span,) = exporter.get_finished_spans()
+    assert dict(span.attributes)["gen_ai.request.model"] == "gpt-4o"

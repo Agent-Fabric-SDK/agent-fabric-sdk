@@ -238,6 +238,26 @@ class GenAiSpan:
         for key, value in build_genai_attributes(**fields).items():
             self._span.set_attribute(key, value)
 
+    def set_error(self) -> None:
+        """Mark the span's OTel status as ERROR — a refusal or an exception is a
+        failed operation, not a successful-looking span (#193, AC #1/#4). A no-op
+        without a live span, so telemetry-off / OTel-absent never crashes. The
+        ``opentelemetry`` import is lazy and only reached when a real span
+        exists, keeping the framework-free-core base install clean."""
+        if self._span is None:
+            return
+        from opentelemetry.trace import Status, StatusCode
+
+        self._span.set_status(Status(StatusCode.ERROR))
+
+    def end(self) -> None:
+        """End a DETACHED span (one from :func:`start_genai_span`). A no-op
+        without a live span. Not to be called for a span owned by the
+        :func:`genai_span` context manager — that ends it on block exit."""
+        if self._span is None:
+            return
+        self._span.end()
+
 
 @contextlib.contextmanager
 def genai_span(*, enabled: bool) -> Iterator[GenAiSpan]:
@@ -262,3 +282,26 @@ def genai_span(*, enabled: bool) -> Iterator[GenAiSpan]:
         return
     with tracer.start_as_current_span(SPAN_LLM_CHAT) as sp:
         yield GenAiSpan(sp)
+
+
+def start_genai_span(*, enabled: bool) -> GenAiSpan:
+    """A DETACHED :data:`SPAN_LLM_CHAT` span the caller must :meth:`GenAiSpan.end`.
+
+    Unlike :func:`genai_span` (a context manager that ends the span on block
+    exit), this returns a live span whose lifetime is *not* bound to a ``with``
+    block. That is what the streaming path needs: the span must outlive
+    ``send()`` so the stream wrapper can fill ``gen_ai.usage.*`` from the terminal
+    SSE event and end the span when the stream closes — on drain, abandonment, or
+    exception (#193). Inert (an end-safe no-op handle, never raising) when
+    telemetry is off or OpenTelemetry is not installed.
+
+    The span is deliberately NOT made the current context: a streamed response is
+    consumed long after ``send()`` returns, so there is no live scope to nest
+    under. It records attributes and closes correctly, which is the whole of the
+    span contract #193 requires."""
+    if not enabled:
+        return GenAiSpan(None)
+    tracer = _tracer()
+    if tracer is None:
+        return GenAiSpan(None)
+    return GenAiSpan(tracer.start_span(SPAN_LLM_CHAT))

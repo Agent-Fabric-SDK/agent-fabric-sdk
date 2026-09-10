@@ -232,3 +232,71 @@ def test_genai_span_records_a_refusal_decision(monkeypatch: pytest.MonkeyPatch) 
     attrs = dict(span.attributes)
     assert attrs["fabric.policy.decision"] == "refuse"
     assert attrs["fabric.policy.type"] == "token_budget"
+
+
+# --- set_error: refusals/exceptions mark the span ERROR (#193, AC #1/#4) -----
+
+
+def test_genai_span_set_error_is_inert_without_a_span() -> None:
+    # Off / OTel absent → GenAiSpan(None): set_error() and end() are safe no-ops,
+    # never a crash and never a hard OTel import.
+    gspan = telemetry.GenAiSpan(None)
+    gspan.set_error()
+    gspan.end()
+
+
+def test_genai_span_set_error_sets_error_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    from opentelemetry.trace import StatusCode
+
+    tracer, exporter = _in_memory_tracer()
+    monkeypatch.setattr(telemetry, "_tracer", lambda: tracer)
+
+    with telemetry.genai_span(enabled=True) as gspan:
+        gspan.record(decision=telemetry.POLICY_DECISION_REFUSE, policy_type="pii_detected")
+        gspan.set_error()
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code is StatusCode.ERROR
+
+
+# --- start_genai_span: a detached span the caller ends itself (#193) ---------
+# Streaming needs the span to outlive send(): usage lands in the terminal SSE
+# event, which the caller reads after send() has returned. So the streaming
+# path opens a DETACHED span (not the auto-closing genai_span context manager)
+# and hands it to the stream wrapper, which ends it when the stream closes.
+
+
+def test_start_genai_span_disabled_is_inert() -> None:
+    gspan = telemetry.start_genai_span(enabled=False)
+    gspan.record(request_model="gpt-4o")
+    gspan.set_error()
+    gspan.end()  # no span, no crash
+
+
+def test_start_genai_span_without_otel_is_inert(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(telemetry, "_tracer", lambda: None)
+    gspan = telemetry.start_genai_span(enabled=True)
+    gspan.record(request_model="gpt-4o")
+    gspan.end()
+
+
+def test_start_genai_span_is_detached_and_ends_only_when_told(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tracer, exporter = _in_memory_tracer()
+    monkeypatch.setattr(telemetry, "_tracer", lambda: tracer)
+
+    gspan = telemetry.start_genai_span(enabled=True)
+    gspan.record(request_model="gpt-4o", system="openai")
+    # Detached: the span is live but NOT yet finished — nothing has ended it.
+    assert exporter.get_finished_spans() == ()
+
+    gspan.record(input_tokens=11, output_tokens=3)
+    gspan.end()
+
+    (span,) = exporter.get_finished_spans()  # ends exactly once, when the caller says
+    assert span.name == telemetry.SPAN_LLM_CHAT
+    attrs = dict(span.attributes)
+    assert attrs["gen_ai.request.model"] == "gpt-4o"
+    assert attrs["gen_ai.usage.input_tokens"] == 11
+    assert attrs["gen_ai.usage.output_tokens"] == 3

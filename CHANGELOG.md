@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transcribed literals rather than re-exported from the installed
   `opentelemetry.semconv` package, so upgrading that package never silently
   changes what is emitted.
+- **Span lifecycle for refusals, exceptions, and streaming** (#193). A classified
+  policy refusal now sets the span's OTel status to `ERROR` (in addition to
+  `fabric.policy.decision = refuse`), and a transport error/cancellation marks the
+  span `ERROR` and closes it. A streaming (SSE) response produces exactly one span
+  that stays open until the stream finishes and closes exactly once — on full
+  drain, mid-iteration abandonment, or an exception during iteration — with
+  `gen_ai.usage.*` populated from the terminal `usage` event (present only when the
+  stream carries one, e.g. Chat Completions `stream_options={"include_usage": true}`).
 
 ### Notes for contributors
 
