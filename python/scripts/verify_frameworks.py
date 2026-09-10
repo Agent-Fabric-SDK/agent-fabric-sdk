@@ -16,7 +16,7 @@ Two independent checks per framework:
      script then confirms the object's real ``module.ClassName`` matches the
      value recorded in §8, so a silently-renamed class is caught too.
 
-  B. LIVE ROUND-TRIP (``--live``, needs the 3 AGENT_FABRIC_LLM_PROXY_* env vars):
+  B. LIVE ROUND-TRIP (``--live``, needs the 3 DONKEY_LLM_PROXY_* env vars):
      make one real completion through the framework's *own* native call and
      confirm a governed response comes back. Only LangGraph's call API is
      exercised directly here (``ChatOpenAI.ainvoke``); for the others the
@@ -50,28 +50,28 @@ from dataclasses import asdict, dataclass, field
 # --- ground truth: the exact §8 rows this script confirms --------------------
 # (framework key, factory import path, factory fn, expected native module.Class)
 FRAMEWORKS: list[tuple[str, str, str, str]] = [
-    ("langgraph", "agent_fabric.integrations.langgraph", "chat_model",
+    ("langgraph", "donkey_kit.integrations.langgraph", "chat_model",
      "langchain_openai.ChatOpenAI"),
-    ("adk", "agent_fabric.integrations.adk", "model",
+    ("adk", "donkey_kit.integrations.adk", "model",
      "google.adk.models.lite_llm.LiteLlm"),
-    ("strands", "agent_fabric.integrations.strands", "model",
+    ("strands", "donkey_kit.integrations.strands", "model",
      "strands.models.openai.OpenAIModel"),
-    ("agent_framework", "agent_fabric.integrations.agent_framework", "chat_client",
+    ("agent_framework", "donkey_kit.integrations.agent_framework", "chat_client",
      "agent_framework.openai.OpenAIChatClient"),
-    ("openai_agents", "agent_fabric.integrations.openai_agents", "model",
+    ("openai_agents", "donkey_kit.integrations.openai_agents", "model",
      "agents.OpenAIChatCompletionsModel"),
-    ("anthropic", "agent_fabric.integrations.anthropic", "client",
+    ("anthropic", "donkey_kit.integrations.anthropic", "client",
      "anthropic.AsyncAnthropic"),
-    ("crewai", "agent_fabric.integrations.crewai", "llm",
+    ("crewai", "donkey_kit.integrations.crewai", "llm",
      "crewai.LLM"),
-    ("llamaindex", "agent_fabric.integrations.llamaindex", "llm",
+    ("llamaindex", "donkey_kit.integrations.llamaindex", "llm",
      "llama_index.llms.openai_like.OpenAILike"),
 ]
 
 PROXY_ENV = (
-    "AGENT_FABRIC_LLM_PROXY_URL",
-    "AGENT_FABRIC_LLM_PROXY_CLIENT_ID",
-    "AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET",
+    "DONKEY_LLM_PROXY_URL",
+    "DONKEY_LLM_PROXY_CLIENT_ID",
+    "DONKEY_LLM_PROXY_CLIENT_SECRET",
 )
 MODEL = os.environ.get("DEMO_MODEL", "gpt-4o")
 
@@ -108,9 +108,9 @@ def _ensure_proxy_env_for_offline() -> bool:
     exercised offline. Returns True if REAL creds are present (live is possible)."""
     have_real = all(os.environ.get(v) for v in PROXY_ENV)
     if not have_real:
-        os.environ.setdefault("AGENT_FABRIC_LLM_PROXY_URL", "https://placeholder.invalid/proxy/")
-        os.environ.setdefault("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "placeholder-cid")
-        os.environ.setdefault("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "placeholder-secret")
+        os.environ.setdefault("DONKEY_LLM_PROXY_URL", "https://placeholder.invalid/proxy/")
+        os.environ.setdefault("DONKEY_LLM_PROXY_CLIENT_ID", "placeholder-cid")
+        os.environ.setdefault("DONKEY_LLM_PROXY_CLIENT_SECRET", "placeholder-secret")
     return have_real
 
 
@@ -222,7 +222,7 @@ async def run(only: list[str] | None, live: bool) -> list[Result]:
         if live and obj is not None and res.class_matches:
             if not have_real:
                 res.live = (
-                    "skipped: set the 3 AGENT_FABRIC_LLM_PROXY_* env vars for a live round-trip"
+                    "skipped: set the 3 DONKEY_LLM_PROXY_* env vars for a live round-trip"
                 )
             else:
                 await check_live(res, obj)
