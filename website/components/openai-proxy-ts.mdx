@@ -16,11 +16,11 @@
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // no /v1
+  baseURL: process.env.DONKEY_LLM_PROXY_URL,   // no /v1
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.DONKEY_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.DONKEY_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 

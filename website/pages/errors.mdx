@@ -36,14 +36,14 @@ malformed `400` stays an ordinary refusal.
 Client-ID enforcement (`401`) is a **consumer-auth** case, not one of the six
 policy-rejection rows.
 
-[#253]: https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/253
+[#253]: https://github.com/Donkey-Development-Kit/donkey-development-kit/issues/253
 
 ## The exception tree
 
-All importable from `agent_fabric`:
+All importable from `donkey_kit`:
 
 ```
-FabricError                     # base of the whole tree
+DonkeyError                     # base of the whole tree
 ├─ ConfigError                  # misconfiguration (raised locally, pre-flight)
 ├─ AuthError                    # 401 — bad/missing consumer credentials
 ├─ PolicyViolation              # base for every governance rejection
@@ -55,15 +55,15 @@ FabricError                     # base of the whole tree
 └─ UpstreamModelError           # upstream 5xx — provider error, retryable
 ```
 
-## The ids every `FabricError` carries
+## The ids every `DonkeyError` carries
 
 Every exception in the tree carries three ids so you can join a failure to your
 logs and to the gateway's own record — **three ids, three provenances**:
 
 | Attribute | What it is | Provenance |
 | --- | --- | --- |
-| `.correlation_id` | The **run** id, shared by every call in a [`fabric.run()`](/concepts/observability#grouping-a-run-the-run-id-on-the-span-the-call-id-on-the-error) block | The `X-Correlation-Id` request header the client sent — always equals what went on the wire. |
-| `.call_id` | The **per-call** id, unique per logical request and stable across that request's retries | The `X-Fabric-Request-Id` request header the client sent. Present **even when the request fails before any response** (a transport error). |
+| `.correlation_id` | The **run** id, shared by every call in a [`donkey.run()`](/concepts/observability#grouping-a-run-the-run-id-on-the-span-the-call-id-on-the-error) block | The `X-Correlation-Id` request header the client sent — always equals what went on the wire. |
+| `.call_id` | The **per-call** id, unique per logical request and stable across that request's retries | The `X-Donkey-Request-Id` request header the client sent. Present **even when the request fails before any response** (a transport error). |
 | `.request_id` | The **gateway's own** id | Read back from the `x-request-id` **response** header. Absent on a transport error, since there is no response. |
 
 `classify(response)` fills `.correlation_id` and `.call_id` from the response's
@@ -74,20 +74,20 @@ overrode the header names in config, pass the ids to `classify()` explicitly.)
 ## Bridging from the raw client
 
 <Callout type="warning">
-  `fabric.llm.client()` is the **OpenAI SDK**, so on an HTTP failure it raises
-  `openai.APIStatusError`, **not** a `FabricError`. Bridge into the taxonomy by
+  `donkey.llm.client()` is the **OpenAI SDK**, so on an HTTP failure it raises
+  `openai.APIStatusError`, **not** a `DonkeyError`. Bridge into the taxonomy by
   applying `classify()` to the error's `.response`.
 </Callout>
 
 ```python
 import openai
-from agent_fabric import PIIDetected, TokenBudgetExceeded, AuthError
-from agent_fabric.core.errors import classify
+from donkey_kit import PIIDetected, TokenBudgetExceeded, AuthError
+from donkey_kit.core.errors import classify
 
 try:
     resp = await client.chat.completions.create(model="gpt-4o", messages=msgs)
 except openai.APIStatusError as e:
-    governed = classify(e.response)          # -> a FabricError subclass
+    governed = classify(e.response)          # -> a DonkeyError subclass
     if isinstance(governed, PIIDetected):
         print("blocked, entities:", governed.entities)
     elif isinstance(governed, TokenBudgetExceeded):
@@ -100,7 +100,7 @@ except openai.APIConnectionError as e:
     print("could not reach the proxy:", e)
 ```
 
-The blocking client from `fabric.llm.client(sync=True)` behaves identically here
+The blocking client from `donkey.llm.client(sync=True)` behaves identically here
 — drop the `await`. It is the same OpenAI SDK raising the same
 `openai.APIStatusError`, and `classify()` reads the response the same way, so the
 taxonomy is not an async-only feature.

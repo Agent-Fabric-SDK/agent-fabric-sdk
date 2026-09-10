@@ -15,7 +15,7 @@ conventions rather than raw OpenAI ones.
 ## Install
 
 ```bash
-pip install "agent-fabric[crewai]"
+pip install "donkey-kit[crewai]"
 ```
 
 ## Quickstart
@@ -24,7 +24,7 @@ pip install "agent-fabric[crewai]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.crewai import llm
+from donkey_kit.integrations.crewai import llm
 
 model = llm("gpt-4o")
 ```
@@ -49,19 +49,19 @@ official `openai` npm client:
 
 ## Three ways to construct
 
-**1. Off a shared `Fabric` instance:**
+**1. Off a shared `Donkey` instance:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-async with Fabric.from_env() as fabric:
-    model = fabric.crewai.llm("gpt-4o")
+async with Donkey.from_env() as donkey:
+    model = donkey.crewai.llm("gpt-4o")
 ```
 
 **2. Module-level factory** (shortest):
 
 ```python
-from agent_fabric.integrations.crewai import llm
+from donkey_kit.integrations.crewai import llm
 
 model = llm("gpt-4o")
 ```
@@ -69,11 +69,11 @@ model = llm("gpt-4o")
 **3. Governed kwargs, native constructor:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 from crewai import LLM
 
-async with Fabric.from_env() as fabric:
-    model = LLM(model="openai/gpt-4o", **fabric.crewai.connection_kwargs())
+async with Donkey.from_env() as donkey:
+    model = LLM(model="openai/gpt-4o", **donkey.crewai.connection_kwargs())
 ```
 
 ## The manual equivalent (eject at any time)
@@ -83,7 +83,7 @@ from crewai import LLM
 
 model = LLM(
     model="openai/gpt-4o",
-    api_base=...,       # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
+    api_base=...,       # from DONKEY_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     extra_headers=...,  # client_id / client_secret header pair
 )

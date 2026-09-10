@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 
 const root = resolve('out')
-const basePath = '/agent-fabric-sdk'
+const basePath = '/donkey-development-kit'
 const port = Number(process.env.PORT ?? 4173)
 
 const contentTypes = {

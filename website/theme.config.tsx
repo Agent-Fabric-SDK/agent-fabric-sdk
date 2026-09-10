@@ -2,19 +2,19 @@ import React from 'react'
 import { useRouter } from 'next/router'
 import { useConfig, type DocsThemeConfig } from 'nextra-theme-docs'
 
-const SITE_NAME = 'Agent Fabric SDK'
+const SITE_NAME = 'Donkey Development Kit'
 
 const config: DocsThemeConfig = {
   logo: (
     <span style={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
-      🧵 Agent Fabric SDK
+      🧵 Donkey Development Kit
     </span>
   ),
   project: {
-    link: 'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk',
+    link: 'https://github.com/Donkey-Development-Kit/donkey-development-kit',
   },
   docsRepositoryBase:
-    'https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/tree/main/website',
+    'https://github.com/Donkey-Development-Kit/donkey-development-kit/tree/main/website',
   // Violet accent, close to the reference docs look.
   color: {
     hue: 262,
@@ -42,8 +42,8 @@ const config: DocsThemeConfig = {
   footer: {
     content: (
       <span>
-        Agent Fabric SDK — an SDK <em>for</em> Agent Fabric. “Agent
-        Fabric”, “Anypoint”, and “Omni Gateway” are Salesforce trademarks; this
+        Donkey Development Kit — an SDK <em>for</em> Agent Fabric. “Agent
+        Donkey”, “Anypoint”, and “Omni Gateway” are Salesforce trademarks; this
         project is descriptive (§0.4).
       </span>
     ),

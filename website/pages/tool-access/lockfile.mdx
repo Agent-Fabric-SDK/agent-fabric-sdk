@@ -10,30 +10,30 @@ a tool with a different signature.
 
 ## Pin by default
 
-`fabric.tools.discover()` defaults to requiring an explicit version on every
+`donkey.tools.discover()` defaults to requiring an explicit version on every
 asset reference. `version="latest"` is still allowed, but only with a logged
 warning — it is an opt-in escape hatch, not the default path:
 
 ```python
 # explicit — no warning
-tools = await fabric.tools.discover(domain="hr", version="1.2.0")
+tools = await donkey.tools.discover(domain="hr", version="1.2.0")
 
 # opt-in — logs a warning every time it resolves
-tools = await fabric.tools.discover(domain="hr", version="latest")
+tools = await donkey.tools.discover(domain="hr", version="latest")
 ```
 
 ## The lockfile
 
-`fabric.tools.lock()` resolves the current discovery call and writes a
-`fabric.lock` file recording the resolved versions and content digests of
+`donkey.tools.lock()` resolves the current discovery call and writes a
+`donkey.lock` file recording the resolved versions and content digests of
 every asset it touched:
 
 ```bash
-python -c "import asyncio; from agent_fabric import Fabric; asyncio.run(Fabric.from_env().tools.lock())"
+python -c "import asyncio; from donkey_kit import Donkey; asyncio.run(Donkey.from_env().tools.lock())"
 ```
 
 ```yaml
-# fabric.lock (illustrative)
+# donkey.lock (illustrative)
 lockedAt: 2026-08-28T00:00:00Z
 assets:
   - ref: com.acme/hr-tools-mcp/1.2.0
@@ -42,15 +42,15 @@ assets:
     digest: sha256:...
 ```
 
-Once a `fabric.lock` exists, pass `locked=True` to discovery and it refuses to
+Once a `donkey.lock` exists, pass `locked=True` to discovery and it refuses to
 resolve anything not already in the lockfile:
 
 ```python
-tools = await fabric.tools.discover(domain="hr", locked=True)
-# raises if discovery would resolve an asset/version not in fabric.lock
+tools = await donkey.tools.discover(domain="hr", locked=True)
+# raises if discovery would resolve an asset/version not in donkey.lock
 ```
 
-Commit `fabric.lock` alongside your agent code. A version bump becomes a
+Commit `donkey.lock` alongside your agent code. A version bump becomes a
 reviewable diff in a pull request instead of a runtime surprise.
 
 <Callout type="info">
@@ -66,13 +66,13 @@ Registry lookups (`ExchangeRegistry.search()`, `resolve_mcp()`,
 are cached with a configurable TTL:
 
 ```python
-fabric = Fabric.from_env(registry_cache_ttl_s=300)
+donkey = Donkey.from_env(registry_cache_ttl_s=300)
 ```
 
-- `fabric.registry.refresh()` invalidates the cache and re-fetches on next
+- `donkey.registry.refresh()` invalidates the cache and re-fetches on next
   use — call it after a platform team publishes a change you need to see
   immediately.
-- Set `FABRIC_NO_CACHE=1` to bypass the cache entirely, for debugging a
+- Set `DONKEY_NO_CACHE=1` to bypass the cache entirely, for debugging a
   discovery result that looks stale.
 
 Caching and pinning solve different problems: caching controls how often you

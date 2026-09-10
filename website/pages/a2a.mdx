@@ -42,17 +42,17 @@ What *can* be removed is everything painful about it: TLS, auth, rate limits,
 public exposure, and registration. Those are the gateway's job, and that is
 where the SDK helps.
 
-## `fabric serve` — the listener, in one line
+## `donkey serve` — the listener, in one line
 
 ```python
-@fabric.agent(name="support-triage", skills=["triage", "draft-reply"])
+@donkey.agent(name="support-triage", skills=["triage", "draft-reply"])
 async def handle(task: A2ATask) -> A2AResult:
     return await graph.ainvoke(task.input)
 
-fabric.serve(handle)      # A2A server on 127.0.0.1:8000, card auto-generated
+donkey.serve(handle)      # A2A server on 127.0.0.1:8000, card auto-generated
 ```
 
-The card is generated from the same `@fabric.tool` / `@fabric.agent` markers
+The card is generated from the same `@donkey.tool` / `@donkey.agent` markers
 the [scanner](/publishing) reads, so there is no second description of your
 agent to keep in sync. It binds to **localhost by default** — your agent is
 never the public face.
@@ -66,10 +66,10 @@ every call arriving over A2A gets the same treatment as an outgoing one —
 correlation ID, cost tags, an OTel span, and typed refusals when the agent's
 own downstream calls are blocked.
 
-## `fabric expose` — the ingress, registered from code
+## `donkey expose` — the ingress, registered from code
 
 ```
-$ fabric expose --env prod
+$ donkey expose --env prod
   ✓ A2A proxy  https://gw.acme.internal/agents/support-triage
   ✓ policies   token-budget, pii-detection, trusted-agent-identity
   ✓ registry   support-triage v1.4.0
@@ -79,17 +79,17 @@ The gateway does the work — provisioning the A2A proxy, attaching the policy
 set, registering the card. The SDK's contribution is turning a console session
 into one command that runs in CI.
 
-## `fabric dev` — a gateway in front of your laptop
+## `donkey dev` — a gateway in front of your laptop
 
 Two options, and which one ships depends on what is actually available rather
 than on preference:
 
 - **A real gateway.** If a self-managed Omni Gateway image is usable for local
-  development, `fabric dev` runs it alongside `fabric serve` so you hit A2A
+  development, `donkey dev` runs it alongside `donkey serve` so you hit A2A
   *through real policies* on your machine. Gated on image availability and
   licensing.
 - **Simulated ingress.** If that is blocked, the [local simulator](/simulator)
-  gains an A2A ingress mode: a local fake gateway in front of `fabric serve`,
+  gains an A2A ingress mode: a local fake gateway in front of `donkey serve`,
   replaying the same rejection fixtures. Fully within this project's control,
   and held to the same honesty test — a plain A2A client must see
   byte-identical responses.

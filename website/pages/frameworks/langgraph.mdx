@@ -13,7 +13,7 @@ the Agent Fabric LLM proxy, with full header and transport injection.
 ## Install
 
 ```bash
-pip install "agent-fabric[langgraph]"
+pip install "donkey-kit[langgraph]"
 ```
 
 ## Quickstart
@@ -22,7 +22,7 @@ pip install "agent-fabric[langgraph]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.langgraph import chat_model
+from donkey_kit.integrations.langgraph import chat_model
 
 llm = chat_model("gpt-4o")
 ```
@@ -46,21 +46,21 @@ official `openai` npm client at it — the same base URL and
 
 ## Three ways to construct
 
-**1. Off a shared `Fabric` instance** (reuses one HTTP client + lifecycle
+**1. Off a shared `Donkey` instance** (reuses one HTTP client + lifecycle
 across every adapter you touch in a run):
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-async with Fabric.from_env() as fabric:
-    llm = fabric.langgraph.chat_model("gpt-4o")
+async with Donkey.from_env() as donkey:
+    llm = donkey.langgraph.chat_model("gpt-4o")
 ```
 
 **2. Module-level factory** (shortest — uses a cached, env-configured default
-`Fabric` under the hood):
+`Donkey` under the hood):
 
 ```python
-from agent_fabric.integrations.langgraph import chat_model
+from donkey_kit.integrations.langgraph import chat_model
 
 llm = chat_model("gpt-4o")
 ```
@@ -68,11 +68,11 @@ llm = chat_model("gpt-4o")
 **3. Governed kwargs, native constructor** (you call `ChatOpenAI` yourself):
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 from langchain_openai import ChatOpenAI
 
-async with Fabric.from_env() as fabric:
-    llm = ChatOpenAI(model="gpt-4o", **fabric.langgraph.connection_kwargs())
+async with Donkey.from_env() as donkey:
+    llm = ChatOpenAI(model="gpt-4o", **donkey.langgraph.connection_kwargs())
 ```
 
 ## The manual equivalent (eject at any time)
@@ -84,7 +84,7 @@ from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
     model="gpt-4o",
-    base_url=...,             # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,             # from DONKEY_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,      # client_id / client_secret header pair, not bearer
     http_async_client=...,    # the SDK's shared httpx async client

@@ -23,11 +23,11 @@ semantic conventions** — `gen_ai.system`, `gen_ai.request.model`,
 for the governance layer that generic instrumentation cannot know about:
 
 ```
-fabric.policy.decision      = allow | refuse
-fabric.policy.type          = pii_detected | token_budget | injection | …
-fabric.budget.remaining     = 18450
-fabric.correlation_id       = …
-fabric.cost.team            = support
+donkey.policy.decision      = allow | refuse
+donkey.policy.type          = pii_detected | token_budget | injection | …
+donkey.budget.remaining     = 18450
+donkey.correlation_id       = …
+donkey.cost.team            = support
 ```
 
 Export goes over OTLP to wherever you already send spans. **Nothing in the
@@ -42,7 +42,7 @@ dashboard you already have, with no new tooling to adopt.
 <Callout type="warning">
   **The GenAI conventions are still `Development` status upstream.** Attribute
   names can change. So the semconv version is **pinned**, and spans are
-  **dual-emitted**: `gen_ai.*` at the pinned version, plus a stable `fabric.*`
+  **dual-emitted**: `gen_ai.*` at the pinned version, plus a stable `donkey.*`
   namespace under this project's control. Your dashboards do not break when
   upstream renames something.
 </Callout>
@@ -66,28 +66,28 @@ wire, on every span, and on every exception — with nothing threaded through yo
 framework state:
 
 ```python
-async with fabric.run(id=ticket.id):
+async with donkey.run(id=ticket.id):
     await triage_agent.run(ticket)
 ```
 
-`fabric.run(id=…)` binds **two ids**:
+`donkey.run(id=…)` binds **two ids**:
 
 - a **run id** → the `X-Correlation-Id` request header → the span's
-  `fabric.correlation_id` → `FabricError.correlation_id`. Shared by every call in
+  `donkey.correlation_id` → `DonkeyError.correlation_id`. Shared by every call in
   the block, so a client-side log line **joins** to the gateway's own record.
-- a fresh **per-call id** → the `X-Fabric-Request-Id` request header →
-  `FabricError.call_id`. Unique per logical request, stable across that request's
+- a fresh **per-call id** → the `X-Donkey-Request-Id` request header →
+  `DonkeyError.call_id`. Unique per logical request, stable across that request's
   retries, so one call is pinpointable within a run.
 
 Propagation is contextvar-based, so it reaches through framework nodes (every
 LangGraph node, for instance) without threading an argument through every
 function, and concurrent runs never leak into each other. It works with or
-without OpenTelemetry installed. `fabric.run(...)` is a **dual sync/async**
+without OpenTelemetry installed. `donkey.run(...)` is a **dual sync/async**
 context manager (plain `with` works too); nested blocks rebind then restore.
 
 <Callout type="warning">
   Whether the gateway **reads** an inbound `X-Correlation-Id` /
-  `X-Fabric-Request-Id` is unverified — `x-correlation-id` is confirmed only as a
+  `X-Donkey-Request-Id` is unverified — `x-correlation-id` is confirmed only as a
   gateway **response** echo. So those request-header **names** are overridable
   placeholders (`correlation_header` / `call_id_header`), not guesses
   ([Verification policy](/concepts/verification), §0.3).
@@ -99,9 +99,9 @@ A small, fixed set of tags — `team`, `project`, `env`, `enduser.id` — set on
 and injected as headers on every call:
 
 ```python
-fabric = Fabric.from_env(team="support", project="triage-v2", env="prod")
+donkey = Donkey.from_env(team="support", project="triage-v2", env="prod")
 
-async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
+async with donkey.run(id=ticket.id, enduser_id=agent_user.id):
     await triage_agent.run(ticket)
 ```
 
@@ -115,7 +115,7 @@ Without tags, both agents share one `client_id`, and the honest answer is
 And for compliance: *"prove the HR bot's answer to user X on date Y went
 through the content-safety policy."* The correlation ID on the log line joins
 to the gateway record, and the span carries `enduser.id` and
-`fabric.policy.type`. That is what an EU AI Act Article 12 log request looks
+`donkey.policy.type`. That is what an EU AI Act Article 12 log request looks
 like in practice — one query, not an investigation.
 
 <Callout type="warning">
@@ -130,15 +130,15 @@ JSON blob into a header.
 
 ## Acceptance bar
 
-- Zero-config: `Fabric.from_env()` plus `OTEL_EXPORTER_OTLP_ENDPOINT` produces
+- Zero-config: `Donkey.from_env()` plus `OTEL_EXPORTER_OTLP_ENDPOINT` produces
   spans, with no SDK-specific environment variable.
 - A **refused** request still produces a span, with
-  `fabric.policy.decision=refuse` and `otel.status_code=ERROR`.
+  `donkey.policy.decision=refuse` and `otel.status_code=ERROR`.
 - A streaming response produces **exactly one** span, with token counts filled
   in at stream end.
 - Opt-out behind a single flag, and under 1 ms of overhead — benchmarked in CI,
   not asserted in prose.
-- Every `FabricError` exposes `.correlation_id` (the run id) and `.call_id` (the
+- Every `DonkeyError` exposes `.correlation_id` (the run id) and `.call_id` (the
   per-call id), each matching the header sent.
 
 ---

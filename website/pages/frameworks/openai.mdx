@@ -16,7 +16,7 @@ verified headers, and hands it to the Agents SDK ready-made.
 ## Install
 
 ```bash
-pip install "agent-fabric[openai-agents]"
+pip install "donkey-kit[openai-agents]"
 ```
 
 ## Quickstart
@@ -25,7 +25,7 @@ pip install "agent-fabric[openai-agents]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.openai_agents import model
+from donkey_kit.integrations.openai_agents import model
 
 llm = model("gpt-4o")
 ```
@@ -49,19 +49,19 @@ JS** (`@openai/agents`).
 
 ## Three ways to construct
 
-**1. Off a shared `Fabric` instance:**
+**1. Off a shared `Donkey` instance:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-async with Fabric.from_env() as fabric:
-    llm = fabric.openai_agents.model("gpt-4o")
+async with Donkey.from_env() as donkey:
+    llm = donkey.openai_agents.model("gpt-4o")
 ```
 
 **2. Module-level factory** (shortest):
 
 ```python
-from agent_fabric.integrations.openai_agents import model
+from donkey_kit.integrations.openai_agents import model
 
 llm = model("gpt-4o")
 ```
@@ -69,13 +69,13 @@ llm = model("gpt-4o")
 **3. Governed kwargs, native constructor:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 from agents import OpenAIChatCompletionsModel
 
-async with Fabric.from_env() as fabric:
+async with Donkey.from_env() as donkey:
     llm = OpenAIChatCompletionsModel(
         model="gpt-4o",
-        **fabric.openai_agents.connection_kwargs(),
+        **donkey.openai_agents.connection_kwargs(),
     )
 ```
 
@@ -86,7 +86,7 @@ from openai import AsyncOpenAI
 from agents import OpenAIChatCompletionsModel
 
 async_client = AsyncOpenAI(
-    base_url=...,          # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,          # from DONKEY_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,   # client_id / client_secret header pair
     http_client=...,       # the SDK's shared httpx client
@@ -113,8 +113,8 @@ pre-built `AsyncOpenAI` instance.
 
 > The `openai-agents` package is distinct from the plain `openai` client —
 > `agents.OpenAIChatCompletionsModel` lives in the Agents SDK, not in the base
-> OpenAI Python SDK. Installing `agent-fabric[openai-agents]` pulls in
+> OpenAI Python SDK. Installing `donkey-kit[openai-agents]` pulls in
 > `openai-agents` for you. For the raw governed client with no framework, use
-> `fabric.openai()` (from `agent-fabric[llm]`) instead.
+> `donkey.openai()` (from `donkey-kit[llm]`) instead.
 
 <AdapterErrorTaxonomyNote />

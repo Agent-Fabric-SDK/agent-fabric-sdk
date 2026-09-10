@@ -12,7 +12,7 @@
   <rect width="1800" height="1160" fill="#FFFFFF"/>
 
   <!-- ================= title ================= -->
-  <text x="40" y="46" font-size="31" font-weight="700" fill="#0F172A">Agent Fabric SDK &#8212; from your framework to the governed gateway</text>
+  <text x="40" y="46" font-size="31" font-weight="700" fill="#0F172A">Donkey Development Kit &#8212; from your framework to the governed gateway</text>
   <text x="40" y="76" font-size="16.5" fill="#64748B">Your code stays native. The SDK injects governance into the transport. The Omni Gateway enforces policy before any model sees your prompt.</text>
 
   <!-- ================= arrows in the gaps ================= -->
@@ -79,18 +79,18 @@
 
   <!-- ================= 2 - SDK ================= -->
   <rect x="40" y="296" width="1720" height="270" rx="14" fill="#F0F7FF" stroke="#0176D3" stroke-width="2"/>
-  <text x="64" y="327" font-size="13.5" font-weight="700" letter-spacing="1.4" fill="#0176D3">2 &#183; AGENT FABRIC SDK</text>
-  <text x="399" y="327" font-size="12.5" fill="#64748B" font-family="ui-monospace, 'SF Mono', Menlo, monospace">pip install "agent-fabric[llm,langgraph]"</text>
+  <text x="64" y="327" font-size="13.5" font-weight="700" letter-spacing="1.4" fill="#0176D3">2 &#183; DONKEY DEVELOPMENT KIT</text>
+  <text x="399" y="327" font-size="12.5" fill="#64748B" font-family="ui-monospace, 'SF Mono', Menlo, monospace">pip install "donkey-kit[llm,langgraph]"</text>
 
   <!-- col 1 -->
   <rect x="64" y="344" width="536" height="138" rx="10" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
   <circle cx="95" cy="366" r="11" fill="#0176D3"/>
   <text x="95" y="371" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
   <text x="116" y="371" font-size="14.5" font-weight="700" fill="#0176D3">Resolve config</text>
-  <text x="84" y="398" font-size="12.5" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">Fabric.from_env()</text>
-  <text x="84" y="418" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">AGENT_FABRIC_LLM_PROXY_URL</text>
-  <text x="84" y="436" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">AGENT_FABRIC_LLM_PROXY_CLIENT_ID / _CLIENT_SECRET</text>
-  <text x="84" y="462" font-size="11.5" fill="#64748B">kwargs &#8594; env &#8594; .agent-fabric.toml. Every missing</text>
+  <text x="84" y="398" font-size="12.5" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">Donkey.from_env()</text>
+  <text x="84" y="418" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">DONKEY_LLM_PROXY_URL</text>
+  <text x="84" y="436" font-size="11.5" fill="#475569" font-family="ui-monospace, 'SF Mono', Menlo, monospace">DONKEY_LLM_PROXY_CLIENT_ID / _CLIENT_SECRET</text>
+  <text x="84" y="462" font-size="11.5" fill="#64748B">kwargs &#8594; env &#8594; .donkey-kit.toml. Every missing</text>
   <text x="84" y="476" font-size="11.5" fill="#64748B">value is reported at once, not one per run.</text>
 
   <!-- col 2 -->
@@ -98,7 +98,7 @@
   <circle cx="663" cy="366" r="11" fill="#0176D3"/>
   <text x="663" y="371" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
   <text x="684" y="371" font-size="14.5" font-weight="700" fill="#0176D3">Build the native object</text>
-  <text x="652" y="398" font-size="12" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">fabric.langgraph.chat_model("gpt-4o")</text>
+  <text x="652" y="398" font-size="12" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">donkey.langgraph.chat_model("gpt-4o")</text>
   <text x="652" y="419" font-size="12" fill="#059669" font-family="ui-monospace, 'SF Mono', Menlo, monospace">&#8594; a real langchain_openai.ChatOpenAI</text>
   <text x="652" y="441" font-size="11.5" font-weight="700" fill="#0F172A">The one design rule: never a wrapper.</text>
   <text x="652" y="462" font-size="11.5" fill="#64748B">connection_kwargs() prints the exact constructor</text>
@@ -109,7 +109,7 @@
   <circle cx="1231" cy="366" r="11" fill="#0176D3"/>
   <text x="1231" y="371" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
   <text x="1252" y="371" font-size="14.5" font-weight="700" fill="#0176D3">Govern the transport</text>
-  <text x="1220" y="398" font-size="12" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">FabricAsyncClient &#183; FabricClient (sync)</text>
+  <text x="1220" y="398" font-size="12" fill="#0F172A" font-family="ui-monospace, 'SF Mono', Menlo, monospace">DonkeyAsyncClient &#183; DonkeyClient (sync)</text>
   <text x="1220" y="420" font-size="11.5" fill="#475569">One shared httpx client, handed to every adapter.</text>
   <text x="1220" y="438" font-size="11.5" fill="#475569">Injects headers on every outbound request.</text>
   <text x="1220" y="462" font-size="11.5" fill="#64748B">Retries 502 / 503 / 504 (transient) with backoff + jitter.</text>
@@ -134,7 +134,7 @@
   <rect x="1096" y="507" width="290" height="32" rx="7" fill="#F1F5F9" stroke="#CBD5E1"/>
   <text x="1241" y="528" font-size="12.5" font-weight="600" fill="#475569" text-anchor="middle">passthrough &#183; UpstreamRequestError</text>
 
-  <text x="1404" y="528" font-size="11.5" fill="#94A3B8">all subclass FabricError</text>
+  <text x="1404" y="528" font-size="11.5" fill="#94A3B8">all subclass DonkeyError</text>
 
   <!-- ================= 3 - THE WIRE ================= -->
   <rect x="40" y="616" width="1720" height="78" rx="14" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="6 5"/>

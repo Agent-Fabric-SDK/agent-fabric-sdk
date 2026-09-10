@@ -14,7 +14,7 @@ injected directly into the client constructor.
 ## Install
 
 ```bash
-pip install "agent-fabric[anthropic]"
+pip install "donkey-kit[anthropic]"
 ```
 
 ## Quickstart
@@ -23,7 +23,7 @@ pip install "agent-fabric[anthropic]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.anthropic import client
+from donkey_kit.integrations.anthropic import client
 
 llm = client()
 ```
@@ -55,11 +55,11 @@ needed before relying on this path.
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({
-  baseURL: process.env.AGENT_FABRIC_LLM_PROXY_URL,   // UNVERIFIED: needs an Anthropic-native route
+  baseURL: process.env.DONKEY_LLM_PROXY_URL,   // UNVERIFIED: needs an Anthropic-native route
   apiKey: "unused",                              // required slot; proxy uses the headers below
   defaultHeaders: {
-    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.DONKEY_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.DONKEY_LLM_PROXY_CLIENT_SECRET!,
   },
 });
 
@@ -76,19 +76,19 @@ console.log(reply.content);
 
 ## Three ways to construct
 
-**1. Off a shared `Fabric` instance:**
+**1. Off a shared `Donkey` instance:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-async with Fabric.from_env() as fabric:
-    llm = fabric.anthropic.client()
+async with Donkey.from_env() as donkey:
+    llm = donkey.anthropic.client()
 ```
 
 **2. Module-level factory** (shortest):
 
 ```python
-from agent_fabric.integrations.anthropic import client
+from donkey_kit.integrations.anthropic import client
 
 llm = client()
 ```
@@ -96,11 +96,11 @@ llm = client()
 **3. Governed kwargs, native constructor:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 from anthropic import AsyncAnthropic
 
-async with Fabric.from_env() as fabric:
-    llm = AsyncAnthropic(**fabric.anthropic.connection_kwargs())
+async with Donkey.from_env() as donkey:
+    llm = AsyncAnthropic(**donkey.anthropic.connection_kwargs())
 ```
 
 ## The manual equivalent (eject at any time)
@@ -109,7 +109,7 @@ async with Fabric.from_env() as fabric:
 from anthropic import AsyncAnthropic
 
 llm = AsyncAnthropic(
-    base_url=...,          # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,          # from DONKEY_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,   # client_id / client_secret header pair
     http_client=...,       # the SDK's shared httpx client
@@ -125,7 +125,7 @@ you can always drop the factory and construct `AsyncAnthropic` by hand.
 > roster returns a framework object already bound to a model id, because the
 > underlying native constructor accepts `model` as a kwarg. `AsyncAnthropic`
 > doesn't work that way — it's a bare client, and the model id is an argument
-> to `.messages.create()`, not to the constructor. `fabric.anthropic.client()`
+> to `.messages.create()`, not to the constructor. `donkey.anthropic.client()`
 > therefore takes no model argument at all; you supply the model id yourself
 > on every call.
 
