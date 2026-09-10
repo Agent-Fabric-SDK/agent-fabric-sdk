@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for working on the Agent Fabric SDK. This guide is the contributor-facing
+Thanks for working on the Donkey Development Kit. This guide is the contributor-facing
 runbook for the repo: how a change moves from an issue to `main`, how the code is
 tested and linted, and the conventions that keep the package trustworthy.
 
@@ -12,7 +12,7 @@ owns feature scope (cited `BG §N.N`), and a bare `§N.N` resolves into the
 archived v1 plan. When a rule here feels arbitrary, read the cited section.
 
 > **These conventions are also encoded as Claude Code skills** under
-> `.claude/skills/afdk-*/` (one runbook per topic, listed in
+> `.claude/skills/ddk-*/` (one runbook per topic, listed in
 > [`.claude/skills/README.md`](.claude/skills/README.md)). Those skills are the
 > machine-readable, operational form for agent-assisted work; this document is
 > their human-readable distillation. If the two ever diverge, the skills are the
@@ -54,7 +54,7 @@ find yourself on `main` about to start work, `git checkout develop` first.
 ### The lifecycle
 
 1. **Find or file the issue.** Search first (`gh issue list --repo
-   Agent-Fabric-SDK/agent-fabric-sdk --search "<keywords>"`); file one if none
+   Donkey-Development-Kit/donkey-development-kit --search "<keywords>"`); file one if none
    matches. Every issue carries exactly one **milestone** — that milestone is the
    release the branch targets. Triage is by milestone + labels; there is no
    Projects board.
@@ -113,7 +113,7 @@ python scripts/verify_frameworks.py
 ```
 
 If you added or touched an adapter, sanity-check that a bare `pip install -e
-".[dev]"` + `python -c "import agent_fabric"` still succeeds — that's the
+".[dev]"` + `python -c "import donkey_kit"` still succeeds — that's the
 `base-only` CI job catching a framework import that leaked into a lower layer.
 
 ### The PR
@@ -165,7 +165,7 @@ scenario nobody reviews). Pick by what the change exercises:
 | An adapter's behavior against a fixed scenario set (any of the eight frameworks) | **`tests/conformance/suite.py`** — the conformance kit |
 | Behavior pinned to a **real captured** Anypoint request/response | **fixture-driven** test reading `tests/fixtures/anypoint/**` |
 | A running local Omni Gateway (docker) | `@pytest.mark.local_gateway` (off by default) |
-| A real Anypoint sandbox | `@pytest.mark.sandbox` (off by default, gated by `FABRIC_SANDBOX_TESTS=1`) |
+| A real Anypoint sandbox | `@pytest.mark.sandbox` (off by default, gated by `DONKEY_SANDBOX_TESTS=1`) |
 | A framework's constructor signature/kwargs | `scripts/verify_frameworks.py` (not pytest) |
 
 If a change fits none of these, stop and ask — don't invent a sixth surface.
@@ -173,7 +173,7 @@ If a change fits none of these, stop and ask — don't invent a sixth surface.
 ### `tests/unit/` — the framework-free gate
 
 The `base-only` CI job installs **only** `.[dev]` (no `llm`, no framework
-extras), imports `agent_fabric`, then runs `pytest -q tests/unit`. Everything
+extras), imports `donkey_kit`, then runs `pytest -q tests/unit`. Everything
 here must work with zero optional dependencies. **Never add a top-level framework
 import to a file under `tests/unit/`** — that's exactly the drift this job
 exists to catch. Error-classification changes must keep the taxonomy invariants
@@ -222,7 +222,7 @@ yet — they're declared ahead of the M1+ tests that will need them.
   `policy_events(policy_name)` parsed from gateway logs, so a test can assert a
   policy actually fired.
 - **`@pytest.mark.sandbox`** needs a real Anypoint sandbox and is gated by
-  `FABRIC_SANDBOX_TESTS=1`.
+  `DONKEY_SANDBOX_TESTS=1`.
 
 A test under either marker must **degrade to a clean skip** (not a failure) when
 its docker service / env var is absent — that's what "off by default" means. This
@@ -237,7 +237,7 @@ This is the executable §0.3 verification step for adapters' native constructor
 signatures (`docs/verified-apis.md` §8): does the exact class we name exist and
 accept the exact kwargs we pass, against the framework as actually installed.
 `--live` adds one real completion round-trip (needs the three
-`AGENT_FABRIC_LLM_PROXY_*` env vars); `--only <fw>` restricts scope;
+`DONKEY_LLM_PROXY_*` env vars); `--only <fw>` restricts scope;
 `--emit-verified` prints §8 markdown rows after maintainer sign-off. A
 `_verify.blocked(...)`-guarded adapter correctly shows as `BLOCKED (§0.3)`, not a
 failure — don't "fix" the script to make a genuinely-blocked adapter pass.
@@ -258,10 +258,10 @@ python scripts/verify_frameworks.py [--live] [--only <fw>] [--emit-verified]
 
 ## 3. Coding conventions
 
-The full pre-write checklist lives in the `afdk-coding-conventions` skill and the
+The full pre-write checklist lives in the `ddk-coding-conventions` skill and the
 build plan; the load-bearing rules:
 
-- **`mypy --strict`, blocking.** The whole `src/agent_fabric` tree is
+- **`mypy --strict`, blocking.** The whole `src/donkey_kit` tree is
   strict-checked. Annotate every public signature; no untyped defs, no implicit
   `Any`. Prefer `X | None` over `Optional[X]` (ruff `UP` rewrites the old form),
   and put `from __future__ import annotations` at the top of every module (house
@@ -272,7 +272,7 @@ build plan; the load-bearing rules:
   only** — no agent framework, ever. Adapters import their framework **lazily,
   inside the method that uses it**, never at module top level; import the
   framework's *types* only under `if TYPE_CHECKING:`. This is what lets
-  `import agent_fabric` succeed with no framework installed, and the `base-only`
+  `import donkey_kit` succeed with no framework installed, and the `base-only`
   job enforces it. The layering (`integrations → tools → registry → llm → core`,
   lower never imports higher) is enforced by `lint-imports`. See
   [`ARCHITECTURE.md`](ARCHITECTURE.md#layered-architecture-11).
@@ -293,7 +293,7 @@ build plan; the load-bearing rules:
 - **pydantic v2** idioms (`model_validate`, `Field`, `model_config`); the
   `pydantic.mypy` plugin is on. The package ships `py.typed` (PEP 561) — keep the
   public API fully annotated so downstream users get types.
-- **Three ergonomic forms per governed surface** — the `fabric.<framework>`
+- **Three ergonomic forms per governed surface** — the `donkey.<framework>`
   factory, a `connection_kwargs()` accessor, and a module-level factory. Keep all
   three when adding an adapter (they must stay in lockstep).
 - **`§N.N` citation habit.** When code encodes a build-plan decision, cite the
@@ -304,7 +304,7 @@ build plan; the load-bearing rules:
   Gateway", and "MuleSoft" are Salesforce trademarks. Write the package as a
   descriptive, third-party SDK for *consuming* Agent Fabric, never as a
   first-party or official Salesforce product.
-- **Never commit secrets.** `.agent-fabric.local.toml`, `fabric.lock.local`, and
+- **Never commit secrets.** `.donkey-kit.local.toml`, `donkey.lock.local`, and
   `.env` are gitignored. The LLM proxy authenticates on a `client_id`/`client_secret`
   header pair (consumer auth), separate from any Anypoint control-plane credential.
 
@@ -320,7 +320,7 @@ perspective. When code changes what the SDK does — or which platform facts it
 depends on — the docs must change *with it*, or the drift is discovered by a
 confused adopter instead of at review time. There is no automated drift detector;
 this is a PR-time discipline. The full surface→page mapping is in the
-`afdk-docs-sync` skill — the load-bearing cases:
+`ddk-docs-sync` skill — the load-bearing cases:
 
 | Code surface | Docs page(s) |
 | --- | --- |
