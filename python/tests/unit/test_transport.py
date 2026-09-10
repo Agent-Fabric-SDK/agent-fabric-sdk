@@ -761,6 +761,9 @@ def _sse_response(chunks) -> httpx.Response:
 
 
 def _span_status_code():
+    # importorskip so the base-only job (no opentelemetry installed at all) SKIPS
+    # these status-assertion tests instead of erroring on the bare import.
+    pytest.importorskip("opentelemetry")
     from opentelemetry.trace import StatusCode
 
     return StatusCode

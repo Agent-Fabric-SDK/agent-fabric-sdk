@@ -246,9 +246,9 @@ def test_genai_span_set_error_is_inert_without_a_span() -> None:
 
 
 def test_genai_span_set_error_sets_error_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    tracer, exporter = _in_memory_tracer()  # importorskips: base-only skips this test
     from opentelemetry.trace import StatusCode
 
-    tracer, exporter = _in_memory_tracer()
     monkeypatch.setattr(telemetry, "_tracer", lambda: tracer)
 
     with telemetry.genai_span(enabled=True) as gspan:
