@@ -26,6 +26,7 @@ per-client rather than per-run. Document that degradation per adapter (§3.3).
 from __future__ import annotations
 
 import asyncio
+import json
 import random
 import time
 
@@ -35,7 +36,16 @@ from . import _verify
 from .auth import AuthProvider
 from .budget import Budget
 from .config import FabricConfig
-from .telemetry import ensure_correlation_id, request_correlation_id
+from .errors import classify
+from .telemetry import (
+    POLICY_DECISION_ALLOW,
+    POLICY_DECISION_REFUSE,
+    GenAiSpan,
+    ensure_correlation_id,
+    genai_span,
+    policy_type_slug,
+    request_correlation_id,
+)
 
 CORRELATION_HEADER = "X-Correlation-Id"
 # The OpenAI-compatible SDKs reject an empty ``api_key``. The governed proxy
@@ -117,6 +127,118 @@ def _retry_delay(attempt: int, response: httpx.Response) -> float:
     return exp * (0.5 + random.random() / 2.0)  # full-ish jitter
 
 
+# --- GenAI span extraction (#192, BG §1.6) ----------------------------------
+# Shared by both transports (sync + async). Each takes a plain response/request,
+# so the span-recording logic lives in one place and cannot drift between the
+# two clients. The response header carrying the resolved upstream provider is
+# VERIFIED (LIVE) — docs/verified-apis.md §2 "Model routing" and §3 "Gateway
+# identity on response" — and is the SOLE source of gen_ai.system; absent → the
+# attribute is omitted, never guessed (§0.3), because the proxy routes to
+# several providers and defaulting one would misattribute the call.
+_PROVIDER_HEADER = "x-llm-proxy-llm-provider"
+# Streaming (SSE) responses carry no usage on the envelope; usage lives in a
+# terminal event, deferred to #193.
+_STREAM_CONTENT_TYPE = "text/event-stream"
+
+
+def _request_model(request: httpx.Request) -> str | None:
+    """The requested model from the request's JSON body (``gen_ai.request.model``),
+    or ``None`` when the body is absent, unreadable, not JSON, or carries no
+    ``model``. A ``None`` marks "not a GenAI call": no span is opened, so GETs,
+    token fetches and bodyless POSTs stay byte-identical."""
+    try:
+        raw = request.content
+    except Exception:  # noqa: BLE001 — streaming/unread body is not a model call
+        return None
+    if not raw:
+        return None
+    try:
+        body = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if isinstance(body, dict):
+        model = body.get("model")
+        return model if isinstance(model, str) else None
+    return None
+
+
+def _first_int(mapping: dict[str, object], *keys: str) -> int | None:
+    """The first key present as an ``int`` (``bool`` excluded — it subclasses int)."""
+    for key in keys:
+        value = mapping.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return None
+
+
+def _usage_tokens(response: httpx.Response) -> tuple[int | None, int | None]:
+    """``(input, output)`` token counts from a buffered 2xx JSON body, else
+    ``(None, None)``. Handles the Responses API (``input_tokens`` /
+    ``output_tokens``) and Chat Completions (``prompt_tokens`` /
+    ``completion_tokens``). SSE bodies and non-2xx refusals carry no usage here."""
+    if response.status_code // 100 != 2:
+        return None, None
+    if _STREAM_CONTENT_TYPE in response.headers.get("content-type", ""):
+        return None, None
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001 — unread/streaming/invalid body: no usage
+        return None, None
+    if not isinstance(body, dict):
+        return None, None
+    usage = body.get("usage")
+    if not isinstance(usage, dict):
+        return None, None
+    return (
+        _first_int(usage, "input_tokens", "prompt_tokens"),
+        _first_int(usage, "output_tokens", "completion_tokens"),
+    )
+
+
+def _span_decision(response: httpx.Response) -> tuple[str | None, str | None]:
+    """``(fabric.policy.decision, fabric.policy.type)`` for the final response:
+    ``allow`` on 2xx; ``refuse`` + a policy-type slug when :func:`classify` maps
+    the refusal to a :class:`~.errors.PolicyViolation`; ``(None, None)`` for a
+    non-policy error (auth / upstream / 5xx), so the transport omits the decision
+    rather than misreporting an allow or a refuse."""
+    if response.status_code // 100 == 2:
+        return POLICY_DECISION_ALLOW, None
+    slug = policy_type_slug(classify(response))
+    if slug is None:
+        return None, None
+    return POLICY_DECISION_REFUSE, slug
+
+
+def _record_response(
+    gspan: GenAiSpan,
+    request: httpx.Request,
+    response: httpx.Response,
+    budget: Budget | None,
+) -> None:
+    """Record the dual-namespace response attributes on the span, after
+    ``_on_response`` has fed the budget. Never raises: a telemetry failure must
+    not mask the caller's result.
+
+    The correlation id is read back from the request header the event hook set,
+    so the span attribute equals the id actually sent on the wire — the sync and
+    async transports source that id differently, and reading the header makes the
+    recorded value correct for both."""
+    try:
+        decision, policy_type = _span_decision(response)
+        input_tokens, output_tokens = _usage_tokens(response)
+        gspan.record(
+            system=response.headers.get(_PROVIDER_HEADER),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            decision=decision,
+            policy_type=policy_type,
+            budget_remaining=budget.remaining if budget is not None else None,
+            correlation_id=request.headers.get(CORRELATION_HEADER),
+        )
+    except Exception:  # noqa: BLE001 — telemetry must never break the request
+        pass
+
+
 class FabricAsyncClient(httpx.AsyncClient):
     """An ``httpx.AsyncClient`` that injects attribution/correlation/auth headers
     and applies the SDK's retry policy. Every adapter that accepts a custom HTTP
@@ -194,54 +316,74 @@ class FabricAsyncClient(httpx.AsyncClient):
         request: httpx.Request,
         **kwargs: object,
     ) -> httpx.Response:
-        await self._on_request(request)
-        attempts = self._cfg.max_retries + 1
-        refreshed_once = False
-        last_response: httpx.Response | None = None
+        model = _request_model(request)
+        # A GenAI span is opened only for a model call (a JSON body carrying a
+        # ``model``); GETs, token fetches and bodyless POSTs open none and stay
+        # byte-identical (#192). The span is a context manager so it closes on the
+        # way out even when ``super().send()`` raises before a response exists —
+        # a transport error escapes ``_finish``, so the lifecycle cannot rely on
+        # it (see ``_finish``'s note, #179/#192).
+        enabled = self._cfg.telemetry and model is not None
+        with genai_span(enabled=enabled) as gspan:
+            gspan.record(request_model=model)
+            await self._on_request(request)
+            attempts = self._cfg.max_retries + 1
+            refreshed_once = False
+            last_response: httpx.Response | None = None
 
-        attempt = 0
-        while attempt < attempts:
-            response = await super().send(request, **kwargs)  # type: ignore[arg-type]
-            last_response = response
+            attempt = 0
+            while attempt < attempts:
+                response = await super().send(request, **kwargs)  # type: ignore[arg-type]
+                last_response = response
 
-            provider = self._token_provider
-            can_refresh = provider is not None and not refreshed_once
-            if response.status_code == 401 and can_refresh:
-                assert provider is not None  # narrowed by can_refresh
-                refreshed_once = True
-                await response.aclose()
-                await provider.invalidate()
-                # A 401 refresh is an auth re-send, not a rate-limit backoff, so
-                # it does NOT consume the retry budget (§2.2: "retry exactly once
-                # on 401"): re-send once with the fresh token regardless of
-                # `attempt`, so the retry still happens on the final attempt /
-                # max_retries=0. Event hooks re-run on send() → fresh token.
-                continue
+                provider = self._token_provider
+                can_refresh = provider is not None and not refreshed_once
+                if response.status_code == 401 and can_refresh:
+                    assert provider is not None  # narrowed by can_refresh
+                    refreshed_once = True
+                    await response.aclose()
+                    await provider.invalidate()
+                    # A 401 refresh is an auth re-send, not a rate-limit backoff,
+                    # so it does NOT consume the retry budget (§2.2: "retry exactly
+                    # once on 401"): re-send once with the fresh token regardless
+                    # of `attempt`, so the retry still happens on the final attempt
+                    # / max_retries=0. Event hooks re-run on send() → fresh token.
+                    continue
 
-            if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
-                delay = _retry_delay(attempt, response)
-                await response.aclose()
-                await asyncio.sleep(delay)
-                attempt += 1
-                continue
+                if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
+                    delay = _retry_delay(attempt, response)
+                    await response.aclose()
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    continue
 
-            return await self._finish(request, response)
+                return await self._finish(request, response, gspan)
 
-        assert last_response is not None  # attempts >= 1
-        return await self._finish(request, last_response)
+            assert last_response is not None  # attempts >= 1
+            return await self._finish(request, last_response, gspan)
 
-    async def _finish(self, request: httpx.Request, response: httpx.Response) -> httpx.Response:
+    async def _finish(
+        self, request: httpx.Request, response: httpx.Response, gspan: GenAiSpan
+    ) -> httpx.Response:
         """Fire the response hook exactly once, on the final response returned to
-        the caller. Retry/refresh ``continue`` branches close their intermediate
-        response and loop instead of funnelling through here, so ``_on_response``
-        only ever sees the response actually returned — never a closed one.
+        the caller, then record the response attributes on the GenAI span. Retry/
+        refresh ``continue`` branches close their intermediate response and loop
+        instead of funnelling through here, so ``_on_response`` only ever sees the
+        response actually returned — never a closed one.
+
+        ``_record_response`` runs after ``_on_response`` so the span's
+        ``fabric.budget.remaining`` reflects the budget the same response just fed
+        (#185/#192); it never raises, so telemetry can't mask the caller's result.
 
         A transport-level error escapes ``super().send()`` before we reach here,
-        so ``_on_response`` cannot run to mask the underlying HTTP error (AC #4).
-        NB: that also means ``_on_request`` has no paired ``_on_response`` on a
-        network failure — the future span-lifecycle consumer (#192) must close
-        its span in a ``finally`` around the call, not rely on ``_on_response``."""
+        so ``_on_response``/``_record_response`` cannot run to mask the underlying
+        HTTP error (AC #4). The span still closes: it is opened as a context
+        manager around the whole retry loop in :meth:`send`, so a network failure
+        that skips ``_finish`` closes the span (with the request model already
+        recorded) on the way out — the span lifecycle does NOT rely on this hook
+        (#179/#192)."""
         await self._on_response(request, response)
+        _record_response(gspan, request, response, self._budget)
         return response
 
 
@@ -298,31 +440,40 @@ class FabricClient(httpx.Client):
         self._transport = transport
 
     def send(self, request: httpx.Request, **kwargs: object) -> httpx.Response:
-        self._on_request(request)
-        attempts = self._cfg.max_retries + 1
-        last_response: httpx.Response | None = None
+        model = _request_model(request)
+        enabled = self._cfg.telemetry and model is not None  # see FabricAsyncClient.send
+        with genai_span(enabled=enabled) as gspan:
+            gspan.record(request_model=model)
+            self._on_request(request)
+            attempts = self._cfg.max_retries + 1
+            last_response: httpx.Response | None = None
 
-        for attempt in range(attempts):
-            response = super().send(request, **kwargs)  # type: ignore[arg-type]
-            last_response = response
+            for attempt in range(attempts):
+                response = super().send(request, **kwargs)  # type: ignore[arg-type]
+                last_response = response
 
-            # No 401-refresh branch: with no token provider there is nothing to
-            # refresh, so a 401 here is a real credential failure and terminal.
-            if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
-                delay = _retry_delay(attempt, response)
-                response.close()
-                time.sleep(delay)
-                continue
+                # No 401-refresh branch: with no token provider there is nothing
+                # to refresh, so a 401 here is a real credential failure and
+                # terminal.
+                if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
+                    delay = _retry_delay(attempt, response)
+                    response.close()
+                    time.sleep(delay)
+                    continue
 
-            return self._finish(request, response)
+                return self._finish(request, response, gspan)
 
-        assert last_response is not None  # attempts >= 1
-        return self._finish(request, last_response)
+            assert last_response is not None  # attempts >= 1
+            return self._finish(request, last_response, gspan)
 
-    def _finish(self, request: httpx.Request, response: httpx.Response) -> httpx.Response:
-        """Fire the response hook exactly once, on the response actually returned
+    def _finish(
+        self, request: httpx.Request, response: httpx.Response, gspan: GenAiSpan
+    ) -> httpx.Response:
+        """Fire the response hook exactly once, on the response actually returned,
+        then record the response attributes on the GenAI span
         (see :meth:`FabricAsyncClient._finish`)."""
         self._on_response(request, response)
+        _record_response(gspan, request, response, self._budget)
         return response
 
 

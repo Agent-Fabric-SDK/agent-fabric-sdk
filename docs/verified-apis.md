@@ -128,7 +128,7 @@ agent→agent egress-telemetry path, not needed for direct LLM proxy calls.
 | Item | Where used | Status | Verified value | Date | Source |
 |---|---|---|---|---|---|
 | Per-agent attribution unit (direct proxy) | `core/config.py`, transport | VERIFIED (LIVE) | the `client_id`/`client_secret` credential pair = the agent identity; issued per client application | 2026-08-28 | live probe + `policy:list` |
-| Gateway identity on response | telemetry | VERIFIED (LIVE) | `x-envoy-decorator-operation: api-instance-21133858.3e6ce455-…svc`; `x-correlation-id`; `x-llm-proxy-llm-provider/-llm-model/-routing-type` | 2026-08-28 | `responses.success.headers.txt` |
+| Gateway identity on response | `core/transport.py` (`x-llm-proxy-llm-provider` → `gen_ai.system`, #192) | VERIFIED (LIVE) | `x-envoy-decorator-operation: api-instance-21133858.3e6ce455-…svc`; `x-correlation-id`; `x-llm-proxy-llm-provider/-llm-model/-routing-type` | 2026-08-28 | `responses.success.headers.txt` |
 | Agent→agent egress attribution header | `core/_verify.py` → transport | VERIFIED (build) | `x-anypoint-api-instance-id` → `agent-connection-telemetry` policy `sourceAgentId`; `tracing` labels `mulesoft.api.instance.id`, `mulesoft.api.type=llm` | 2026-08-28 | built `connection.json` (§12.6) |
 | Business-group attribution header name | `core/_verify.py` → transport | UNVERIFIED | not surfaced as a request header in the direct-proxy path | — | — |
 

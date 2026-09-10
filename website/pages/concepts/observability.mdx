@@ -1,0 +1,98 @@
+---
+description: OTel GenAI spans at a pinned semconv version, dual-emitted with a stable fabric.* namespace.
+---
+
+import { Callout } from 'nextra/components'
+
+# Observability
+
+Every governed model call the SDK makes opens **one OpenTelemetry span**, and
+that span carries **two namespaces at once**:
+
+- **`gen_ai.*`** — the OpenTelemetry [GenAI semantic
+  conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/), so your
+  existing OTel tooling recognises the call as a model call with no custom
+  mapping.
+- **`fabric.*`** — a stable Agent Fabric namespace for the governance facts OTel
+  has no key for yet: the policy decision, the refusal type, the remaining token
+  budget, the run correlation id.
+
+Both land on the **same span** — never two spans for one call — so a trace reads
+as one governed model call, not a generic call plus a separate governance event.
+
+<Callout type="info">
+  Telemetry is **opt-in and never a hard dependency.** Install it with
+  `pip install "agent-fabric[otel]"`. With OpenTelemetry absent, or with
+  `telemetry=False` in your config, the span code is an inert no-op — it never
+  raises and never becomes a required import.
+</Callout>
+
+## The pinned semantic-convention version
+
+The OTel GenAI conventions are still evolving upstream (they live under
+`_incubating`), and the installed `opentelemetry.semconv` package tracks the
+latest schema — its default drifts release to release. So the SDK does **not**
+re-export attribute names from that package. Instead:
+
+- The convention version is pinned in one constant,
+  `agent_fabric.core.telemetry.GEN_AI_SEMCONV_VERSION` (currently `1.30.0`).
+- The `gen_ai.*` keys are **transcribed literals** at that version.
+
+The payoff: upgrading `opentelemetry-semantic-conventions` in your environment
+never silently changes what the SDK emits. Bumping the pin is a deliberate,
+single-file edit with a matching [changelog](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/blob/develop/CHANGELOG.md)
+entry — not something a transitive dependency bump does behind your back.
+
+## What lands on the span
+
+| Key | Namespace | Source |
+| --- | --- | --- |
+| `gen_ai.system` | `gen_ai.*` (pinned) | The verified `x-llm-proxy-llm-provider` response header (see [Attribution](/concepts/attribution)). Omitted — never guessed — when the header is absent. |
+| `gen_ai.request.model` | `gen_ai.*` (pinned) | The `model` field of the request body. |
+| `gen_ai.usage.input_tokens` | `gen_ai.*` (pinned) | The response `usage` block (`input_tokens`, falling back to `prompt_tokens`). |
+| `gen_ai.usage.output_tokens` | `gen_ai.*` (pinned) | The response `usage` block (`output_tokens`, falling back to `completion_tokens`). |
+| `fabric.policy.decision` | `fabric.*` (stable) | `allow` on success; `refuse` on a classified policy refusal. |
+| `fabric.policy.type` | `fabric.*` (stable) | The refusal type slug (e.g. `token_budget`, `pii_detected`) — see [Errors](/errors). |
+| `fabric.budget.remaining` | `fabric.*` (stable) | The remaining token budget after this call, from the `x-token-*` headers. |
+| `fabric.correlation_id` | `fabric.*` (stable) | The run correlation id actually sent on the request. |
+
+<Callout type="warning">
+  **The `fabric.*` keys are public API.** Renaming one is a breaking change,
+  independent of any `gen_ai.*` version bump. Build dashboards and alerts on them
+  with the same confidence you'd give a documented field.
+</Callout>
+
+### `gen_ai.system` is never guessed
+
+The proxy routes to several providers (OpenAI, Azure OpenAI, Gemini, Bedrock,
+Anthropic), so `gen_ai.system` is taken **only** from the verified
+`x-llm-proxy-llm-provider` response header. If that header is absent on a given
+response, the attribute is omitted rather than defaulted — a wrong provider
+label is worse than a missing one ([Verification policy](/concepts/verification),
+§0.3).
+
+## What this piece does *not* do yet
+
+This is deliberately the span **contract** — the pinned keys and the dual
+namespace — not the whole observability story. Tracked, not forgotten:
+
+- **Streaming and refusal span lifecycle.** A streaming (SSE) response carries no
+  usage on the envelope, so token counts are omitted for it today; richer span
+  lifecycle for streaming and refusals is
+  [#193](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/193).
+- **Exporter configuration.** Wiring an OTLP exporter/endpoint is
+  [#194](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/194); the
+  SDK emits spans through whatever `TracerProvider` you have configured.
+- **Cost tags.** The `fabric.cost.team` key is defined, but populating its
+  **value** is [#196](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/196).
+- **Prompt/completion content stays off the span.** Message bodies are never
+  attached — that privacy guarantee is
+  [#306](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk/issues/306).
+
+## Where to go next
+
+- [Attribution & cost](/concepts/attribution) — the `client_id` identity and the
+  response headers the spans draw from.
+- [Errors](/errors) — the refusal taxonomy behind `fabric.policy.type`.
+- [Verification policy](/concepts/verification) — why an unverified value is
+  omitted, not guessed.
