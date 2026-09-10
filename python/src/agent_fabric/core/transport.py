@@ -29,6 +29,7 @@ import asyncio
 import json
 import random
 import time
+from collections.abc import AsyncIterator, Iterator
 
 import httpx
 
@@ -45,6 +46,7 @@ from .telemetry import (
     genai_span,
     policy_type_slug,
     request_correlation_id,
+    start_genai_span,
 )
 
 CORRELATION_HEADER = "X-Correlation-Id"
@@ -136,8 +138,8 @@ def _retry_delay(attempt: int, response: httpx.Response) -> float:
 # attribute is omitted, never guessed (§0.3), because the proxy routes to
 # several providers and defaulting one would misattribute the call.
 _PROVIDER_HEADER = "x-llm-proxy-llm-provider"
-# Streaming (SSE) responses carry no usage on the envelope; usage lives in a
-# terminal event, deferred to #193.
+# Streaming (SSE) responses carry no usage on the envelope; it lives in a
+# terminal event, captured by the span-closing stream wrapper (#193).
 _STREAM_CONTENT_TYPE = "text/event-stream"
 
 
@@ -235,8 +237,166 @@ def _record_response(
             budget_remaining=budget.remaining if budget is not None else None,
             correlation_id=request.headers.get(CORRELATION_HEADER),
         )
+        # A refusal is a failed operation, not just a refuse attribute: mark the
+        # span ERROR so a trace reads it as such (#193, AC #1). One place covers
+        # both a buffered refusal and a refused stream request.
+        if decision == POLICY_DECISION_REFUSE:
+            gspan.set_error()
     except Exception:  # noqa: BLE001 — telemetry must never break the request
         pass
+
+
+# --- streaming span lifecycle (#193, BG §1.6) -------------------------------
+# A streamed completion carries its usage in the TERMINAL SSE event, read by the
+# caller long after send() has returned. So the streaming span is DETACHED
+# (start_genai_span) and handed to a wrapper around the response's byte stream:
+# httpx routes BOTH iteration and response.aclose()/close() through
+# ``response.stream`` (verified against httpx 0.28), so a wrapper there sees every
+# close path — full drain, mid-iteration abandonment, and exception — and is the
+# one place that can fill usage and end the span exactly once.
+
+
+def _is_streaming_success(response: httpx.Response) -> bool:
+    """True when a ``stream=True`` request returned a streamable 2xx SSE body —
+    the only case whose span must outlive ``send()``. A non-2xx refusal or a
+    buffered non-SSE 2xx on a stream request is finished inline instead."""
+    if response.status_code // 100 != 2:
+        return False
+    return _STREAM_CONTENT_TYPE in response.headers.get("content-type", "")
+
+
+def _extract_usage_tokens(obj: object) -> tuple[int | None, int | None] | None:
+    """``(input, output)`` from a parsed SSE ``data:`` object that carries a
+    ``usage`` block, else ``None``. Handles Chat Completions (top-level ``usage``
+    with ``prompt_tokens``/``completion_tokens``) and the Responses API (``usage``
+    nested under ``response`` with ``input_tokens``/``output_tokens``)."""
+    if not isinstance(obj, dict):
+        return None
+    usage = obj.get("usage")
+    if not isinstance(usage, dict):
+        nested = obj.get("response")
+        usage = nested.get("usage") if isinstance(nested, dict) else None
+    if not isinstance(usage, dict):
+        return None
+    return (
+        _first_int(usage, "input_tokens", "prompt_tokens"),
+        _first_int(usage, "output_tokens", "completion_tokens"),
+    )
+
+
+class _SseUsageScanner:
+    """Incrementally scans an SSE byte stream for the terminal ``usage`` event,
+    keeping the latest observed token counts (#193).
+
+    Line-buffered, so it reconstructs ``data:`` lines across arbitrary chunk
+    boundaries, and it only parses JSON for lines that mention ``usage`` — a
+    cheap substring test skips the vast majority of delta events, so memory and
+    CPU stay bounded no matter how long the completion is (buffering the whole
+    body would defeat the point of streaming)."""
+
+    __slots__ = ("_buf", "input_tokens", "output_tokens")
+
+    def __init__(self) -> None:
+        self._buf: bytes = b""
+        self.input_tokens: int | None = None
+        self.output_tokens: int | None = None
+
+    def feed(self, chunk: bytes) -> None:
+        self._buf += chunk
+        *lines, self._buf = self._buf.split(b"\n")
+        for line in lines:
+            self._scan(line)
+
+    def close(self) -> None:
+        """Scan any trailing partial line (a final event without a newline)."""
+        if self._buf:
+            self._scan(self._buf)
+            self._buf = b""
+
+    def _scan(self, line: bytes) -> None:
+        if b'"usage"' not in line:
+            return
+        stripped = line.strip()
+        if not stripped.startswith(b"data:"):
+            return
+        payload = stripped[len(b"data:") :].strip()
+        try:
+            obj = json.loads(payload)
+        except (ValueError, UnicodeDecodeError):
+            return
+        tokens = _extract_usage_tokens(obj)
+        if tokens is None:
+            return
+        input_tokens, output_tokens = tokens
+        if input_tokens is not None:
+            self.input_tokens = input_tokens
+        if output_tokens is not None:
+            self.output_tokens = output_tokens
+
+
+class _SpanClosingStream:
+    """Shared finalize logic for the stream wrappers: record the scanned usage
+    onto the detached span and end it, exactly once and best-effort — telemetry
+    must never break stream teardown."""
+
+    def __init__(self, gspan: GenAiSpan) -> None:
+        self._gspan = gspan
+        self._scanner = _SseUsageScanner()
+        self._finalized = False
+
+    def _finalize(self) -> None:
+        if self._finalized:
+            return
+        self._finalized = True
+        try:
+            self._scanner.close()
+            self._gspan.record(
+                input_tokens=self._scanner.input_tokens,
+                output_tokens=self._scanner.output_tokens,
+            )
+        except Exception:  # noqa: BLE001 — telemetry must never break teardown
+            pass
+        self._gspan.end()
+
+
+class _SpanClosingAsyncStream(_SpanClosingStream, httpx.AsyncByteStream):
+    """Wraps a streaming response's byte stream so the GenAI span closes when the
+    stream does — on full drain, mid-iteration abandonment, or exception — with
+    ``gen_ai.usage.*`` filled from the terminal SSE event (#193)."""
+
+    def __init__(self, inner: httpx.AsyncByteStream, gspan: GenAiSpan) -> None:
+        super().__init__(gspan)
+        self._inner = inner
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        async for chunk in self._inner:
+            self._scanner.feed(chunk)
+            yield chunk
+
+    async def aclose(self) -> None:
+        try:
+            self._finalize()
+        finally:
+            await self._inner.aclose()
+
+
+class _SpanClosingSyncStream(_SpanClosingStream, httpx.SyncByteStream):
+    """Blocking twin of :class:`_SpanClosingAsyncStream`."""
+
+    def __init__(self, inner: httpx.SyncByteStream, gspan: GenAiSpan) -> None:
+        super().__init__(gspan)
+        self._inner = inner
+
+    def __iter__(self) -> Iterator[bytes]:
+        for chunk in self._inner:
+            self._scanner.feed(chunk)
+            yield chunk
+
+    def close(self) -> None:
+        try:
+            self._finalize()
+        finally:
+            self._inner.close()
 
 
 class FabricAsyncClient(httpx.AsyncClient):
@@ -319,51 +479,88 @@ class FabricAsyncClient(httpx.AsyncClient):
         model = _request_model(request)
         # A GenAI span is opened only for a model call (a JSON body carrying a
         # ``model``); GETs, token fetches and bodyless POSTs open none and stay
-        # byte-identical (#192). The span is a context manager so it closes on the
-        # way out even when ``super().send()`` raises before a response exists —
-        # a transport error escapes ``_finish``, so the lifecycle cannot rely on
-        # it (see ``_finish``'s note, #179/#192).
+        # byte-identical (#192).
         enabled = self._cfg.telemetry and model is not None
+        # ``stream=True`` on the transport is the streaming path (#193): the usage
+        # lands in the terminal SSE event, read by the caller long after send()
+        # returns. That span must OUTLIVE the ``with`` block, so it is detached
+        # (started here, ended by the stream wrapper in ``_finish``); a buffered
+        # call keeps the auto-closing context manager (#192).
+        if enabled and bool(kwargs.get("stream")):
+            gspan = start_genai_span(enabled=True)
+            try:
+                gspan.record(request_model=model)
+                return await self._send_with_retries(request, gspan, kwargs, streaming=True)
+            except BaseException:
+                # A transport error (or cancellation) before a response settles:
+                # no stream wrapper will ever be created to close the detached
+                # span, so mark it failed and end it here (#193, AC #4).
+                gspan.set_error()
+                gspan.end()
+                raise
+        # Buffered path. The span is a context manager so it closes on the way out
+        # even when ``super().send()`` raises before a response exists — a
+        # transport error escapes ``_finish``, so the lifecycle cannot rely on it
+        # (see ``_finish``'s note, #179/#192).
         with genai_span(enabled=enabled) as gspan:
             gspan.record(request_model=model)
-            await self._on_request(request)
-            attempts = self._cfg.max_retries + 1
-            refreshed_once = False
-            last_response: httpx.Response | None = None
+            return await self._send_with_retries(request, gspan, kwargs, streaming=False)
 
-            attempt = 0
-            while attempt < attempts:
-                response = await super().send(request, **kwargs)  # type: ignore[arg-type]
-                last_response = response
+    async def _send_with_retries(
+        self,
+        request: httpx.Request,
+        gspan: GenAiSpan,
+        kwargs: dict[str, object],
+        *,
+        streaming: bool,
+    ) -> httpx.Response:
+        """The retry / 401-refresh loop, shared by the buffered and streaming
+        paths. ``streaming`` is threaded through to :meth:`_finish` so a streamed
+        2xx gets its span-closing stream wrapper while a buffered response keeps
+        the context-manager lifecycle."""
+        await self._on_request(request)
+        attempts = self._cfg.max_retries + 1
+        refreshed_once = False
+        last_response: httpx.Response | None = None
 
-                provider = self._token_provider
-                can_refresh = provider is not None and not refreshed_once
-                if response.status_code == 401 and can_refresh:
-                    assert provider is not None  # narrowed by can_refresh
-                    refreshed_once = True
-                    await response.aclose()
-                    await provider.invalidate()
-                    # A 401 refresh is an auth re-send, not a rate-limit backoff,
-                    # so it does NOT consume the retry budget (§2.2: "retry exactly
-                    # once on 401"): re-send once with the fresh token regardless
-                    # of `attempt`, so the retry still happens on the final attempt
-                    # / max_retries=0. Event hooks re-run on send() → fresh token.
-                    continue
+        attempt = 0
+        while attempt < attempts:
+            response = await super().send(request, **kwargs)  # type: ignore[arg-type]
+            last_response = response
 
-                if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
-                    delay = _retry_delay(attempt, response)
-                    await response.aclose()
-                    await asyncio.sleep(delay)
-                    attempt += 1
-                    continue
+            provider = self._token_provider
+            can_refresh = provider is not None and not refreshed_once
+            if response.status_code == 401 and can_refresh:
+                assert provider is not None  # narrowed by can_refresh
+                refreshed_once = True
+                await response.aclose()
+                await provider.invalidate()
+                # A 401 refresh is an auth re-send, not a rate-limit backoff, so it
+                # does NOT consume the retry budget (§2.2: "retry exactly once on
+                # 401"): re-send once with the fresh token regardless of `attempt`,
+                # so the retry still happens on the final attempt / max_retries=0.
+                # Event hooks re-run on send() → fresh token.
+                continue
 
-                return await self._finish(request, response, gspan)
+            if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
+                delay = _retry_delay(attempt, response)
+                await response.aclose()
+                await asyncio.sleep(delay)
+                attempt += 1
+                continue
 
-            assert last_response is not None  # attempts >= 1
-            return await self._finish(request, last_response, gspan)
+            return await self._finish(request, response, gspan, streaming=streaming)
+
+        assert last_response is not None  # attempts >= 1
+        return await self._finish(request, last_response, gspan, streaming=streaming)
 
     async def _finish(
-        self, request: httpx.Request, response: httpx.Response, gspan: GenAiSpan
+        self,
+        request: httpx.Request,
+        response: httpx.Response,
+        gspan: GenAiSpan,
+        *,
+        streaming: bool,
     ) -> httpx.Response:
         """Fire the response hook exactly once, on the final response returned to
         the caller, then record the response attributes on the GenAI span. Retry/
@@ -375,15 +572,31 @@ class FabricAsyncClient(httpx.AsyncClient):
         ``fabric.budget.remaining`` reflects the budget the same response just fed
         (#185/#192); it never raises, so telemetry can't mask the caller's result.
 
-        A transport-level error escapes ``super().send()`` before we reach here,
-        so ``_on_response``/``_record_response`` cannot run to mask the underlying
-        HTTP error (AC #4). The span still closes: it is opened as a context
-        manager around the whole retry loop in :meth:`send`, so a network failure
-        that skips ``_finish`` closes the span (with the request model already
-        recorded) on the way out — the span lifecycle does NOT rely on this hook
-        (#179/#192)."""
+        Buffered path (``streaming=False``): a transport-level error escapes
+        ``super().send()`` before we reach here, so ``_on_response``/
+        ``_record_response`` cannot run to mask the underlying HTTP error (AC #4).
+        The span still closes: it is opened as a context manager around the whole
+        retry loop in :meth:`send`, so a network failure that skips ``_finish``
+        closes the span (with the request model already recorded) on the way out —
+        the span lifecycle does NOT rely on this hook (#179/#192).
+
+        Streaming path (``streaming=True``, #193): the span is detached, so it is
+        ended HERE. A streamed 2xx SSE body has its usage in a terminal event the
+        caller reads later, so the still-open span is handed to a
+        :class:`_SpanClosingAsyncStream` that fills ``gen_ai.usage.*`` and ends it
+        when the stream closes — on drain, mid-iteration abandonment, or exception.
+        A buffered 2xx or a refusal on a stream request has no SSE body to scan, so
+        the span is ended inline (``_record_response`` already set its decision,
+        usage and — for a refusal — ERROR status)."""
         await self._on_response(request, response)
         _record_response(gspan, request, response, self._budget)
+        if streaming:
+            if _is_streaming_success(response):
+                # An async client's response.stream is an AsyncByteStream; httpx
+                # types the attribute as the sync|async union, hence the narrowing.
+                response.stream = _SpanClosingAsyncStream(response.stream, gspan)  # type: ignore[arg-type]
+            else:
+                gspan.end()
         return response
 
 
@@ -442,38 +655,74 @@ class FabricClient(httpx.Client):
     def send(self, request: httpx.Request, **kwargs: object) -> httpx.Response:
         model = _request_model(request)
         enabled = self._cfg.telemetry and model is not None  # see FabricAsyncClient.send
+        if enabled and bool(kwargs.get("stream")):
+            # Streaming: a detached span the stream wrapper ends (see
+            # FabricAsyncClient.send, #193).
+            gspan = start_genai_span(enabled=True)
+            try:
+                gspan.record(request_model=model)
+                return self._send_with_retries(request, gspan, kwargs, streaming=True)
+            except BaseException:
+                gspan.set_error()
+                gspan.end()
+                raise
         with genai_span(enabled=enabled) as gspan:
             gspan.record(request_model=model)
-            self._on_request(request)
-            attempts = self._cfg.max_retries + 1
-            last_response: httpx.Response | None = None
+            return self._send_with_retries(request, gspan, kwargs, streaming=False)
 
-            for attempt in range(attempts):
-                response = super().send(request, **kwargs)  # type: ignore[arg-type]
-                last_response = response
+    def _send_with_retries(
+        self,
+        request: httpx.Request,
+        gspan: GenAiSpan,
+        kwargs: dict[str, object],
+        *,
+        streaming: bool,
+    ) -> httpx.Response:
+        """The retry loop, shared by the buffered and streaming paths (see
+        :meth:`FabricAsyncClient._send_with_retries`)."""
+        self._on_request(request)
+        attempts = self._cfg.max_retries + 1
+        last_response: httpx.Response | None = None
 
-                # No 401-refresh branch: with no token provider there is nothing
-                # to refresh, so a 401 here is a real credential failure and
-                # terminal.
-                if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
-                    delay = _retry_delay(attempt, response)
-                    response.close()
-                    time.sleep(delay)
-                    continue
+        for attempt in range(attempts):
+            response = super().send(request, **kwargs)  # type: ignore[arg-type]
+            last_response = response
 
-                return self._finish(request, response, gspan)
+            # No 401-refresh branch: with no token provider there is nothing to
+            # refresh, so a 401 here is a real credential failure and terminal.
+            if response.status_code in _RETRYABLE_STATUS and attempt < attempts - 1:
+                delay = _retry_delay(attempt, response)
+                response.close()
+                time.sleep(delay)
+                continue
 
-            assert last_response is not None  # attempts >= 1
-            return self._finish(request, last_response, gspan)
+            return self._finish(request, response, gspan, streaming=streaming)
+
+        assert last_response is not None  # attempts >= 1
+        return self._finish(request, last_response, gspan, streaming=streaming)
 
     def _finish(
-        self, request: httpx.Request, response: httpx.Response, gspan: GenAiSpan
+        self,
+        request: httpx.Request,
+        response: httpx.Response,
+        gspan: GenAiSpan,
+        *,
+        streaming: bool,
     ) -> httpx.Response:
         """Fire the response hook exactly once, on the response actually returned,
-        then record the response attributes on the GenAI span
+        then record the response attributes on the GenAI span. Streaming (#193)
+        hands a 2xx SSE body to a :class:`_SpanClosingSyncStream` that ends the
+        detached span on close; a buffered/refused stream response ends it inline
         (see :meth:`FabricAsyncClient._finish`)."""
         self._on_response(request, response)
         _record_response(gspan, request, response, self._budget)
+        if streaming:
+            if _is_streaming_success(response):
+                # A sync client's response.stream is a SyncByteStream; httpx types
+                # the attribute as the sync|async union, hence the narrowing.
+                response.stream = _SpanClosingSyncStream(response.stream, gspan)  # type: ignore[arg-type]
+            else:
+                gspan.end()
         return response
 
 
