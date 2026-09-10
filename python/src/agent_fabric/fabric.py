@@ -22,7 +22,7 @@ from .core import _verify
 from .core.auth import AnypointConnectedApp, AuthProvider
 from .core.budget import Budget
 from .core.config import FabricConfig
-from .core.telemetry import run_context
+from .core.telemetry import RunScope, run_scope
 from .core.transport import (
     FabricAsyncClient,
     FabricClient,
@@ -184,9 +184,41 @@ class Fabric:
     def tools(self) -> _ToolsFacade:
         return self._tools
 
-    def run_context(self, run_id: str | None = None) -> AbstractContextManager[str]:
-        """Bind a correlation ID for one logical agent run (§2.3)."""
-        return run_context(run_id)
+    def run(self, id: str | None = None) -> RunScope:
+        """Group one logical agent run under a shared correlation id (§2.3, #195).
+
+        The headline ergonomic — bind a run id once, and every governed model
+        call inside the block carries it, with no threading through framework
+        state::
+
+            async with fabric.run(id=ticket.id):
+                await triage_agent.run(ticket)
+
+        The returned :class:`~agent_fabric.core.telemetry.RunScope` is a **dual
+        sync/async** context manager, so plain ``with fabric.run(...)`` works too.
+        The bound id becomes the ``X-Correlation-Id`` on every request in the
+        block (the client↔gateway join key), the span's ``fabric.correlation_id``,
+        and :attr:`FabricError.correlation_id` — so a Slack log line joins to the
+        gateway record (Scenario C). Each individual request still gets its own
+        unique per-call id (``X-Fabric-Request-Id`` → :attr:`FabricError.call_id`).
+
+        Propagation is automatic: framework-spawned ``asyncio`` tasks copy the
+        current context, so a LangGraph node running the model on a child task
+        sees the same run id. Concurrent runs in the same process do not leak into
+        each other, and nested ``fabric.run()`` blocks rebind then restore.
+        Omitting ``id`` binds a generated id (a "run of one").
+
+        Works with or without OpenTelemetry installed — correlation is pure
+        contextvar + headers; spans only decorate when OTel is present.
+
+        Only ``id`` is accepted today; cost-attribution fields (enduser/team/
+        project/env) land on ``fabric.run()`` in #196 without a breaking change.
+        """
+        return run_scope(id)
+
+    def run_context(self, run_id: str | None = None) -> RunScope:
+        """Back-compat alias for :meth:`run` (§2.3). Prefer ``fabric.run(id=…)``."""
+        return self.run(run_id)
 
     def simulate(
         self, error: type[FabricError], *, times: int = 1

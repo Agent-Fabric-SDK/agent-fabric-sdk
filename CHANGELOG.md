@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Per-call and per-run correlation IDs via `fabric.run()`** (#195). Group one
+  logical agent run under a shared correlation id:
+
+  ```python
+  async with fabric.run(id=ticket.id):
+      await triage_agent.run(ticket)
+  ```
+
+  `fabric.run(id=…)` returns a **dual sync/async** context manager, so plain
+  `with fabric.run(...)` works too. It binds **two ids** on every request in the
+  block:
+  - a **run id** → the `X-Correlation-Id` request header → the span's
+    `fabric.correlation_id` → `FabricError.correlation_id`. Shared by every call
+    in the block — the client↔gateway join key.
+  - a fresh **per-call id** → the `X-Fabric-Request-Id` request header → the new
+    `FabricError.call_id`. Unique per logical request and **stable across that
+    request's retries**, so one call can be pinpointed within a run; it exists
+    even when a request fails before any response.
+
+  Propagation is contextvar-based: it reaches framework-spawned `asyncio` tasks
+  (e.g. every LangGraph node) with no threading through state, does not leak
+  across concurrent runs, and works with or without OpenTelemetry installed.
+  Nested `fabric.run()` blocks rebind then restore; omitting `id` binds a
+  generated "run of one". `run_context()` is retained as a back-compat alias.
+  `FabricError` now also carries `.call_id` alongside `.correlation_id` and the
+  gateway's own `.request_id`, and `classify(response)` derives both client-sent
+  ids from the response's request so bridging an `openai` error needs no extra
+  wiring. Cost-attribution fields (enduser/team/project/env) layer onto
+  `fabric.run()` in #196 without a breaking change.
+
+  The two request-header **names** (`X-Correlation-Id`, `X-Fabric-Request-Id`)
+  are UNVERIFIED placeholders (§0.3): overridable via `correlation_header` /
+  `call_id_header` config (or `AGENT_FABRIC_CORRELATION_HEADER` /
+  `AGENT_FABRIC_CALL_ID_HEADER`). `x-correlation-id` is verified only as a
+  gateway **response** echo — see `docs/verified-apis.md` §3.
 - **OpenTelemetry GenAI instrumentation** (#192). Every governed model call now
   opens a single span (`fabric.llm.chat`) that carries **two namespaces at once**:
   the OpenTelemetry `gen_ai.*` semantic-convention attributes and the stable

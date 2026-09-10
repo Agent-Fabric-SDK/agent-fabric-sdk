@@ -80,6 +80,51 @@ def test_run_context_binds_correlation_id() -> None:
     assert current_correlation_id() is None
 
 
+def test_run_binds_correlation_id_sync() -> None:
+    """``fabric.run(id=…)`` is the headline API (#195); a plain ``with`` binds the
+    run id and restores it on exit."""
+    from agent_fabric.core.telemetry import current_correlation_id
+
+    fab = Fabric(_cfg())
+    with fab.run(id="ticket-7") as rid:
+        assert rid == "ticket-7"
+        assert current_correlation_id() == "ticket-7"
+    assert current_correlation_id() is None
+
+
+async def test_run_binds_correlation_id_async() -> None:
+    """The same object works under ``async with`` — the headline shape
+    ``async with fabric.run(id=ticket.id): await agent.run(...)`` (#195)."""
+    from agent_fabric.core.telemetry import current_correlation_id
+
+    fab = Fabric(_cfg())
+    async with fab.run(id="ticket-async") as rid:
+        assert rid == "ticket-async"
+        assert current_correlation_id() == "ticket-async"
+    assert current_correlation_id() is None
+
+
+def test_nested_runs_rebind_then_restore() -> None:
+    from agent_fabric.core.telemetry import current_correlation_id
+
+    fab = Fabric(_cfg())
+    with fab.run(id="outer"):
+        assert current_correlation_id() == "outer"
+        with fab.run(id="inner"):
+            assert current_correlation_id() == "inner"
+        assert current_correlation_id() == "outer"
+    assert current_correlation_id() is None
+
+
+def test_run_without_id_generates_a_run_of_one() -> None:
+    from agent_fabric.core.telemetry import current_correlation_id
+
+    fab = Fabric(_cfg())
+    with fab.run() as rid:
+        assert rid and current_correlation_id() == rid
+    assert current_correlation_id() is None
+
+
 def test_llm_client_requires_proxy_config() -> None:
     from agent_fabric.core.errors import ConfigError
 

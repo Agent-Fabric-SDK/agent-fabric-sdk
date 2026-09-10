@@ -23,6 +23,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+from . import _verify
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -30,19 +32,35 @@ if TYPE_CHECKING:
 
 
 class FabricError(Exception):
-    """Base for all SDK errors. Carries correlation/request IDs and the raw
-    response so callers can inspect what actually happened."""
+    """Base for all SDK errors. Carries correlation/call/request IDs and the raw
+    response so callers can inspect what actually happened.
+
+    Three ids, three provenances (§2.3, #195):
+
+    * ``correlation_id`` — the RUN id the client sent (``X-Correlation-Id``),
+      shared by every request in a ``fabric.run()`` block. This is the
+      client↔gateway join key, and it always equals the header that was sent.
+    * ``call_id`` — the per-request id the client sent (``X-Fabric-Request-Id``),
+      unique per logical request, stable across its retries. It pinpoints one
+      request within a run and exists even when the request fails before any
+      response.
+    * ``request_id`` — the gateway's OWN id, read back from the ``x-request-id``
+      RESPONSE header. Absent on a transport error (no response), unlike the two
+      client-sent ids above.
+    """
 
     def __init__(
         self,
         message: str,
         *,
         correlation_id: str | None = None,
+        call_id: str | None = None,
         request_id: str | None = None,
         response: httpx.Response | None = None,
     ) -> None:
         super().__init__(message)
         self.correlation_id = correlation_id
+        self.call_id = call_id
         self.request_id = request_id
         self.response = response
 
@@ -182,8 +200,21 @@ class PublicationDrift(FabricError):
     """verify(): the live server no longer matches the Exchange descriptor (§7.4)."""
 
 
-def classify(response: httpx.Response, *, correlation_id: str | None = None) -> FabricError:
+def classify(
+    response: httpx.Response,
+    *,
+    correlation_id: str | None = None,
+    call_id: str | None = None,
+) -> FabricError:
     """Map an HTTP error response to a specific exception.
+
+    ``correlation_id`` (the run id) and ``call_id`` (the per-request id) are the
+    two ids the client sent (§2.3, #195). When not passed explicitly they are
+    read back from the response's own request headers, so a caller bridging an
+    ``openai.APIStatusError`` — ``classify(err.response)`` — gets a
+    :class:`FabricError` whose ``correlation_id`` equals the header that was sent
+    with no extra wiring. An explicit argument (e.g. when the header name was
+    overridden via config) always wins over the auto-derived value.
 
     The precise policy discrimination (§2.4, working instruction #4) is driven by
     real rejection captures from a live governed LLM proxy (docs §4,
@@ -210,9 +241,13 @@ def classify(response: httpx.Response, *, correlation_id: str | None = None) -> 
     """
 
     request_id = response.headers.get("x-request-id")
+    sent_correlation, sent_call = _sent_ids(response)
     status = response.status_code
     kw: dict[str, Any] = {
-        "correlation_id": correlation_id,
+        # Explicit arg wins (e.g. a config-overridden header name); else the id
+        # the client actually sent, read back from the request (§2.3, #195).
+        "correlation_id": correlation_id if correlation_id is not None else sent_correlation,
+        "call_id": call_id if call_id is not None else sent_call,
         "request_id": request_id,
         "response": response,
     }
@@ -311,6 +346,27 @@ def classify(response: httpx.Response, *, correlation_id: str | None = None) -> 
         )
 
     return FabricError(f"Unexpected response ({status}).", **kw)
+
+
+def _sent_ids(response: httpx.Response) -> tuple[str | None, str | None]:
+    """The ``(correlation_id, call_id)`` the client sent, read back from the
+    response's own request headers under the DEFAULT header names (§2.3, #195).
+
+    Returns ``(None, None)`` when the request is unavailable (httpx raises if it
+    was never set on the response). Uses the placeholder header names directly —
+    not ``Unverified.get()`` — so reading an id back never emits the §0.3
+    unverified warning; that warning belongs at injection time, in the transport.
+    A per-Fabric header-name override is not visible here, which is why
+    :func:`classify` lets the caller pass the ids explicitly to override this."""
+    try:
+        request = response.request
+    except RuntimeError:
+        return None, None
+    headers = request.headers
+    return (
+        headers.get(_verify.CORRELATION_ID_HEADER.placeholder),
+        headers.get(_verify.CALL_ID_HEADER.placeholder),
+    )
 
 
 def _retry_after(response: httpx.Response) -> float | None:

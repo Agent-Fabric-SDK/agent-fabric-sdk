@@ -55,6 +55,22 @@ FabricError                     # base of the whole tree
 └─ UpstreamModelError           # upstream 5xx — provider error, retryable
 ```
 
+## The ids every `FabricError` carries
+
+Every exception in the tree carries three ids so you can join a failure to your
+logs and to the gateway's own record — **three ids, three provenances**:
+
+| Attribute | What it is | Provenance |
+| --- | --- | --- |
+| `.correlation_id` | The **run** id, shared by every call in a [`fabric.run()`](/concepts/observability#grouping-a-run-the-run-id-on-the-span-the-call-id-on-the-error) block | The `X-Correlation-Id` request header the client sent — always equals what went on the wire. |
+| `.call_id` | The **per-call** id, unique per logical request and stable across that request's retries | The `X-Fabric-Request-Id` request header the client sent. Present **even when the request fails before any response** (a transport error). |
+| `.request_id` | The **gateway's own** id | Read back from the `x-request-id` **response** header. Absent on a transport error, since there is no response. |
+
+`classify(response)` fills `.correlation_id` and `.call_id` from the response's
+own request, so bridging an `openai` error (below) needs no extra wiring — the
+correlation id on the exception equals the header that was actually sent. (If you
+overrode the header names in config, pass the ids to `classify()` explicitly.)
+
 ## Bridging from the raw client
 
 <Callout type="warning">

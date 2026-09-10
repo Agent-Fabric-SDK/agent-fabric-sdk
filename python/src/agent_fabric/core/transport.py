@@ -6,10 +6,17 @@ solution is one shared HTTP client that every adapter is handed.
 
 The client:
   * injects, via a request event hook, on every outbound request:
-      - correlation ID (uuid4 per logical agent run, from a contextvar, §2.5)
+      - the run correlation ID (uuid4 per logical agent run, from a contextvar,
+        §2.5) — shared by every request in a ``fabric.run()`` block, the
+        client↔gateway join key
       - attribution headers (application, business group) — header NAMES are
         UNVERIFIED (docs/verified-apis.md §3), emitted via loud placeholders
       - bearer token, refreshed lazily
+  * pins a per-call ID ONCE, before the retry loop, so it is unique per logical
+    request yet stable across that request's retries and 401 refresh (§2.3,
+    #195). Two ids, two headers: the run id (``X-Correlation-Id``) groups a run;
+    the call id (``X-Fabric-Request-Id``) pinpoints one request within it. Both
+    header NAMES are UNVERIFIED placeholders (docs §3), overridable via config.
   * retries transient upstream/gateway failures (502/503/504) with exponential
     backoff + jitter, honouring Retry-After
   * does NOT retry 4xx — gateway policy rejections are terminal (§2.4). This
@@ -44,12 +51,23 @@ from .telemetry import (
     GenAiSpan,
     ensure_correlation_id,
     genai_span,
+    new_call_id,
     policy_type_slug,
     request_correlation_id,
     start_genai_span,
 )
 
-CORRELATION_HEADER = "X-Correlation-Id"
+# Default request-header NAMES for the two correlation ids (§2.3, #195). Both are
+# UNVERIFIED placeholders: the gateway ECHOES ``x-correlation-id`` on RESPONSES
+# (verified), but whether it READS an inbound correlation/call-id header — and
+# under what name — is not. A customer overrides them per-Fabric via config
+# (``FabricConfig.correlation_header`` / ``.call_id_header``), resolved by each
+# client at construction (see :func:`_resolve_header_names`). Referencing the
+# placeholder VALUE (not ``.get()``) keeps these in sync with ``core/_verify``
+# without emitting the one-time unverified warning at import; the warning fires
+# once, at client construction, when a name is left un-overridden.
+CORRELATION_HEADER = _verify.CORRELATION_ID_HEADER.placeholder
+CALL_ID_HEADER = _verify.CALL_ID_HEADER.placeholder
 # The OpenAI-compatible SDKs reject an empty ``api_key``. The governed proxy
 # authenticates on the client_id/client_secret headers (client-id-enforcement,
 # §2/§3) and ignores the bearer, so we fill the slot with a harmless sentinel
@@ -109,13 +127,49 @@ def proxy_api_key(cfg: FabricConfig) -> str:
     return cfg.llm_proxy_key or PROXY_API_KEY_SENTINEL
 
 
-def _apply_base_headers(cfg: FabricConfig, request: httpx.Request, correlation_id: str) -> None:
-    """Correlation ID + attribution, i.e. everything both transports inject
-    without needing to await anything. The ID is passed in because the two
-    transports source it differently — see :func:`request_correlation_id`."""
-    request.headers[CORRELATION_HEADER] = correlation_id
+def _resolve_header_names(cfg: FabricConfig) -> tuple[str, str]:
+    """The ``(correlation, call_id)`` request-header NAMES for this config (§2.3,
+    #195): each is the config override if set, else the UNVERIFIED placeholder
+    from ``core/_verify``. Called ONCE per client at construction, so the
+    one-time unverified warning for an un-overridden name fires there, not on
+    every request."""
+    correlation = cfg.correlation_header or _verify.CORRELATION_ID_HEADER.get()
+    call_id = cfg.call_id_header or _verify.CALL_ID_HEADER.get()
+    return correlation, call_id
+
+
+def _apply_base_headers(
+    cfg: FabricConfig,
+    request: httpx.Request,
+    correlation_id: str,
+    *,
+    correlation_header: str,
+) -> None:
+    """The run correlation ID + attribution — everything both transports inject
+    on EVERY send without needing to await anything. The correlation ID is
+    passed in because the two transports source it differently (see
+    :func:`request_correlation_id`); it is deterministic per run (a contextvar),
+    so re-setting it on each retry is idempotent. The header NAME is resolved
+    once by the client. The per-call ID is deliberately NOT set here — being
+    random, it must be pinned once before the retry loop
+    (:func:`_apply_call_id_header`), never re-rolled per send."""
+    request.headers[correlation_header] = correlation_id
     for name, value in attribution_headers(cfg).items():
         request.headers[name] = value
+
+
+def _apply_call_id_header(request: httpx.Request, call_id_header: str) -> None:
+    """Pin a FRESH per-call ID on the request, ONCE, before the retry loop
+    (§2.3, #195).
+
+    The run/correlation id is deterministic per run (a contextvar), so the
+    per-send event hook can safely re-set it on every retry. The call id is
+    random and must be UNIQUE per logical request yet STABLE across that
+    request's retries and 401 refresh — so it is pinned here, on the single
+    request object that is re-sent, exactly once. It is therefore already on the
+    request even when the send fails at the transport layer before any response,
+    so an error built from ``response.request`` can always read it back."""
+    request.headers[call_id_header] = new_call_id()
 
 
 def _retry_delay(attempt: int, response: httpx.Response) -> float:
@@ -216,15 +270,19 @@ def _record_response(
     request: httpx.Request,
     response: httpx.Response,
     budget: Budget | None,
+    *,
+    correlation_header: str,
 ) -> None:
     """Record the dual-namespace response attributes on the span, after
     ``_on_response`` has fed the budget. Never raises: a telemetry failure must
     not mask the caller's result.
 
-    The correlation id is read back from the request header the event hook set,
-    so the span attribute equals the id actually sent on the wire — the sync and
-    async transports source that id differently, and reading the header makes the
-    recorded value correct for both."""
+    The span's ``fabric.correlation_id`` is the RUN id, read back from the
+    request header the event hook set, so it equals the id actually sent on the
+    wire — the sync and async transports source that id differently, and reading
+    the header makes the recorded value correct for both. The per-call id is
+    intentionally not a span attribute: the span already correlates one call, and
+    the run id is the cross-call join key (§2.3, #195)."""
     try:
         decision, policy_type = _span_decision(response)
         input_tokens, output_tokens = _usage_tokens(response)
@@ -235,7 +293,7 @@ def _record_response(
             decision=decision,
             policy_type=policy_type,
             budget_remaining=budget.remaining if budget is not None else None,
-            correlation_id=request.headers.get(CORRELATION_HEADER),
+            correlation_id=request.headers.get(correlation_header),
         )
         # A refusal is a failed operation, not just a refuse attribute: mark the
         # span ERROR so a trace reads it as such (#193, AC #1). One place covers
@@ -413,6 +471,10 @@ class FabricAsyncClient(httpx.AsyncClient):
         **kw: object,
     ) -> None:
         self._cfg = cfg
+        # The two correlation request-header NAMES, resolved once (config override
+        # → UNVERIFIED placeholder). The one-time §0.3 warning for an un-overridden
+        # name fires here, at construction, not per request (§2.3, #195).
+        self._correlation_header, self._call_id_header = _resolve_header_names(cfg)
         # NB: httpx.AsyncClient uses ``self._auth`` internally, so we must NOT
         # store our token provider there — super().__init__() would clobber it.
         self._token_provider = auth
@@ -427,7 +489,12 @@ class FabricAsyncClient(httpx.AsyncClient):
         )
 
     async def _inject_headers(self, request: httpx.Request) -> None:
-        _apply_base_headers(self._cfg, request, ensure_correlation_id())
+        _apply_base_headers(
+            self._cfg,
+            request,
+            ensure_correlation_id(),
+            correlation_header=self._correlation_header,
+        )
         if self._token_provider is not None:
             token = await self._token_provider.token()
             # Control plane uses OAuth2 client_credentials → ``Authorization:
@@ -518,6 +585,10 @@ class FabricAsyncClient(httpx.AsyncClient):
         paths. ``streaming`` is threaded through to :meth:`_finish` so a streamed
         2xx gets its span-closing stream wrapper while a buffered response keeps
         the context-manager lifecycle."""
+        # Pin the per-call id ONCE, before the loop, so it is stable across
+        # retries and the 401 refresh (§2.3, #195). The run correlation id is set
+        # per-send by the event hook (deterministic, so idempotent).
+        _apply_call_id_header(request, self._call_id_header)
         await self._on_request(request)
         attempts = self._cfg.max_retries + 1
         refreshed_once = False
@@ -589,7 +660,9 @@ class FabricAsyncClient(httpx.AsyncClient):
         the span is ended inline (``_record_response`` already set its decision,
         usage and — for a refusal — ERROR status)."""
         await self._on_response(request, response)
-        _record_response(gspan, request, response, self._budget)
+        _record_response(
+            gspan, request, response, self._budget, correlation_header=self._correlation_header
+        )
         if streaming:
             if _is_streaming_success(response):
                 # An async client's response.stream is an AsyncByteStream; httpx
@@ -620,6 +693,8 @@ class FabricClient(httpx.Client):
 
     def __init__(self, cfg: FabricConfig, *, budget: Budget | None = None, **kw: object) -> None:
         self._cfg = cfg
+        # Resolved once; see FabricAsyncClient.__init__ (§2.3, #195).
+        self._correlation_header, self._call_id_header = _resolve_header_names(cfg)
         self._budget = budget  # see FabricAsyncClient.__init__ (§1.3, #185)
         super().__init__(
             timeout=cfg.timeout_s,
@@ -628,7 +703,12 @@ class FabricClient(httpx.Client):
         )
 
     def _inject_headers(self, request: httpx.Request) -> None:
-        _apply_base_headers(self._cfg, request, request_correlation_id())
+        _apply_base_headers(
+            self._cfg,
+            request,
+            request_correlation_id(),
+            correlation_header=self._correlation_header,
+        )
 
     # --- lifecycle hooks (BG §1.1) ------------------------------------------
     # Synchronous twins of the async seams, kept in lockstep so a blocking caller
@@ -680,6 +760,8 @@ class FabricClient(httpx.Client):
     ) -> httpx.Response:
         """The retry loop, shared by the buffered and streaming paths (see
         :meth:`FabricAsyncClient._send_with_retries`)."""
+        # Pin the per-call id once, before the loop (see the async twin, #195).
+        _apply_call_id_header(request, self._call_id_header)
         self._on_request(request)
         attempts = self._cfg.max_retries + 1
         last_response: httpx.Response | None = None
@@ -715,7 +797,9 @@ class FabricClient(httpx.Client):
         detached span on close; a buffered/refused stream response ends it inline
         (see :meth:`FabricAsyncClient._finish`)."""
         self._on_response(request, response)
-        _record_response(gspan, request, response, self._budget)
+        _record_response(
+            gspan, request, response, self._budget, correlation_header=self._correlation_header
+        )
         if streaming:
             if _is_streaming_success(response):
                 # A sync client's response.stream is a SyncByteStream; httpx types
