@@ -1,4 +1,4 @@
-# Agent Fabric SDK — Phase 1, 2, 3 Build Guide
+# Donkey Development Kit — Phase 1, 2, 3 Build Guide
 
 **Purpose of this document:** a feature-by-feature explanation of what to build, in the order to build it, with a concrete scenario for each so the team understands *why* it exists and *what "done" looks like*. Written for the people who will build it and the people who need to approve it.
 
@@ -31,7 +31,7 @@ Any stock OpenAI client with `base_url` + headers does that. Built this way, the
 
 **Right framing:** "The wrapper is the skeleton. It is the *single point in the process* where every request enters and every response leaves — so it is the only place where budget headers, error classification, correlation IDs, cost tags, OTel spans, simulation, and refusal handlers can all attach without the developer wiring each one."
 
-The repo's own architecture already says this (`FabricAsyncClient` is "one transport and one header-injection point"). The value of the wrapper is therefore exactly the sum of what the six-piece minimum hangs on it. Build the six pieces and the wrapper is justified; skip them and it is not.
+The repo's own architecture already says this (`DonkeyAsyncClient` is "one transport and one header-injection point"). The value of the wrapper is therefore exactly the sum of what the six-piece minimum hangs on it. Build the six pieces and the wrapper is justified; skip them and it is not.
 
 **Team one-liner:** *"We are not selling the client. We are selling everything the client makes automatic."*
 
@@ -47,14 +47,14 @@ The repo's own architecture already says this (`FabricAsyncClient` is "one trans
 
 ## 1.1 The LLM client (skeleton)
 
-**What it is.** `Fabric` object owning one `httpx.AsyncClient` subclass. Every governed call goes through it. It returns native framework objects, never wrappers.
+**What it is.** `Donkey` object owning one `httpx.AsyncClient` subclass. Every governed call goes through it. It returns native framework objects, never wrappers.
 
-**What it does today that stays:** base URL (no `/v1`), `client_id`/`client_secret` headers, streaming, config precedence (`kwargs → env → .agent-fabric.toml`), report-all-missing-config-at-once.
+**What it does today that stays:** base URL (no `/v1`), `client_id`/`client_secret` headers, streaming, config precedence (`kwargs → env → .donkey-kit.toml`), report-all-missing-config-at-once.
 
 **What changes in Phase 1:** it becomes the attachment point for 1.2–1.7. Concretely, the transport gains four hooks that the other features implement:
 
 ```python
-class FabricAsyncClient(httpx.AsyncClient):
+class DonkeyAsyncClient(httpx.AsyncClient):
     # called before send: correlation ID, cost tags, OTel span start
     async def _on_request(self, request): ...
     # called after receive: budget parse, OTel span end, classify()
@@ -68,13 +68,13 @@ class FabricAsyncClient(httpx.AsyncClient):
 **Scenario.** Scenario B's script is 40 lines. The developer writes:
 
 ```python
-fabric = Fabric.from_env()
-client = fabric.openai()          # a real openai.AsyncOpenAI, nothing to learn
+donkey = Donkey.from_env()
+client = donkey.openai()          # a real openai.AsyncOpenAI, nothing to learn
 ```
 
 and gets 1.2–1.7 without a further line. That is the whole pitch.
 
-**Acceptance.** `fabric.openai()` returns `openai.AsyncOpenAI`; `type(client).__module__ == "openai"`. Importing `agent_fabric` with no extras installed imports nothing from any framework (existing `base-only` CI job).
+**Acceptance.** `donkey.openai()` returns `openai.AsyncOpenAI`; `type(client).__module__ == "openai"`. Importing `donkey_kit` with no extras installed imports nothing from any framework (existing `base-only` CI job).
 
 **Effort:** S (mostly exists).
 
@@ -115,7 +115,7 @@ except TokenBudgetExceeded as e:
 
 **Acceptance.**
 - Every row above has a fixture in `tests/fixtures/rejections/` captured from a live gateway, with the docs URL and version recorded in the fixture header.
-- A test proves `openai`'s built-in retry does **not** fire on 429 when going through `FabricAsyncClient` (mock transport counts requests; assert exactly one).
+- A test proves `openai`'s built-in retry does **not** fire on 429 when going through `DonkeyAsyncClient` (mock transport counts requests; assert exactly one).
 - A test proves a 403 with `pii_detected` does **not** raise `AuthError`.
 - `PolicyViolation.__init__` fails if `remediation` is empty.
 
@@ -125,17 +125,17 @@ except TokenBudgetExceeded as e:
 
 ## 1.3 Budget as a first-class object + rate-limit-aware pacing — piece 2 of 6
 
-**What it is.** Every response that carries `x-token-*` headers updates a `Budget` object on the `Fabric` instance. The developer never parses headers. A `pace()` helper uses it to slow down *before* hitting the wall.
+**What it is.** Every response that carries `x-token-*` headers updates a `Budget` object on the `Donkey` instance. The developer never parses headers. A `pace()` helper uses it to slow down *before* hitting the wall.
 
 ```python
-fabric.budget.limit          # int, tokens per window
-fabric.budget.remaining      # int, from last response
-fabric.budget.reset_at       # datetime, from x-token-reset (ms) — converted, not raw
-fabric.budget.observed_at    # when we last saw headers (staleness)
-fabric.budget.fraction_used  # 0.0–1.0
+donkey.budget.limit          # int, tokens per window
+donkey.budget.remaining      # int, from last response
+donkey.budget.reset_at       # datetime, from x-token-reset (ms) — converted, not raw
+donkey.budget.observed_at    # when we last saw headers (staleness)
+donkey.budget.fraction_used  # 0.0–1.0
 
-await fabric.budget.wait_for_reset()          # sleeps until reset_at
-async with fabric.budget.pace(reserve=0.10):  # raises BudgetReserveReached at 90 %
+await donkey.budget.wait_for_reset()          # sleeps until reset_at
+async with donkey.budget.pace(reserve=0.10):  # raises BudgetReserveReached at 90 %
     ...
 ```
 
@@ -143,11 +143,11 @@ async with fabric.budget.pace(reserve=0.10):  # raises BudgetReserveReached at 9
 
 ```python
 for batch in chunks(records, 200):
-    async with fabric.budget.pace(reserve=0.05):
+    async with donkey.budget.pace(reserve=0.05):
         await enrich(batch)
     checkpoint(batch)
 # on BudgetReserveReached:
-await fabric.budget.wait_for_reset(); continue
+await donkey.budget.wait_for_reset(); continue
 ```
 
 The job finishes by itself, overnight, with no human.
@@ -159,7 +159,7 @@ The job finishes by itself, overnight, with no human.
 **Acceptance.**
 - `x-token-reset` in milliseconds is converted correctly (fixture with a known value; assert `reset_at` to the second).
 - `pace()` raises before the request that would cross the reserve, not after a 429.
-- Budget object is per-`Fabric`, not global; two `Fabric` instances with different credentials do not share state.
+- Budget object is per-`Donkey`, not global; two `Donkey` instances with different credentials do not share state.
 
 **Effort:** S.
 
@@ -167,10 +167,10 @@ The job finishes by itself, overnight, with no human.
 
 ## 1.4 Local gateway simulator — piece 3 of 6
 
-**What it is.** `fabric mock` starts a local HTTP server that behaves like the Omni Gateway LLM Proxy for *the failure paths*: it replays the captured rejection fixtures from 1.2 on demand, and forwards happy-path requests to a stub model (or, optionally, to a real upstream key for local dev).
+**What it is.** `donkey mock` starts a local HTTP server that behaves like the Omni Gateway LLM Proxy for *the failure paths*: it replays the captured rejection fixtures from 1.2 on demand, and forwards happy-path requests to a stub model (or, optionally, to a real upstream key for local dev).
 
 ```bash
-fabric mock --port 8080 \
+donkey mock --port 8080 \
   --scenario pii_block:every=5 \
   --scenario budget:limit=20000,window=60s \
   --scenario injection:on-pattern="ignore previous"
@@ -187,8 +187,8 @@ Then any client — SDK or not — is pointed at `http://localhost:8080`.
 **Design rules.**
 - Fixtures are the *same files* used by `classify()` tests. One source of truth; if the contract drifts, both fail together.
 - Emit the same `x-token-*` headers on happy-path responses so 1.3 works against the mock.
-- Ship as `pip install agent-fabric[local]`; no Docker required.
-- Must be clearly labelled in every response header (`x-fabric-simulator: true`) so it can never be mistaken for a real gateway in a log.
+- Ship as `pip install donkey-kit[local]`; no Docker required.
+- Must be clearly labelled in every response header (`x-donkey-simulator: true`) so it can never be mistaken for a real gateway in a log.
 
 **Acceptance.**
 - The full conformance suite (1.5) passes against the simulator.
@@ -203,19 +203,19 @@ Then any client — SDK or not — is pointed at `http://localhost:8080`.
 
 **What it is.** Two test-time tools.
 
-`simulate()` — an in-process context manager that makes the next N calls through a `Fabric` return a chosen refusal, without any server:
+`simulate()` — an in-process context manager that makes the next N calls through a `Donkey` return a chosen refusal, without any server:
 
 ```python
-async def test_agent_masks_pii(fabric):
-    with fabric.simulate(PIIDetected, pii_types=["CREDIT_CARD"], times=1):
+async def test_agent_masks_pii(donkey):
+    with donkey.simulate(PIIDetected, pii_types=["CREDIT_CARD"], times=1):
         result = await triage_agent.run(ticket_with_card_number)
     assert "****" in result.draft_reply
 ```
 
-The pytest plugin — `pip install agent-fabric[test]` exposes a `fabric` fixture (pre-wired to the simulator or to `simulate()`), and a **conformance suite** the customer runs against *their own agent*:
+The pytest plugin — `pip install donkey-kit[test]` exposes a `donkey` fixture (pre-wired to the simulator or to `simulate()`), and a **conformance suite** the customer runs against *their own agent*:
 
 ```bash
-pytest --fabric-conformance --agent=my_app.agent:build
+pytest --donkey-conformance --agent=my_app.agent:build
 ```
 
 which runs scenarios like: *does your agent retry a `TokenBudgetExceeded`? (it must not)* · *does it swallow `PIIDetected` as a generic exception?* · *does it propagate the correlation ID into its own logs?* · *does it still work when budget headers are absent?*
@@ -228,7 +228,7 @@ which runs scenarios like: *does your agent retry a `TokenBudgetExceeded`? (it m
 
 **Acceptance.**
 - `simulate()` works with no network and no server.
-- Plugin is published as a pytest entry point; `pytest --fabric-conformance` prints a table of scenario → pass/fail/exempt.
+- Plugin is published as a pytest entry point; `pytest --donkey-conformance` prints a table of scenario → pass/fail/exempt.
 - Exemptions must be asserted in code (`KNOWN_LIMITATIONS`), never silently skipped — the repo already has this rule for its own adapters; extend it to customers' agents.
 
 **Effort:** M.
@@ -237,29 +237,29 @@ which runs scenarios like: *does your agent retry a `TokenBudgetExceeded`? (it m
 
 ## 1.6 OpenTelemetry GenAI instrumentation — piece 5 of 6
 
-**What it is.** Every governed call produces an OTel span following the GenAI semantic conventions (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, …) **plus** Fabric-specific attributes for the governance layer:
+**What it is.** Every governed call produces an OTel span following the GenAI semantic conventions (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, …) **plus** Donkey-specific attributes for the governance layer:
 
 ```
-fabric.policy.decision      = allow | refuse
-fabric.policy.type          = pii_detected | token_budget | injection | …
-fabric.budget.remaining     = 18450
-fabric.correlation_id       = …
-fabric.cost.team            = support          (from 1.7)
+donkey.policy.decision      = allow | refuse
+donkey.policy.type          = pii_detected | token_budget | injection | …
+donkey.budget.remaining     = 18450
+donkey.correlation_id       = …
+donkey.cost.team            = support          (from 1.7)
 ```
 
 Export goes wherever the developer already sends spans (OTLP). Nothing is Anypoint-specific in the emit path.
 
 **Why it matters — Scenario A.** The team already runs Langfuse (or Datadog, or Phoenix). Tomorrow they see "policy refusals per hour by type" and "tokens per ticket" in the dashboard they already have, with zero new tooling. That is the feature that makes platform teams say yes.
 
-**Why it matters — Scenario C.** Audit asks "which user's request was refused for content safety on Tuesday?" The span carries `enduser.id` (1.7), `fabric.policy.type`, and the correlation ID that joins to the gateway's own audit log. Answer in one query.
+**Why it matters — Scenario C.** Audit asks "which user's request was refused for content safety on Tuesday?" The span carries `enduser.id` (1.7), `donkey.policy.type`, and the correlation ID that joins to the gateway's own audit log. Answer in one query.
 
 **Honest caveats to tell the team.**
-- The GenAI conventions are still *Development* status. Names can change. **Pin** the semconv version and **dual-emit** (`gen_ai.*` at the pinned version plus a stable `fabric.*` namespace we control) so customer dashboards do not break when upstream renames.
+- The GenAI conventions are still *Development* status. Names can change. **Pin** the semconv version and **dual-emit** (`gen_ai.*` at the pinned version plus a stable `donkey.*` namespace we control) so customer dashboards do not break when upstream renames.
 - Whether Anypoint Monitoring / Agent Visualizer ingests OTLP GenAI spans is *not publicly documented*. Do **not** promise "shows up in Agent Visualizer" until someone inside confirms it. Ship "exports OTLP" and let the sink be the customer's choice. If the internal answer is yes, that becomes a headline feature in Phase 2.
 
 **Acceptance.**
-- Zero-config: `Fabric.from_env()` + `OTEL_EXPORTER_OTLP_ENDPOINT` set → spans appear. No SDK-specific env var needed.
-- A refused request still produces a span, with `fabric.policy.decision=refuse` and `otel.status_code=ERROR`.
+- Zero-config: `Donkey.from_env()` + `OTEL_EXPORTER_OTLP_ENDPOINT` set → spans appear. No SDK-specific env var needed.
+- A refused request still produces a span, with `donkey.policy.decision=refuse` and `otel.status_code=ERROR`.
 - Streaming responses produce one span with token counts filled at stream end.
 - Instrumentation is opt-out with a single flag and adds < 1 ms overhead (benchmark in CI).
 
@@ -271,14 +271,14 @@ Export goes wherever the developer already sends spans (OTLP). Nothing is Anypoi
 
 **What it is.** Two small header features that make the enterprise story true.
 
-*Correlation.* Every request gets a per-call ID and, optionally, a per-run ID the developer sets once (`fabric.run(id=ticket_id)`). Both are injected as headers, attached to every exception (1.2), every span (1.6), and logged. The gateway's audit log carries the same ID, so client-side and gateway-side records join.
+*Correlation.* Every request gets a per-call ID and, optionally, a per-run ID the developer sets once (`donkey.run(id=ticket_id)`). Both are injected as headers, attached to every exception (1.2), every span (1.6), and logged. The gateway's audit log carries the same ID, so client-side and gateway-side records join.
 
-*Cost attribution.* A small, fixed set of tags — `team`, `project`, `env`, `enduser.id` — set once on the `Fabric` (or per run) and injected as headers on every call. They appear in spans and are available for the gateway to bill/report on.
+*Cost attribution.* A small, fixed set of tags — `team`, `project`, `env`, `enduser.id` — set once on the `Donkey` (or per run) and injected as headers on every call. They appear in spans and are available for the gateway to bill/report on.
 
 ```python
-fabric = Fabric.from_env(team="support", project="triage-v2", env="prod")
+donkey = Donkey.from_env(team="support", project="triage-v2", env="prod")
 
-async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
+async with donkey.run(id=ticket.id, enduser_id=agent_user.id):
     await triage_agent.run(ticket)
 ```
 
@@ -290,7 +290,7 @@ async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
 
 **Acceptance.**
 - Per-run ID propagates through LangGraph nodes without the developer threading it (contextvar-based).
-- Every `FabricError` exposes `.correlation_id` and it matches the header that was sent.
+- Every `DonkeyError` exposes `.correlation_id` and it matches the header that was sent.
 - Tags are validated (fixed keys, max length) so nobody stuffs a JSON blob into a header.
 
 **Effort:** S.
@@ -299,7 +299,7 @@ async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
 
 ## 1.8 One deep adapter (LangGraph) + raw client
 
-**What it is.** Cut the adapter roster from eight to **one deep** (LangGraph, via `langchain_openai.ChatOpenAI` over the Fabric transport) plus the **raw** `openai`/`httpx` client. Deep means: correlation IDs flow through graph nodes automatically, `interrupt()` and refusals compose, the conformance suite runs against a real LangGraph example app, and there is a full worked tutorial.
+**What it is.** Cut the adapter roster from eight to **one deep** (LangGraph, via `langchain_openai.ChatOpenAI` over the Donkey transport) plus the **raw** `openai`/`httpx` client. Deep means: correlation IDs flow through graph nodes automatically, `interrupt()` and refusals compose, the conformance suite runs against a real LangGraph example app, and there is a full worked tutorial.
 
 **Why cut.** Eight adapters at 0 users is 8× the surface for every contract change (and the contract *will* change — it changed twice in the last three docs releases). One adapter done properly is a better demo than eight done thinly. The other seven come back in Phase 2 and beyond **by demand**, one at a time, each with its own conformance run.
 
@@ -307,7 +307,7 @@ async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
 
 **Why LangGraph first.** Largest Python agent-framework install base; its `interrupt()` primitive is what Phase 2 HITL builds on; its node structure makes correlation-ID propagation a visible win.
 
-**Acceptance.** `langgraph-support-triage/` in the [companion demos repo](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk-demos) implements Scenario A end-to-end against the simulator and passes conformance.
+**Acceptance.** `langgraph-support-triage/` in the [companion demos repo](https://github.com/Donkey-Development-Kit/donkey-development-kit-demos) implements Scenario A end-to-end against the simulator and passes conformance.
 
 **Effort:** S to cut, M to deepen.
 
@@ -318,23 +318,23 @@ async with fabric.run(id=ticket.id, enduser_id=agent_user.id):
 **What it is.** Two on-ramps so the six pieces are reachable in one line.
 
 ```python
-@fabric.governed(team="support")          # wraps any async fn: run-ID, tags, span, refusal → typed
+@donkey.governed(team="support")          # wraps any async fn: run-ID, tags, span, refusal → typed
 async def handle_ticket(ticket): ...
 
-@fabric.tool                               # marks a function as a governed tool (Phase 2 scanner reads this)
+@donkey.tool                               # marks a function as a governed tool (Phase 2 scanner reads this)
 async def lookup_crm(customer_id: str) -> dict: ...
 ```
 
 ```bash
-fabric init          # writes .agent-fabric.toml, prints what env vars are missing
-fabric doctor        # checks creds, reaches the gateway, prints policies it can observe, budget state
-fabric mock          # 1.4
-fabric test          # 1.5 conformance
+donkey init          # writes .donkey-kit.toml, prints what env vars are missing
+donkey doctor        # checks creds, reaches the gateway, prints policies it can observe, budget state
+donkey mock          # 1.4
+donkey test          # 1.5 conformance
 ```
 
-**Why it matters.** `fabric doctor` alone shortens "why doesn't this work" from an afternoon to thirty seconds. Decorators are how AWS AgentCore made identity feel free; copy the pattern.
+**Why it matters.** `donkey doctor` alone shortens "why doesn't this work" from an afternoon to thirty seconds. Decorators are how AWS AgentCore made identity feel free; copy the pattern.
 
-**Acceptance.** `fabric doctor` distinguishes "wrong credentials" from "wrong URL" from "credentials fine, model not in allow-list" — each with the remediation string from 1.2.
+**Acceptance.** `donkey doctor` distinguishes "wrong credentials" from "wrong URL" from "credentials fine, model not in allow-list" — each with the remediation string from 1.2.
 
 **Effort:** S (CLI) + S (decorators).
 
@@ -367,13 +367,13 @@ fabric test          # 1.5 conformance
 
 ## 2.1 Typed refusal reaction handlers
 
-**What it is.** Declarative "what to do when refused," registered once, applied everywhere the `Fabric` is used.
+**What it is.** Declarative "what to do when refused," registered once, applied everywhere the `Donkey` is used.
 
 ```python
-fabric.on(TokenBudgetExceeded).wait_for_reset(max_wait="45m")
-fabric.on(PIIDetected).call(mask_and_retry, max_times=1)
-fabric.on(ContentSafetyBlocked).fallback(model="internal-safe-model")
-fabric.on(PolicyViolation).escalate(to=hitl_queue)     # catch-all
+donkey.on(TokenBudgetExceeded).wait_for_reset(max_wait="45m")
+donkey.on(PIIDetected).call(mask_and_retry, max_times=1)
+donkey.on(ContentSafetyBlocked).fallback(model="internal-safe-model")
+donkey.on(PolicyViolation).escalate(to=hitl_queue)     # catch-all
 ```
 
 **Why it matters — Scenario B.** The resume logic from 1.3 becomes one line instead of a try/except in every loop.
@@ -382,13 +382,13 @@ fabric.on(PolicyViolation).escalate(to=hitl_queue)     # catch-all
 # BEFORE — 1.3: recovery written inside every loop that touches the model
 for batch in chunks(records, 200):
     try:
-        async with fabric.budget.pace(reserve=0.05):
+        async with donkey.budget.pace(reserve=0.05):
             await enrich(batch); checkpoint(batch)
     except BudgetReserveReached:
-        await fabric.budget.wait_for_reset(); continue
+        await donkey.budget.wait_for_reset(); continue
 
 # AFTER — 2.1: recovery declared once, runs at the transport
-fabric.on(TokenBudgetExceeded).wait_for_reset()
+donkey.on(TokenBudgetExceeded).wait_for_reset()
 
 for batch in chunks(records, 200):
     await enrich(batch); checkpoint(batch)
@@ -399,7 +399,7 @@ for batch in chunks(records, 200):
 
 **Why it matters — Scenario A.** Twelve LangGraph nodes call the model. Without handlers, each node needs the same PII try/except. With handlers, it is defined once and applied at the transport.
 
-**Rule to enforce.** Handlers *react*; they never *decide policy*. A handler cannot un-refuse a request. If someone proposes `fabric.on(PIIDetected).ignore()`, that is client-side enforcement by another name — reject it in review.
+**Rule to enforce.** Handlers *react*; they never *decide policy*. A handler cannot un-refuse a request. If someone proposes `donkey.on(PIIDetected).ignore()`, that is client-side enforcement by another name — reject it in review.
 
 **Effort:** M.
 
@@ -413,7 +413,7 @@ for batch in chunks(records, 200):
 class PCIViolation(PolicyViolation):
     remediation = "Card data must be tokenised via the Vault API before this call."
 
-fabric.classify.register(
+donkey.classify.register(
     match=dict(status=403, error_type="acme_pci_block"),
     raises=PCIViolation,
 )
@@ -441,11 +441,11 @@ fabric.classify.register(
 | Omni Gateway | Trusted Agent Identity step-up (MFA) — verify internally |
 
 ```python
-@fabric.tool(approval="required", risk="financial")
+@donkey.tool(approval="required", risk="financial")
 async def issue_refund(ticket_id: str, amount: float): ...
 ```
 
-When the agent calls `issue_refund`, the SDK raises `ApprovalRequired` (or triggers the framework's interrupt), records the pending approval with the correlation ID, and resumes on `fabric.approvals.resolve(id, approved_by=…)`.
+When the agent calls `issue_refund`, the SDK raises `ApprovalRequired` (or triggers the framework's interrupt), records the pending approval with the correlation ID, and resumes on `donkey.approvals.resolve(id, approved_by=…)`.
 
 **Why it matters — Scenario A.** Refunds over €100 need a human. Today that is bespoke code per team per framework. With this, it is a decorator argument, the pending approval is visible in the span (1.6), and the approver's identity lands in the audit trail (1.7).
 
@@ -460,7 +460,7 @@ When the agent calls `issue_refund`, the SDK raises `ApprovalRequired` (or trigg
 **What it is.** Small helpers that acquire and attach a user-scoped token for the gateway's Trusted Agent Identity, so the gateway can enforce per-user policy.
 
 ```python
-async with fabric.as_user(id_token=slack_user_oidc_token):
+async with donkey.as_user(id_token=slack_user_oidc_token):
     await hr_bot.answer(question)      # gateway sees the user, not just the service
 ```
 
@@ -474,7 +474,7 @@ async with fabric.as_user(id_token=slack_user_oidc_token):
 
 ## 2.5 In-repo scanner + GitHub Action → Exchange
 
-**What it is.** `fabric scan` walks a repository, finds everything marked `@fabric.tool`, MCP server definitions, and agent entry points, and produces a manifest (`fabric.yaml` / A2A agent card). `fabric publish` registers the manifest with Anypoint Exchange / Agent Registry. A GitHub Action runs both on every merge to `main`.
+**What it is.** `donkey scan` walks a repository, finds everything marked `@donkey.tool`, MCP server definitions, and agent entry points, and produces a manifest (`donkey.yaml` / A2A agent card). `donkey publish` registers the manifest with Anypoint Exchange / Agent Registry. A GitHub Action runs both on every merge to `main`.
 
 **Why it matters — Scenario A.** The support agent has six tools. Today the Agent Registry knows about the agent only if someone registers it by hand, and the tool list is stale within a week. With the Action, every merge updates the registry from the code — the registry becomes a *consequence* of the code, not a chore.
 
@@ -498,7 +498,7 @@ async with fabric.as_user(id_token=slack_user_oidc_token):
 
 ## 2.7 MCP tool discovery (Exchange → MCP)
 
-**What it is.** `fabric.tools.discover()` lists governed MCP tools the agent is allowed to use, returns them as native framework tools, and filters by the gateway's allow-list.
+**What it is.** `donkey.tools.discover()` lists governed MCP tools the agent is allowed to use, returns them as native framework tools, and filters by the gateway's allow-list.
 
 **Why it matters — Scenario C.** The RAG tool is exposed via MCP behind the gateway. The bot should get *only* the tools it is allowed to call, from the registry, not from a hard-coded list that drifts.
 
@@ -526,43 +526,43 @@ Add one more deep adapter chosen by what users ask for in Phase 1 issues — lik
 
 **Be precise about what A2A needs.** Someone must accept the socket. An A2A agent is a server: it serves an agent card at a well-known path and answers JSON-RPC task calls. That listener can be hidden behind one line, but it cannot be removed. What *can* be removed is everything painful about it — TLS, auth, rate limits, public exposure, registration. That is the gateway's job, and that is where the SDK helps.
 
-### 2.9.1 `fabric serve` — the listener, in one line
+### 2.9.1 `donkey serve` — the listener, in one line
 
-Wrap the official `a2a-sdk`; never reimplement the protocol. Map the framework's native run onto the A2A task lifecycle. Generate the agent card from the same `@fabric.tool` / `@fabric.agent` markers the scanner (2.5) already reads. Bind to localhost by default — the agent is never the public face.
+Wrap the official `a2a-sdk`; never reimplement the protocol. Map the framework's native run onto the A2A task lifecycle. Generate the agent card from the same `@donkey.tool` / `@donkey.agent` markers the scanner (2.5) already reads. Bind to localhost by default — the agent is never the public face.
 
 ```python
-@fabric.agent(name="support-triage", skills=["triage", "draft-reply"])
+@donkey.agent(name="support-triage", skills=["triage", "draft-reply"])
 async def handle(task: A2ATask) -> A2AResult:
     return await graph.ainvoke(task.input)
 
-fabric.serve(handle)      # A2A server on 127.0.0.1:8000, card auto-generated
+donkey.serve(handle)      # A2A server on 127.0.0.1:8000, card auto-generated
 ```
 
 Every call arriving over A2A gets the same treatment as an outgoing call: correlation ID, cost tags, OTel span, and typed refusals when the agent's own downstream calls are blocked. That governance-aware inbound path is what a plain A2A server does not give you.
 
-### 2.9.2 `fabric expose` — the ingress, registered from code
+### 2.9.2 `donkey expose` — the ingress, registered from code
 
 Provision an A2A proxy on Omni Gateway pointing at the agent's URL, attach the policy set, register the card in Agent Registry. The gateway does the work; the SDK turns a console session into one command.
 
 ```
-$ fabric expose --env prod
+$ donkey expose --env prod
   ✓ A2A proxy  https://gw.acme.internal/agents/support-triage
   ✓ policies   token-budget, pii-detection, trusted-agent-identity
   ✓ registry   support-triage v1.4.0
 ```
 
-### 2.9.3 `fabric dev` — a gateway in front of your laptop
+### 2.9.3 `donkey dev` — a gateway in front of your laptop
 
 Two honest options, depending on what is available internally:
 
-- **Option A — real gateway.** If a self-managed Omni Gateway image is usable for local dev, `fabric dev` starts it alongside `fabric serve` so the developer hits A2A *through real policies* on their machine. Depends on image availability and licensing — verify internally.
-- **Option B — simulated ingress.** If A is blocked, extend the simulator (1.4) with an A2A ingress mode: a local fake gateway in front of `fabric serve` replaying the same rejection fixtures. Fully in our control, same honesty check — a plain A2A client must see byte-identical responses.
+- **Option A — real gateway.** If a self-managed Omni Gateway image is usable for local dev, `donkey dev` starts it alongside `donkey serve` so the developer hits A2A *through real policies* on their machine. Depends on image availability and licensing — verify internally.
+- **Option B — simulated ingress.** If A is blocked, extend the simulator (1.4) with an A2A ingress mode: a local fake gateway in front of `donkey serve` replaying the same rejection fixtures. Fully in our control, same honesty check — a plain A2A client must see byte-identical responses.
 
 Either way the developer experience is one command, and an A2A endpoint that behaves like production.
 
 **Why it matters — Scenario A.** Agent Broker or a partner agent wants to hand the support agent a ticket over A2A. Today that means writing a server, getting a cert, opening a port and registering by hand. With this: decorate, serve, expose — and every inbound task carries the same governance as the outbound calls.
 
-**The gap only the gateway can close.** What would make this feel like magic is an agent with *no inbound reachability at all* — a laptop, a private subnet — that is still publishable: the agent dials *out* to the gateway, and the gateway routes inbound A2A traffic back over that connection, the ngrok / Cloudflare Tunnel pattern. That is not in the public Omni Gateway docs. It is upstream gap #6 (see 3.1), and it is the only version that genuinely removes the listener problem rather than hiding it. Until it ships, the truth is: `fabric serve` makes the listener trivial, `fabric expose` makes the ingress one command, and the agent still has to be somewhere the gateway can reach.
+**The gap only the gateway can close.** What would make this feel like magic is an agent with *no inbound reachability at all* — a laptop, a private subnet — that is still publishable: the agent dials *out* to the gateway, and the gateway routes inbound A2A traffic back over that connection, the ngrok / Cloudflare Tunnel pattern. That is not in the public Omni Gateway docs. It is upstream gap #6 (see 3.1), and it is the only version that genuinely removes the listener problem rather than hiding it. Until it ships, the truth is: `donkey serve` makes the listener trivial, `donkey expose` makes the ingress one command, and the agent still has to be somewhere the gateway can reach.
 
 **Effort:** `serve` S–M (the `a2a-sdk` exists) · `expose` L, blocked on verifying the A2A proxy provisioning API · `dev` M.
 
@@ -604,18 +604,18 @@ These are product requests to the Omni Gateway team. They have long lead times, 
 **What it is.** On first connection, the SDK fetches the in-force policy set and exposes it:
 
 ```python
-fabric.policies.models_allowed        # ["gpt-4o", "claude-sonnet"]
-fabric.policies.tools_allowed         # [...]
-fabric.policies.budget                # same object as 1.3, now live
-fabric.policies.pii.mode              # "block" | "mask" | "log"
-fabric.policies.content_safety.on     # True
+donkey.policies.models_allowed        # ["gpt-4o", "claude-sonnet"]
+donkey.policies.tools_allowed         # [...]
+donkey.policies.budget                # same object as 1.3, now live
+donkey.policies.pii.mode              # "block" | "mask" | "log"
+donkey.policies.content_safety.on     # True
 ```
 
 **Why it matters — Scenario A.** The agent asks for a model that is not allowed. Today: one wasted call, one refusal. With the handshake: the adapter picks from `models_allowed` at construction time and the refusal never happens. Multiply by 2,000 tickets a day.
 
 **Why it matters — Scenario C.** `pii.mode == "mask"` tells the bot the gateway will mask rather than block, so the bot's UX can say "some details were redacted" instead of "request failed."
 
-**The hard rule, again.** The handshake is **advisory**. It exists to avoid *wasted* calls and to improve UX. The gateway still evaluates every request. If the client's cached view and the gateway disagree, the gateway wins and the client learns from the refusal. Any proposal to skip the gateway "because the handshake said it's fine" is the client-side enforcement anti-pattern. `fabric.policies.observed_at` is exposed for the same reason `budget.observed_at` is.
+**The hard rule, again.** The handshake is **advisory**. It exists to avoid *wasted* calls and to improve UX. The gateway still evaluates every request. If the client's cached view and the gateway disagree, the gateway wins and the client learns from the refusal. Any proposal to skip the gateway "because the handshake said it's fine" is the client-side enforcement anti-pattern. `donkey.policies.observed_at` is exposed for the same reason `budget.observed_at` is.
 
 **Effort:** L (blocked on upstream).
 
@@ -623,11 +623,11 @@ fabric.policies.content_safety.on     # True
 
 ## 3.3 To-the-code push (config / policy / tool-list updates)
 
-**What it is.** The gateway (or control plane) pushes changes — new allow-list, budget change, tool added — and the SDK refreshes `fabric.policies` and `fabric.tools` without a restart. Mechanism: long-poll or SSE against the discovery endpoint from 3.2, with an ETag.
+**What it is.** The gateway (or control plane) pushes changes — new allow-list, budget change, tool added — and the SDK refreshes `donkey.policies` and `donkey.tools` without a restart. Mechanism: long-poll or SSE against the discovery endpoint from 3.2, with an ETag.
 
 **Why it matters — Scenario A.** A new model is approved at 10:00. Today every agent restarts to pick it up (or nobody tells them). With push, the agent's next run uses it.
 
-**Honest note.** Consistency is the risk: an agent mid-run sees the allow-list change under it. Rule: refresh between runs (`fabric.run()` boundaries), never mid-run.
+**Honest note.** Consistency is the risk: an agent mid-run sees the allow-list change under it. Rule: refresh between runs (`donkey.run()` boundaries), never mid-run.
 
 **Effort:** L (depends on 3.2).
 
@@ -637,7 +637,7 @@ fabric.policies.content_safety.on     # True
 
 *Structured output.* `client.chat.completions.parse(response_format=MyPydanticModel)` already exists in the `openai` client; the SDK's job is only to make sure refusals and budget parsing still work on the `.parse` path, and that the simulator supports it. Small.
 
-*Evaluation hooks.* A pluggable `fabric.evaluate(on="run_end", with=my_scorer)` that attaches a score to the run's span. Pairs with 1.6; the eval logic itself lives in the customer's tool (Langfuse, Phoenix, Braintrust). Do not build an eval framework.
+*Evaluation hooks.* A pluggable `donkey.evaluate(on="run_end", with=my_scorer)` that attaches a score to the run's span. Pairs with 1.6; the eval logic itself lives in the customer's tool (Langfuse, Phoenix, Braintrust). Do not build an eval framework.
 
 **Effort:** M combined.
 
@@ -673,7 +673,7 @@ fabric.policies.content_safety.on     # True
 | 1 | OTel GenAI | A: refusals in your existing dashboard | now |
 | 1 | Correlation + cost tags | A: cost per agent; C: audit join | now |
 | 1 | LangGraph deep + raw | A | now |
-| 1 | Decorators + `fabric doctor` | all | now |
+| 1 | Decorators + `donkey doctor` | all | now |
 | 1 | Docs + `llms.txt` | adoption | now |
 | 2 | Refusal handlers | B: resume in one line | 3–6 mo |
 | 2 | Classification registry | C: custom policy → typed error | 3–6 mo |
