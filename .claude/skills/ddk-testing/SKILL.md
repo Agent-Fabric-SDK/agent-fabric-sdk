@@ -66,7 +66,7 @@ What lives here today (read before adding a sibling):
   `httpx.MockTransport` (no real network, no respx needed for simple
   request/response stubbing).
 - `test_config.py`, `test_pure_logic.py`, `test_registry_shapes.py`,
-  `test_governed_state_shapes.py`, `test_fabric_surface.py`,
+  `test_governed_state_shapes.py`, `test_donkey_surface.py`,
   `test_adapter_ergonomics.py`.
 
 ### Mandatory assertions for `core/errors.classify()` changes
