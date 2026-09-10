@@ -1,9 +1,9 @@
 ---
-name: afdk-testing
-description: Use when writing, reviewing, or expanding tests in agent-fabric-sdk — picks the right pytest surface (unit / conformance / fixture-driven / sandbox / local_gateway), enforces the "never a silent skip" conformance rule, and prevents per-PR drift in mocking and verification discipline.
+name: ddk-testing
+description: Use when writing, reviewing, or expanding tests in donkey-development-kit — picks the right pytest surface (unit / conformance / fixture-driven / sandbox / local_gateway), enforces the "never a silent skip" conformance rule, and prevents per-PR drift in mocking and verification discipline.
 ---
 
-# AFDK Testing
+# DDK Testing
 
 ## Overview
 
@@ -12,9 +12,9 @@ gate in CI. Getting the surface wrong either weakens a real gate (a framework
 test slipped into `tests/unit`) or produces a false negative (a skipped
 conformance scenario nobody reviews). This skill is the routing table plus the
 mandatory assertions per surface. For architecture/layering rules that tests
-must respect, see [[afdk-coding-conventions]]. For the "never invent an
+must respect, see [[ddk-coding-conventions]]. For the "never invent an
 endpoint/header/class name" discipline the fixture-driven tests exist to
-enforce, see [[afdk-verification-discipline]].
+enforce, see [[ddk-verification-discipline]].
 
 All commands below run from `python/` (the CI `working-directory`).
 
@@ -42,7 +42,7 @@ Is it pinning behavior to a REAL captured Anypoint
                                                            reading tests/fixtures/anypoint/**
 Does it need a running local Omni Gateway (docker)?     -> @pytest.mark.local_gateway (off by default)
 Does it need a real Anypoint sandbox?                   -> @pytest.mark.sandbox (off by default,
-                                                            gated by FABRIC_SANDBOX_TESTS=1)
+                                                            gated by DONKEY_SANDBOX_TESTS=1)
 Is it a framework's constructor signature/kwarg shape?  -> scripts/verify_frameworks.py, not pytest
 None of the above                                       -> STOP. Ask; don't invent a 6th surface.
 ```
@@ -51,7 +51,7 @@ None of the above                                       -> STOP. Ask; don't inve
 
 This is the framework-free gate: CI's `base-only` job installs **only**
 `.[dev]` (no `llm`, no framework extras) and runs `pytest -q tests/unit` after
-importing `agent_fabric` — see `.github/workflows/ci.yml`. Anything here must
+importing `donkey_kit` — see `.github/workflows/ci.yml`. Anything here must
 work with zero optional dependencies installed. Never add a top-level
 framework import to a file under `tests/unit/`; that is exactly the drift this
 job exists to catch.
@@ -165,7 +165,7 @@ Rules for this surface:
 Declared in `python/pyproject.toml` `[tool.pytest.ini_options]`:
 - `local_gateway` — requires a local Omni Gateway via docker (§6.5).
 - `sandbox` — requires a real Anypoint sandbox, gated by
-  `FABRIC_SANDBOX_TESTS=1` (off by default).
+  `DONKEY_SANDBOX_TESTS=1` (off by default).
 
 Neither marker has a test using it yet — they're declared ahead of the tests
 that will need them (M1+, per suite.py's own docstring: "the scenario bodies
@@ -192,7 +192,7 @@ which pytest's fixture model doesn't fit well.
 - `python scripts/verify_frameworks.py` — signature check (offline, all
   installed frameworks).
 - `--live` — also makes one real completion round-trip; needs the 3
-  `AGENT_FABRIC_LLM_PROXY_*` env vars.
+  `DONKEY_LLM_PROXY_*` env vars.
 - `--only <fw> [<fw>...]` — restrict to specific frameworks.
 - `--emit-verified` — print §8 markdown rows to paste into
   `docs/verified-apis.md` after maintainer sign-off.
@@ -265,7 +265,7 @@ python scripts/verify_frameworks.py [--live] [--only <fw>] [--emit-verified]
 - A hand-written JSON fixture under `tests/fixtures/anypoint/` with no README
   entry recording where it came from.
 - A new `_verify.blocked(...)` guard added without a corresponding row/status
-  change tracked in `docs/verified-apis.md` — see [[afdk-verification-discipline]].
+  change tracked in `docs/verified-apis.md` — see [[ddk-verification-discipline]].
 - `# type: ignore` or a broadened `except Exception` added inside a test just
   to make `mypy`/the test pass.
 - Loosening `ruff`/`mypy` config, or adding a new `pytest.ini_options` marker
@@ -274,10 +274,10 @@ python scripts/verify_frameworks.py [--live] [--only <fw>] [--emit-verified]
 
 ## Related skills
 
-- [[afdk-coding-conventions]] — the layered architecture (`core` is
+- [[ddk-coding-conventions]] — the layered architecture (`core` is
   framework-free) that Surface 1's `base-only` job protects.
-- [[afdk-verification-discipline]] — the §0.3 "never invent an endpoint" rule
+- [[ddk-verification-discipline]] — the §0.3 "never invent an endpoint" rule
   that fixture-driven tests and `verify_frameworks.py` both enforce.
-- [[afdk-pr-review]] — review-time checklist; testing gaps are one axis of it.
-- [[afdk-git-workflow]] / [[afdk-pr-workflow]] — where these tests live in the
+- [[ddk-pr-review]] — review-time checklist; testing gaps are one axis of it.
+- [[ddk-git-workflow]] / [[ddk-pr-workflow]] — where these tests live in the
   branch → PR lifecycle.

@@ -1,25 +1,25 @@
 ---
-name: afdk-issue-relationships
-description: Use when linking GitHub issues for agent-fabric-sdk — sub-issues (parent/child), blocked-by/blocking dependencies, or cross-link "related" comments. Run after an issue is filed, not as part of filing it.
+name: ddk-issue-relationships
+description: Use when linking GitHub issues for donkey-development-kit — sub-issues (parent/child), blocked-by/blocking dependencies, or cross-link "related" comments. Run after an issue is filed, not as part of filing it.
 ---
 
-# Agent Fabric SDK Issue Relationships
+# Donkey Development Kit Issue Relationships
 
 ## Overview
 
 Plain `#NN` mentions in an issue body create a backlink in the timeline but are not structural — they don't show in a "Blocked by" panel and don't auto-update. Pick the right tool per relationship type.
 
-This skill is for **linking issues that already exist**. For drafting and filing the issue itself, use [[afdk-filing-issues]] first; come here once both issues exist and you need to wire the relationship.
+This skill is for **linking issues that already exist**. For drafting and filing the issue itself, use [[ddk-filing-issues]] first; come here once both issues exist and you need to wire the relationship.
 
 ## Deferred scope always gets its own issue
 
 Any slice of work that is **explicitly deferred or ruled out of scope but still needs to happen** must become a dedicated GitHub issue in the same motion — the moment the deferral is decided, not "later". This holds wherever the deferral surfaces:
 
-- **At filing** — a surface scoped out via an issue's `## Out of scope` section (see [[afdk-filing-issues]]).
-- **In review** — a fix a PR review punts as "out of scope for this PR" / "follow-up" (see [[afdk-pr-review]]).
-- **Mid-branch** — a piece of the current issue's own scope dropped or postponed while implementing (see [[afdk-git-workflow]]).
+- **At filing** — a surface scoped out via an issue's `## Out of scope` section (see [[ddk-filing-issues]]).
+- **In review** — a fix a PR review punts as "out of scope for this PR" / "follow-up" (see [[ddk-pr-review]]).
+- **Mid-branch** — a piece of the current issue's own scope dropped or postponed while implementing (see [[ddk-git-workflow]]).
 
-The two-step is fixed: **file the dedicated issue first** ([[afdk-filing-issues]] owns its labels + milestone), **then wire the relationship** with the right tool below (sub-issue, blocked-by, or cross-link comment) so the deferral is traceable both ways. A comment that says "we'll do this later" with no issue behind it is not a deferral — it is a silent drop.
+The two-step is fixed: **file the dedicated issue first** ([[ddk-filing-issues]] owns its labels + milestone), **then wire the relationship** with the right tool below (sub-issue, blocked-by, or cross-link comment) so the deferral is traceable both ways. A comment that says "we'll do this later" with no issue behind it is not a deferral — it is a silent drop.
 
 | Excuse | Reality |
 | --- | --- |
@@ -31,10 +31,10 @@ The two-step is fixed: **file the dedicated issue first** ([[afdk-filing-issues]
 ## Target repo
 
 ```
-Agent-Fabric-SDK/agent-fabric-sdk
+Donkey-Development-Kit/donkey-development-kit
 ```
 
-Always pass `--repo Agent-Fabric-SDK/agent-fabric-sdk` to `gh` calls.
+Always pass `--repo Donkey-Development-Kit/donkey-development-kit` to `gh` calls.
 
 ## Pick the right tool
 
@@ -50,10 +50,10 @@ When issue A *cannot ship until* issue B ships AND B is a breakdown of A's scope
 
 ```bash
 # Get the child's internal id (NOT the issue number).
-gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<child-number> --jq '.id'
+gh api repos/Donkey-Development-Kit/donkey-development-kit/issues/<child-number> --jq '.id'
 
 # Link it. NOTE: use -F (typed integer), not -f (string) — the API rejects strings.
-gh api -X POST repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<parent-number>/sub_issues \
+gh api -X POST repos/Donkey-Development-Kit/donkey-development-kit/issues/<parent-number>/sub_issues \
   -F sub_issue_id=<child-id>
 ```
 
@@ -65,10 +65,10 @@ When issue A *cannot ship until* B ships but A is **not** a sub-task of B (they'
 
 ```bash
 # Get the blocker's internal id (NOT the issue number).
-gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<blocker-number> --jq '.id'
+gh api repos/Donkey-Development-Kit/donkey-development-kit/issues/<blocker-number> --jq '.id'
 
 # Mark <blocked-number> as blocked-by <blocker-id>. Use -F (typed integer).
-gh api -X POST repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<blocked-number>/dependencies/blocked_by \
+gh api -X POST repos/Donkey-Development-Kit/donkey-development-kit/issues/<blocked-number>/dependencies/blocked_by \
   -F issue_id=<blocker-id>
 ```
 
@@ -79,7 +79,7 @@ The response will include `issue_dependencies_summary: { blocked_by: N, blocking
 For "related to" / "could reuse" / "follow-up of" relationships that are not blocking (e.g. an adapter bug that also affects the conformance suite's KNOWN_LIMITATIONS list, without blocking it), drop a brief comment on **both** issues so the timelines link both ways. Keep it one or two sentences and explain *the nature* of the relationship — "Related: #X" alone is noise.
 
 ```bash
-gh issue comment <issue> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh issue comment <issue> --repo Donkey-Development-Kit/donkey-development-kit \
   --body "Related: #<other> — <one-sentence reason>"
 ```
 
@@ -89,7 +89,7 @@ Run both directions in the same step (parallel `&` calls + `wait`).
 
 When an issue has hard or soft dependencies, add one or both sections to the body — the markdown is part of the contract, the GitHub link is the structural backup.
 
-If the issue is already filed, edit its body with `gh issue edit <#> --body-file -` (heredoc) rather than re-filing. If you're filing a fresh issue, add these sections **before** filing per [[afdk-filing-issues]].
+If the issue is already filed, edit its body with `gh issue edit <#> --body-file -` (heredoc) rather than re-filing. If you're filing a fresh issue, add these sections **before** filing per [[ddk-filing-issues]].
 
 ```markdown
 ## Depends on
@@ -119,7 +119,7 @@ milestone, one of the two is mis-scheduled — realign rather than leaving it.
 
 ```bash
 # Check an issue's current milestone
-gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> --jq '.milestone.title'
+gh api repos/Donkey-Development-Kit/donkey-development-kit/issues/<#> --jq '.milestone.title'
 
 # Realign to the exact milestone title
 gh issue edit <#> --milestone "<exact title>"
@@ -136,9 +136,9 @@ gh issue edit <#> --milestone "<exact title>"
 
 ```bash
 # Sub-issues on a parent
-gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<parent-number>/sub_issues --jq '.[].number'
+gh api repos/Donkey-Development-Kit/donkey-development-kit/issues/<parent-number>/sub_issues --jq '.[].number'
 
 # Dependency summary on an issue
-gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> \
+gh api repos/Donkey-Development-Kit/donkey-development-kit/issues/<#> \
   --jq '.issue_dependencies_summary'
 ```

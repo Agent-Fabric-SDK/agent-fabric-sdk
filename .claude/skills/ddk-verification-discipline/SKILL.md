@@ -1,6 +1,6 @@
 ---
-name: afdk-verification-discipline
-description: Use when touching any Anypoint endpoint, header, class name, or kwarg in agent-fabric-sdk — before adding/removing a `_verify.blocked` guard or `Unverified` placeholder, flipping a `docs/verified-apis.md` row, or reviewing a PR that claims a surface is "verified". Enforces §0.3 "never invent an endpoint, header, or class name."
+name: ddk-verification-discipline
+description: Use when touching any Anypoint endpoint, header, class name, or kwarg in donkey-development-kit — before adding/removing a `_verify.blocked` guard or `Unverified` placeholder, flipping a `docs/verified-apis.md` row, or reviewing a PR that claims a surface is "verified". Enforces §0.3 "never invent an endpoint, header, or class name."
 ---
 
 # Verification discipline (§0.3)
@@ -21,9 +21,9 @@ flag, header, or class name only if you have *seen it* — in the repo, in a liv
 sandbox capture, or read from the official shipping client. If you have not seen
 it, it is `UNVERIFIED` and it stays behind a guard. There is no fourth option.
 
-Related runbooks: [[afdk-coding-conventions]] (layered architecture, where these
-constants live), [[afdk-pr-review]] and [[afdk-pr-workflow]] (how this gates
-review/merge), [[afdk-docs-authoring]] / [[afdk-docs-sync]] (keeping the
+Related runbooks: [[ddk-coding-conventions]] (layered architecture, where these
+constants live), [[ddk-pr-review]] and [[ddk-pr-workflow]] (how this gates
+review/merge), [[ddk-docs-authoring]] / [[ddk-docs-sync]] (keeping the
 source-of-truth doc honest).
 
 ---
@@ -32,7 +32,7 @@ source-of-truth doc honest).
 
 ### 1. `core/_verify.py` — the enforcement mechanism
 
-`python/src/agent_fabric/core/_verify.py` is the centralized home for every value
+`python/src/donkey_kit/core/_verify.py` is the centralized home for every value
 §0.3 says must be verified against a real Anypoint sandbox before it can be
 trusted. **Nothing in this module is a verified fact by default.** Each surface is
 handled one of three ways:
@@ -45,7 +45,7 @@ def blocked(what: str) -> NotImplementedError:
 ```
 
 Use this where we cannot even responsibly guess — e.g. the MCP Bridge
-provisioning endpoint (§5), `fabric.tools.discover`, the provisioning
+provisioning endpoint (§5), `donkey.tools.discover`, the provisioning
 control-plane. The call site raises `_verify.blocked("…")`. **Do not replace
 these with guesses.** Removing one is the last step of the UNBLOCK procedure
 below, never a casual edit.
@@ -151,7 +151,7 @@ python scripts/verify_frameworks.py --emit-verified   # print §8 markdown rows 
   recorded §8 path — a renamed/re-exported class is caught. *Construction
   succeeding is the signature verification.*
 - **Check B (`--live`):** one real completion through the sandbox proxy (needs the
-  three `AGENT_FABRIC_LLM_PROXY_*` env vars). Only LangGraph's runtime call is
+  three `DONKEY_LLM_PROXY_*` env vars). Only LangGraph's runtime call is
   exercised directly; the other adapters rely on the already-LIVE-verified shared
   proxy path (§2) rather than guessing an agent-loop method.
 
@@ -194,15 +194,15 @@ code that assumes it is written"). Do NOT unblock §12.8 category 3 surfaces (LL
 data-plane, §3 token-attribution header) from static analysis alone.
 
 Before touching any `§`-cited guard, read that section — a bare `§N.N` lives in
-`spec/archive/agent-fabric-sdk-build-plan-v1.md`, a `BG §N.N` in
-`spec/agent-fabric-sdk-build-guide.md`. The constraints are deliberate, not
+`spec/archive/donkey-development-kit-build-plan-v1.md`, a `BG §N.N` in
+`spec/donkey-development-kit-build-guide.md`. The constraints are deliberate, not
 accidental.
 
 ---
 
 ## How this intersects reviews and PRs
 
-When authoring or reviewing (see [[afdk-pr-review]], [[afdk-pr-workflow]]),
+When authoring or reviewing (see [[ddk-pr-review]], [[ddk-pr-workflow]]),
 treat these as blocking checks:
 
 - **Any new endpoint / header / class name / kwarg** must trace to a
@@ -217,11 +217,11 @@ treat these as blocking checks:
   red flag; so is a row flip with no `_verify.py` change.
 - **New live captures** belong as fixtures (e.g. `tests/fixtures/anypoint/…`) and
   should be exercised by contract tests (e.g. `test_llm_proxy_contract.py`) — see
-  [[afdk-testing]].
+  [[ddk-testing]].
 - **`docs/unsupported-boundary.md`** must never accumulate an undocumented
   surface without a written owner.
 - Confirm the change didn't defeat the `base-only` CI job's purpose (no
-  framework import leaked into `core/`) — that's a [[afdk-coding-conventions]]
+  framework import leaked into `core/`) — that's a [[ddk-coding-conventions]]
   concern but it rides alongside verification changes.
 
 ---
@@ -236,7 +236,7 @@ treat these as blocking checks:
 | Mark a framework signature verified | `verify_frameworks.py` green on the installed package → maintainer sign-off → flip the §8 row (`--emit-verified` prints it) |
 | Remove a `blocked(...)` guard | Run the full 5-step UNBLOCK procedure; §12.8 category-3 surfaces cannot be unblocked from static analysis |
 
-**Repo:** `Agent-Fabric-SDK/agent-fabric-sdk` · branches `develop` → `main`.
-Files: `python/src/agent_fabric/core/_verify.py`, `docs/verified-apis.md`,
+**Repo:** `Donkey-Development-Kit/donkey-development-kit` · branches `develop` → `main`.
+Files: `python/src/donkey_kit/core/_verify.py`, `docs/verified-apis.md`,
 `docs/unsupported-boundary.md`, `docs/m1-completion-checklist.md`,
 `python/scripts/verify_frameworks.py`, and the specs under `spec/`.

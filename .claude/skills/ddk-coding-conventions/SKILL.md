@@ -1,22 +1,22 @@
 ---
-name: afdk-coding-conventions
-description: Use when authoring or reviewing any Python code in the agent-fabric SDK (python/src/agent_fabric/**) — typing under mypy --strict, ruff rules, the import-linter layering + framework-free core rule, lazy framework imports in adapters, the `BG §N.N` vs bare-`§` citation habit, the "floors never ceilings" extras rule, the 3.10 floor, and trademark-descriptive language. This is the read-the-doc backstop for the trigger-based matcher.
+name: ddk-coding-conventions
+description: Use when authoring or reviewing any Python code in the donkey-kit SDK (python/src/donkey_kit/**) — typing under mypy --strict, ruff rules, the import-linter layering + framework-free core rule, lazy framework imports in adapters, the `BG §N.N` vs bare-`§` citation habit, the "floors never ceilings" extras rule, the 3.10 floor, and trademark-descriptive language. This is the read-the-doc backstop for the trigger-based matcher.
 ---
 
-# AFDK Coding Conventions
+# DDK Coding Conventions
 
 ## Overview
 
-`agent-fabric` (import package `agent_fabric`) is a Python SDK for
+`donkey-kit` (import package `donkey_kit`) is a Python SDK for
 consuming **Agent Fabric** from any of eight agent frameworks. The
 authoritative contract for *what the code must look like* is split across two
 sources you should keep open:
 
 - **`CLAUDE.md`** (repo root) — the short version of every rule below.
-- **`spec/agent-fabric-sdk-build-plan.md`** — phases, invariants, the
-  do-not-build list. **`spec/agent-fabric-sdk-build-guide.md`** — feature
+- **`spec/donkey-development-kit-build-plan.md`** — phases, invariants, the
+  do-not-build list. **`spec/donkey-development-kit-build-guide.md`** — feature
   scope, cited as `BG §N.N`. A **bare** `§N.N` points into the archived v1
-  plan at `spec/archive/agent-fabric-sdk-build-plan-v1.md`, where most
+  plan at `spec/archive/donkey-development-kit-build-plan-v1.md`, where most
   existing citations in the tree still resolve.
   When a docstring says "blocked on verification (§6.7)" or "floors, never
   ceilings (§8.4)", read that section before changing the behavior — the
@@ -32,25 +32,25 @@ directly.
 
 Trigger this skill when about to:
 
-- Add or edit anything under `python/src/agent_fabric/**` — especially `core/`
+- Add or edit anything under `python/src/donkey_kit/**` — especially `core/`
   (the framework-free layer) or `integrations/**` (the adapters).
 - Add or edit a framework adapter — **LangGraph** is the one deep,
   conformance-gated adapter; the other seven (ADK, Strands, Microsoft Agent
   Framework, OpenAI Agents SDK, Anthropic, CrewAI, LlamaIndex) are supported at
   `connection_kwargs()` only (`BG §1.8`). See the "Adapter depth" checklist item.
 - Touch `pyproject.toml` extras, mypy, ruff, or the import-linter contracts.
-- Review a PR diff that touches any of the above (see [[afdk-pr-review]]).
+- Review a PR diff that touches any of the above (see [[ddk-pr-review]]).
 
 If the change is docs-only (`website/**`, `docs/**`, `*.md`), see
-[[afdk-docs-authoring]] instead. If the change invents or confirms an endpoint,
-header, or class name, [[afdk-verification-discipline]] is the more specific
+[[ddk-docs-authoring]] instead. If the change invents or confirms an endpoint,
+header, or class name, [[ddk-verification-discipline]] is the more specific
 rulebook.
 
 ## Pre-write checklist
 
 Walk this against the build plan before writing code:
 
-- [ ] **Typing under `mypy --strict`** — the whole `src/agent_fabric` tree is
+- [ ] **Typing under `mypy --strict`** — the whole `src/donkey_kit` tree is
       strict-checked and CI blocks on it. Annotate every public signature; no
       untyped defs, no implicit `Any`. Prefer `X | None` over `Optional[X]`
       (ruff `UP` will rewrite the old form). Use `from __future__ import
@@ -69,9 +69,9 @@ Walk this against the build plan before writing code:
           from langchain_openai import ChatOpenAI  # lazy, inside the method
           return ChatOpenAI(model=model, **self.connection_kwargs(), **kw)
       ```
-      This is what lets `import agent_fabric` succeed with no framework
+      This is what lets `import donkey_kit` succeed with no framework
       installed. The `base-only` CI job enforces it (installs only `[dev]`,
-      imports `agent_fabric`, runs `tests/unit`).
+      imports `donkey_kit`, runs `tests/unit`).
 - [ ] **Layering (§1.1)** — `integrations → tools → registry → llm → core`.
       Lower layers never import higher ones, and nothing below `integrations`
       may import `integrations`. Enforced by `lint-imports` (import-linter),
@@ -92,7 +92,7 @@ Walk this against the build plan before writing code:
       defensible placeholder; `Unverified(...)` constants emit a one-time
       `UnverifiedValueWarning` and are config/env-overridable. Flip
       `verified=True` **and** the row in `docs/verified-apis.md` together, never
-      one without the other. Full rules in [[afdk-verification-discipline]].
+      one without the other. Full rules in [[ddk-verification-discipline]].
 - [ ] **Extras are floors, never ceilings (§8.4)** — no upper version pins in
       `pyproject.toml`. Add `foo>=X`, never `foo<Y`. Known incompatibilities go
       in `docs/verified-apis.md §8.1` as documented dev constraints, not as
@@ -102,11 +102,11 @@ Walk this against the build plan before writing code:
       `tomllib` is stdlib only on 3.11+, so `tomli` is backfilled below 3.11;
       `typing-extensions` is pulled in below 3.12. Keep 3.10 compatibility — do
       not use 3.11+ syntax/stdlib without a backfill.
-- [ ] **`py.typed`** — the package ships `src/agent_fabric/py.typed` (PEP 561).
+- [ ] **`py.typed`** — the package ships `src/donkey_kit/py.typed` (PEP 561).
       New subpackages inherit it; keep public API fully annotated so downstream
       users get types.
 - [ ] **Three ergonomic forms per governed surface** — each adapter keeps the
-      `fabric.<framework>` factory, a `connection_kwargs()` accessor, and a
+      `donkey.<framework>` factory, a `connection_kwargs()` accessor, and a
       module-level factory (see `langgraph.py`). Keep all three when adding an
       adapter.
 - [ ] **Adapter depth (`BG §1.8`)** — the roster is *one deep, seven shallow*.
@@ -122,7 +122,7 @@ Walk this against the build plan before writing code:
 - [ ] **Trademark-descriptive language (§0.4)** — "Agent Fabric", "Anypoint",
       "Omni Gateway", "MuleSoft" are Salesforce trademarks. Write the package as
       a descriptive third-party SDK ("an SDK for consuming Agent
-      Fabric"), never as a first-party / official Salesforce product.
+      Donkey"), never as a first-party / official Salesforce product.
 
 ## Post-write self-review
 
@@ -131,7 +131,7 @@ Run the same gate CI runs, from `python/`:
 ```bash
 cd python
 pip install -e ".[dev,llm,cli]"    # what CI installs
-mypy                               # mypy --strict, BLOCKING (files=src/agent_fabric)
+mypy                               # mypy --strict, BLOCKING (files=src/donkey_kit)
 ruff check .                       # E,F,I,UP,B; line-length 100
 lint-imports                       # §1.1 layering + framework-free core
 pytest -q tests/unit               # the base-only unit job
@@ -151,19 +151,19 @@ Then grep the diff for red flags:
 
 ```bash
 # Framework imports leaked to a module top level (should be lazy / TYPE_CHECKING)
-git diff origin/develop...HEAD -- 'python/src/agent_fabric/integrations/**' \
+git diff origin/develop...HEAD -- 'python/src/donkey_kit/integrations/**' \
   | grep -nE "^\+(import|from) (langchain|langgraph|google|agents|anthropic|crewai|llama_index|strands|litellm|agent_framework)"
 # → each hit must be inside a method body or under `if TYPE_CHECKING:`
 
 # core/ reaching up into a framework or a higher layer
-git diff origin/develop...HEAD -- 'python/src/agent_fabric/core/**' \
-  | grep -nE "^\+(import|from) agent_fabric\.(integrations|tools|registry|llm)"
+git diff origin/develop...HEAD -- 'python/src/donkey_kit/core/**' \
+  | grep -nE "^\+(import|from) donkey_kit\.(integrations|tools|registry|llm)"
 
 # Upper version pins sneaking into extras (§8.4 forbids them)
 git diff origin/develop...HEAD -- 'python/pyproject.toml' | grep -nE '<[0-9]|<='
 
 # A verification guard being replaced with a guess (§0.3)
-git diff origin/develop...HEAD -- 'python/src/agent_fabric/**' \
+git diff origin/develop...HEAD -- 'python/src/donkey_kit/**' \
   | grep -nE "^-.*(_verify\.blocked|Unverified\()"
 # → confirm the value was actually verified + docs/verified-apis.md flipped
 ```
@@ -177,7 +177,7 @@ git diff origin/develop...HEAD -- 'python/src/agent_fabric/**' \
   ignore: `provisioning/cli.py` waives `B008` because Typer's API requires
   `typer.Option(...)` in argument defaults.
 - **mypy** is `strict = true`, `python_version = "3.10"`, `files =
-  ["src/agent_fabric"]`, with the `pydantic.mypy` plugin. Optional/absent deps
+  ["src/donkey_kit"]`, with the `pydantic.mypy` plugin. Optional/absent deps
   are handled by a single `[[tool.mypy.overrides]]` block with
   `ignore_missing_imports = true` — do **not** scatter inline `# type: ignore`
   for a framework that becomes typed once its extra is installed (the block
@@ -198,20 +198,20 @@ verification change) in the **same** PR.
 
 | Excuse | Reality |
 | --- | --- |
-| "I'll import the framework at the top, it's cleaner" | Then `import agent_fabric` breaks for anyone without that extra, and the `base-only` CI job fails. Import lazily inside the method; put the *type* under `TYPE_CHECKING`. |
+| "I'll import the framework at the top, it's cleaner" | Then `import donkey_kit` breaks for anyone without that extra, and the `base-only` CI job fails. Import lazily inside the method; put the *type* under `TYPE_CHECKING`. |
 | "`Any` here, I'll tighten the type later" | `mypy --strict` blocks CI and later doesn't come. Annotate it now; use `object`/`unknown`-style narrowing if the shape is genuinely open. |
 | "It's just a small helper in `core/`, one framework import is fine" | `core/` is httpx + pydantic only (§1.1). `lint-imports` fails the build. There is no small exception. |
 | "I'll pin `openai<3` so it stops breaking" | §8.4 forbids upper pins. Document the incompatibility in `docs/verified-apis.md §8.1`; let the nightly matrix surface it. |
-| "I'll just fill in the real endpoint I think it is" | §0.3: never invent an endpoint/header/class name. Use `_verify.blocked(...)` or an `Unverified(...)` placeholder until it's confirmed against a sandbox. See [[afdk-verification-discipline]]. |
+| "I'll just fill in the real endpoint I think it is" | §0.3: never invent an endpoint/header/class name. Use `_verify.blocked(...)` or an `Unverified(...)` placeholder until it's confirmed against a sandbox. See [[ddk-verification-discipline]]. |
 | "3.11 has `tomllib` built in, I'll use it directly" | The floor is 3.10. Use the `tomli` backfill path already in the code. |
 | "I'll skip the local gate, CI will tell me" | mypy + ruff + lint-imports run in seconds locally; CI tells you minutes later on a branch reviewers are already looking at. |
 | "The package is basically MuleSoft's, I'll word it that way" | §0.4: these are Salesforce trademarks. Keep the language descriptive/third-party unless the project ships with MuleSoft's endorsement. |
 
 ## Linkage to other rules
 
-- **Verification (§0.3)** — [[afdk-verification-discipline]] is the specific
+- **Verification (§0.3)** — [[ddk-verification-discipline]] is the specific
   rulebook for `_verify.py`, `docs/verified-apis.md`, and the status legend.
-- **Tests + conformance kit (§8.1)** — [[afdk-testing]].
-- **PR review of these conventions** — [[afdk-pr-review]]; the local gate above
-  is the pre-PR smoke step consumed by [[afdk-pr-workflow]].
-- **Branch/commit hygiene (`§N.N` in commit messages)** — [[afdk-git-workflow]].
+- **Tests + conformance kit (§8.1)** — [[ddk-testing]].
+- **PR review of these conventions** — [[ddk-pr-review]]; the local gate above
+  is the pre-PR smoke step consumed by [[ddk-pr-workflow]].
+- **Branch/commit hygiene (`§N.N` in commit messages)** — [[ddk-git-workflow]].

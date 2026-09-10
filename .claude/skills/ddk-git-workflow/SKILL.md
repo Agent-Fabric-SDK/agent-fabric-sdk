@@ -1,18 +1,18 @@
 ---
-name: afdk-git-workflow
-description: Use for this repo's branch lifecycle — finding/filing the issue, cutting the branch, worktrees, committing, and pushing. Triggers when the user says "work an issue", "work on #N", "start issue N", "tackle issue N", "pick up issue N", "let's do issue N", or is about to edit code, run `git checkout -b`/`git worktree add`, commit, or push. PR creation/merge is handled by [[afdk-pr-workflow]] / [[afdk-merge-strategy]].
+name: ddk-git-workflow
+description: Use for this repo's branch lifecycle — finding/filing the issue, cutting the branch, worktrees, committing, and pushing. Triggers when the user says "work an issue", "work on #N", "start issue N", "tackle issue N", "pick up issue N", "let's do issue N", or is about to edit code, run `git checkout -b`/`git worktree add`, commit, or push. PR creation/merge is handled by [[ddk-pr-workflow]] / [[ddk-merge-strategy]].
 ---
 
-# AFDK Git Workflow
+# DDK Git Workflow
 
 ## Overview
 
-Every code change in `agent-fabric-sdk` starts with a GitHub issue and happens
+Every code change in `donkey-development-kit` starts with a GitHub issue and happens
 on a dedicated branch named after that issue. No exceptions for "small"
 changes — small changes are exactly where this discipline gets skipped and
 history gets muddied. This is a Python SDK with a build-plan-as-spec
-(`spec/agent-fabric-sdk-build-plan.md` for phases and invariants,
-`spec/agent-fabric-sdk-build-guide.md` for feature scope) and a `§`-cited
+(`spec/donkey-development-kit-build-plan.md` for phases and invariants,
+`spec/donkey-development-kit-build-guide.md` for feature scope) and a `§`-cited
 codebase; commit
 messages should cite the relevant section when a change is implementing or
 touching spec-governed behavior.
@@ -65,18 +65,18 @@ before the change lands on `develop`.
 
 1. **Find or file the issue.** Search first:
    ```bash
-   gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk --search "<keywords>"
+   gh issue list --repo Donkey-Development-Kit/donkey-development-kit --search "<keywords>"
    ```
-   If nothing matches, file one using the [[afdk-filing-issues]] skill — that
+   If nothing matches, file one using the [[ddk-filing-issues]] skill — that
    skill owns issue creation; do not bypass it.
 
    **Check the issue has a Milestone.** It should already carry one from
-   filing time (per [[afdk-filing-issues]]) — that milestone is the release
+   filing time (per [[ddk-filing-issues]]) — that milestone is the release
    the branch targets. There is no Projects v2 board in this repo; triage is
    milestone + labels only. If the issue has no milestone, assign one (or ask
    the user which release it targets) before cutting the branch:
    ```bash
-   gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --milestone "<exact title>"
+   gh issue edit <issue#> --repo Donkey-Development-Kit/donkey-development-kit --milestone "<exact title>"
    ```
 
    **Assign the issue to yourself.** Claiming the issue before you branch is
@@ -84,7 +84,7 @@ before the change lands on `develop`.
    leaves no record of who did the work. Assign as you pick it up, not after
    the PR is open:
    ```bash
-   gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --add-assignee @me
+   gh issue edit <issue#> --repo Donkey-Development-Kit/donkey-development-kit --add-assignee @me
    ```
    If someone else is already assigned, that issue is claimed — coordinate
    with them or pick a different one rather than assigning yourself on top.
@@ -114,7 +114,7 @@ before the change lands on `develop`.
      lazily inside a method.
    - Depends on an endpoint, header, or class name that isn't in
      `docs/verified-apis.md` as VERIFIED — if so, this is a
-     [[afdk-verification-discipline]] question, not a place to guess. Use
+     [[ddk-verification-discipline]] question, not a place to guess. Use
      `_verify.blocked("…")` or an `Unverified(...)` placeholder rather than
      inventing a value.
 4. **Make the change, commit, push, open a PR targeting `develop`.**
@@ -122,8 +122,8 @@ before the change lands on `develop`.
    messages should cite `§N.N` when the change implements or modifies
    build-plan-governed behavior, e.g. `fix(llm): correct proxy base URL
    handling (§2.1)`. PR creation and the smoke test are owned by
-   [[afdk-pr-workflow]]; merge strategy (squash vs. merge, `develop` →
-   `main` promotion) is owned by [[afdk-merge-strategy]].
+   [[ddk-pr-workflow]]; merge strategy (squash vs. merge, `develop` →
+   `main` promotion) is owned by [[ddk-merge-strategy]].
 
 ## Branch naming
 
@@ -165,8 +165,8 @@ extras get reused across branches, file watchers thrash).
 
 ```bash
 git fetch origin
-git worktree add ../agent-fabric-sdk-fix-42-proxy-url -b fix/42-proxy-url-trailing-slash origin/develop
-cd ../agent-fabric-sdk-fix-42-proxy-url
+git worktree add ../donkey-development-kit-fix-42-proxy-url -b fix/42-proxy-url-trailing-slash origin/develop
+cd ../donkey-development-kit-fix-42-proxy-url
 ```
 
 A fresh worktree has no installed virtualenv/extras. From the worktree's
@@ -178,7 +178,7 @@ fast-forward the primary checkout's `develop` so it picks up the merge
 commit:
 
 ```bash
-git worktree remove ../agent-fabric-sdk-fix-42-proxy-url
+git worktree remove ../donkey-development-kit-fix-42-proxy-url
 git branch -d fix/42-proxy-url-trailing-slash   # or -D if abandoned
 
 # In the primary checkout (the one tracking `develop`), pull the merge commit.
@@ -212,7 +212,7 @@ verification unblock that hasn't happened yet), **stop and surface it**. Do
 not patch around it locally, do not silently expand the scope of #N, do not
 guess at the unverified value "just to keep moving." Tell the user what's
 blocking and offer to file a new issue for the prerequisite via
-[[afdk-filing-issues]] (see also [[afdk-issue-relationships]] for how to link
+[[ddk-filing-issues]] (see also [[ddk-issue-relationships]] for how to link
 it). The user decides whether to: (a) pause #N until the prerequisite lands,
 (b) expand #N's scope explicitly, or (c) take a different approach. One
 issue = one branch is only meaningful if scope stays honest.
@@ -220,14 +220,14 @@ issue = one branch is only meaningful if scope stays honest.
 The same discipline covers work **dropped or postponed** mid-branch, not just
 prerequisites: if a slice of #N's own scope gets deferred, file a dedicated
 issue for it before you set it aside, then wire it per
-[[afdk-issue-relationships]] ("Deferred scope always gets its own issue"). A
+[[ddk-issue-relationships]] ("Deferred scope always gets its own issue"). A
 `TODO` in the code or a "left for later" note in the PR is not a tracker.
 
 ## Base branch
 
 **Always `develop`.** Never branch from `main`, never PR into `main`. `main`
 is release-only and moves only when `develop` is promoted (see
-[[afdk-merge-strategy]]). If you're on `main` when starting work, that's a
+[[ddk-merge-strategy]]). If you're on `main` when starting work, that's a
 red flag — `git checkout develop` first.
 
 ## Forbidden rationalizations
@@ -245,7 +245,7 @@ red flag — `git checkout develop` first.
 | "There's already a branch open for something similar, I'll reuse it" | One issue = one branch. Reusing branches mixes scopes and breaks `Closes #<n>`. |
 | "I'll just `git checkout` the other branch quickly" | If another session is in this repo, that other session sees your checkout. Use a worktree. |
 | "Worktrees are overkill for a small fix" | The cost is one command. The cost of a corrupted parallel session is a debugging detour. |
-| "It's unverified but close enough, I'll just fill it in" | That's exactly what §0.3 forbids. Use `_verify.blocked(...)` or `Unverified(...)` and route through [[afdk-verification-discipline]]. |
+| "It's unverified but close enough, I'll just fill it in" | That's exactly what §0.3 forbids. Use `_verify.blocked(...)` or `Unverified(...)` and route through [[ddk-verification-discipline]]. |
 
 ## Red flags — STOP
 
@@ -311,7 +311,7 @@ the isolation boundary, and per-step confirmation just adds friction.
 - Any operation that touches `develop` or `main`.
 
 After pushing, surface the branch name so the user can follow along. **Once
-the branch is ready for review, hand off to [[afdk-pr-workflow]]** — that
+the branch is ready for review, hand off to [[ddk-pr-workflow]]** — that
 skill owns the smoke test (`pytest -q`, `mypy`, `ruff check .`,
 `lint-imports`), PR creation gate, and post-merge verification.
 
@@ -319,19 +319,19 @@ skill owns the smoke test (`pytest -q`, `mypy`, `ruff check .`,
 
 ```bash
 # Start a change
-gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk --search "<keywords>"
-# (file a new issue via the afdk-filing-issues skill if no match)
-gh issue edit <issue#> --repo Agent-Fabric-SDK/agent-fabric-sdk --add-assignee @me
+gh issue list --repo Donkey-Development-Kit/donkey-development-kit --search "<keywords>"
+# (file a new issue via the ddk-filing-issues skill if no match)
+gh issue edit <issue#> --repo Donkey-Development-Kit/donkey-development-kit --add-assignee @me
 git fetch origin
 git checkout develop && git pull --ff-only
 git checkout -b fix/<issue#>-<slug>
 
 # Push when ready for review
 git push -u origin fix/<issue#>-<slug>
-# → continue with [[afdk-pr-workflow]] for smoke test + PR creation
+# → continue with [[ddk-pr-workflow]] for smoke test + PR creation
 
 # After the PR is merged (worktree workflow): tear down + fast-forward develop.
-git worktree remove ../agent-fabric-sdk-<slug>
+git worktree remove ../donkey-development-kit-<slug>
 git branch -d fix/<issue#>-<slug>
 git checkout develop && git pull --ff-only   # picks up the merge commit
 ```

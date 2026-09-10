@@ -1,25 +1,25 @@
 ---
-name: afdk-pr-workflow
-description: Use for the agent-fabric-sdk PR lifecycle — the local pre-PR gate that mirrors CI, drafting and creating the PR, post-merge issue close verification, and worktree teardown. Triggers when about to run `gh pr create`, approve/merge a PR, or after a merge lands.
+name: ddk-pr-workflow
+description: Use for the donkey-development-kit PR lifecycle — the local pre-PR gate that mirrors CI, drafting and creating the PR, post-merge issue close verification, and worktree teardown. Triggers when about to run `gh pr create`, approve/merge a PR, or after a merge lands.
 ---
 
-# AFDK PR Workflow
+# DDK PR Workflow
 
 ## Overview
 
-This skill picks up where [[afdk-git-workflow]] leaves off: the branch is
+This skill picks up where [[ddk-git-workflow]] leaves off: the branch is
 pushed and you're ready to open the PR. It covers the local pre-PR gate, the
 approval gates, post-merge issue-close verification, and worktree teardown.
 
-For branch-side work (issue → branch → commits) see [[afdk-git-workflow]]. For
+For branch-side work (issue → branch → commits) see [[ddk-git-workflow]]. For
 review-time invariants (layering, verification discipline, framework-free
-core) see [[afdk-pr-review]]. For merge method see [[afdk-merge-strategy]].
-For the docs gate that must also pass before merge see [[afdk-docs-sync]].
+core) see [[ddk-pr-review]]. For merge method see [[ddk-merge-strategy]].
+For the docs gate that must also pass before merge see [[ddk-docs-sync]].
 
 ## Target repo
 
 ```
-Agent-Fabric-SDK/agent-fabric-sdk
+Donkey-Development-Kit/donkey-development-kit
 ```
 
 PRs target `develop` (integration branch), never `main` (release branch).
@@ -30,7 +30,7 @@ PRs target `develop` (integration branch), never `main` (release branch).
   user, wait for "go ahead" before invoking.
 - **Approving a PR** (`gh pr review --approve`).
 - **Merging a PR** (`gh pr merge`). Merge method is fixed by
-  [[afdk-merge-strategy]] — don't pick per PR.
+  [[ddk-merge-strategy]] — don't pick per PR.
 
 **Also confirm before:**
 
@@ -52,7 +52,7 @@ jobs `base-only`, `typecheck-and-lint`, `test`) **before** drafting the PR:
 cd python
 pytest -q                # mirrors the `test` job (matrix 3.10/3.11/3.12 in CI;
                           # you run whatever interpreter is active locally)
-mypy                      # mypy --strict, BLOCKING in CI (files=src/agent_fabric)
+mypy                      # mypy --strict, BLOCKING in CI (files=src/donkey_kit)
 ruff check .              # line-length 100; E,F,I,UP,B
 lint-imports              # import-linter: enforces the §1.1 layered,
                           # framework-free-core architecture
@@ -69,10 +69,10 @@ python scripts/verify_frameworks.py            # offline signature check, all in
 ```
 
 Any non-zero exit means **stop** — fix it before drafting the PR. CI also runs
-a `base-only` job that installs *only* `[dev]` and imports `agent_fabric` to
+a `base-only` job that installs *only* `[dev]` and imports `donkey_kit` to
 catch accidental top-level framework imports; if you added or touched an
 adapter, sanity-check that a bare `pip install -e ".[dev]"` + `python -c
-"import agent_fabric"` still succeeds (no top-level framework import leaked
+"import donkey_kit"` still succeeds (no top-level framework import leaked
 into `core`/`llm`/`registry`/`tools`).
 
 **Skipping this gate is a red flag.** Don't open the PR on a branch that
@@ -84,7 +84,7 @@ silently skip.
 
 If the diff changes anything documented in `docs/verified-apis.md`, README
 ergonomics (§2), or adapter surfaces, the docs-sync checks in
-[[afdk-docs-sync]] must also pass before the PR is drafted — a code change
+[[ddk-docs-sync]] must also pass before the PR is drafted — a code change
 that flips a value from `UNVERIFIED` to `VERIFIED` (or adds an adapter) with
 no matching `docs/verified-apis.md` row is an incomplete PR, not a
 follow-up.
@@ -104,7 +104,7 @@ Once the local gate (and docs gate, if applicable) is green:
    directory**:
 
 ```bash
-gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr create --repo Donkey-Development-Kit/donkey-development-kit \
   --base develop --head <branch-name> \
   --title "<imperative title>" \
   --body "$(cat <<'EOF'
@@ -132,9 +132,9 @@ silently attach your title/body to the wrong diff. Always pass
    success:
 
 ```bash
-gh pr view <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr view <pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --json headRefName,baseRefName,number --jq '.'
-gh pr diff <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk --name-only | head
+gh pr diff <pr#> --repo Donkey-Development-Kit/donkey-development-kit --name-only | head
 ```
 
 If `headRefName` doesn't match `<branch-name>`, close the PR
@@ -164,7 +164,7 @@ If CI fails after `gh pr create`:
 
 1. **Do not request review.** A failing PR wastes reviewer attention.
 2. Fetch the failing job's logs (`gh run view <run-id> --log-failed --repo
-   Agent-Fabric-SDK/agent-fabric-sdk`) and surface the actual error.
+   Donkey-Development-Kit/donkey-development-kit`) and surface the actual error.
 3. Fix on the same branch, push, let CI re-run. Do not open a new PR.
 4. Only request review once CI is green.
 
@@ -197,7 +197,7 @@ source of truth. Do this on every merge with a linked issue:
 ```bash
 PR=<pr#>
 ISSUE=<issue#>
-REPO=Agent-Fabric-SDK/agent-fabric-sdk
+REPO=Donkey-Development-Kit/donkey-development-kit
 
 SHA=$(gh pr view $PR --repo $REPO --json mergeCommit --jq '.mergeCommit.oid' | cut -c1-7)
 STATE=$(gh issue view $ISSUE --repo $REPO --json state --jq '.state')
@@ -226,21 +226,21 @@ Forbidden rationalizations:
 | "The user only said merge, not close" | On this repo, explicit close is the default behavior implied by merge. |
 
 **Milestone note:** milestone tracking rides on the linked issue, not the PR
-itself — the issue's milestone is set per [[afdk-filing-issues]]. Closing the
+itself — the issue's milestone is set per [[ddk-filing-issues]]. Closing the
 issue above (with `Closes #N` on the merged PR) is what advances that
 milestone's closed-issue count, which is how release progress is tracked.
-Before handing a develop→main promotion to [[afdk-merge-strategy]], confirm
+Before handing a develop→main promotion to [[ddk-merge-strategy]], confirm
 the target milestone's open count is 0:
 
 ```bash
-gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh issue list --repo Donkey-Development-Kit/donkey-development-kit \
   --milestone "<exact title>" --state open
 ```
 
 ## After merge — worktree teardown
 
 Once the issue is closed and the PR is merged, tear down the worktree used
-for this branch — see [[afdk-git-workflow]] for `git worktree remove …` and
+for this branch — see [[ddk-git-workflow]] for `git worktree remove …` and
 the primary checkout's `pull --ff-only`. If a scratch venv or `pip install -e
 ".[dev,...]"` was created inside the worktree, it goes away with the
 worktree; nothing else in this repo needs process/service teardown (no dev
@@ -257,17 +257,17 @@ pytest -q && mypy && ruff check . && lint-imports
 python scripts/verify_frameworks.py
 
 # Draft → confirm → file (run from the worktree, always pass --head explicitly)
-gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr create --repo Donkey-Development-Kit/donkey-development-kit \
   --base develop --head <branch-name> \
   --title "<title>" \
   --body "Closes #<issue#>"$'\n\n'"<summary>"$'\n\n'"## Post-deploy steps"$'\n'"None."
 
 # Verify the PR points at the right branch:
-gh pr view <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr view <pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --json headRefName,baseRefName --jq '.'
 
 # Post-merge: explicit close (default policy, never trust auto-close)
-PR=<pr#>; ISSUE=<issue#>; REPO=Agent-Fabric-SDK/agent-fabric-sdk
+PR=<pr#>; ISSUE=<issue#>; REPO=Donkey-Development-Kit/donkey-development-kit
 SHA=$(gh pr view $PR --repo $REPO --json mergeCommit --jq '.mergeCommit.oid' | cut -c1-7)
 STATE=$(gh issue view $ISSUE --repo $REPO --json state --jq '.state')
 if [ "$STATE" = "OPEN" ]; then
@@ -278,5 +278,5 @@ else
 fi
 
 # Teardown
-# git worktree remove <path>   (see [[afdk-git-workflow]])
+# git worktree remove <path>   (see [[ddk-git-workflow]])
 ```

@@ -1,28 +1,28 @@
 ---
-name: afdk-pr-review
-description: Use when reviewing an agent-fabric-sdk pull request — checks this repo's architectural invariants (framework-free layered core / lint-imports, verification discipline & _verify guards, error-taxonomy correctness, floors-never-ceilings extras, §N.N citation hygiene, py.typed/mypy --strict, trademark wording) before a gh pr review.
+name: ddk-pr-review
+description: Use when reviewing a donkey-development-kit pull request — checks this repo's architectural invariants (framework-free layered core / lint-imports, verification discipline & _verify guards, error-taxonomy correctness, floors-never-ceilings extras, §N.N citation hygiene, py.typed/mypy --strict, trademark wording) before a gh pr review.
 ---
 
-# Agent Fabric SDK — PR Review
+# Donkey Development Kit — PR Review
 
 ## Overview
 
-`agent-fabric` (import package `agent_fabric`) rests on a small set of
+`donkey-kit` (import package `donkey_kit`) rests on a small set of
 architectural invariants documented in `CLAUDE.md` and the specs in `spec/`
-(`agent-fabric-sdk-build-plan.md` for phases and invariants,
-`agent-fabric-sdk-build-guide.md` for feature scope — every `§N.N`
+(`donkey-development-kit-build-plan.md` for phases and invariants,
+`donkey-development-kit-build-guide.md` for feature scope — every `§N.N`
 points into it). Most are easy to violate in a way that passes a casual read but
 breaks the layered/framework-free-core rule, invents an unverified endpoint, or
 misclassifies a gateway rejection. This skill is the review-time checklist for
 those invariants.
 
-For the branch-side rules and how a PR is opened, see [[afdk-pr-workflow]] and
-[[afdk-git-workflow]]. The two invariants with the most depth have dedicated
-skills: [[afdk-verification-discipline]] (§0.3) and [[afdk-coding-conventions]].
+For the branch-side rules and how a PR is opened, see [[ddk-pr-workflow]] and
+[[ddk-git-workflow]]. The two invariants with the most depth have dedicated
+skills: [[ddk-verification-discipline]] (§0.3) and [[ddk-coding-conventions]].
 
 ## When to use
 
-- About to leave a review on an agent-fabric-sdk PR (`gh pr review` — comment,
+- About to leave a review on a donkey-development-kit PR (`gh pr review` — comment,
   request-changes, or approve).
 - The user asks to "review", "look at", or "check" a PR or a diff.
 - Before approving someone else's PR, even if CI is green — CI catches
@@ -31,10 +31,10 @@ skills: [[afdk-verification-discipline]] (§0.3) and [[afdk-coding-conventions]]
 ## Fetching the diff
 
 ```bash
-gh pr view <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr view <pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --json title,body,files,additions,deletions,baseRefName,headRefName
-gh pr diff <pr#>  --repo Agent-Fabric-SDK/agent-fabric-sdk
-gh pr checks <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk
+gh pr diff <pr#>  --repo Donkey-Development-Kit/donkey-development-kit
+gh pr checks <pr#> --repo Donkey-Development-Kit/donkey-development-kit
 ```
 
 Branch model is `develop` (integration) → `main` (release). If `baseRefName` is
@@ -48,7 +48,7 @@ first.
 The import graph is `integrations → tools → registry → llm → core`; **lower
 never imports higher**. `core/` is framework-free — **httpx + pydantic only**.
 The `[tool.importlinter]` contracts in `python/pyproject.toml` encode this: a
-`forbidden` contract (nothing below may import `agent_fabric.integrations`) and a
+`forbidden` contract (nothing below may import `donkey_kit.integrations`) and a
 `layers` contract listing the five layers top-to-bottom.
 
 - Confirm CI's `typecheck-and-lint` job is green — it runs `lint-imports`. If the
@@ -57,7 +57,7 @@ The `[tool.importlinter]` contracts in `python/pyproject.toml` encode this: a
 - **Adapters import their framework lazily inside methods**, never at module top
   level. A top-level `import langgraph` / `from crewai import …` in an
   `integrations/` module defeats the `base-only` CI job (which installs only
-  `[dev]` and imports `agent_fabric`). Grep the diff for framework imports at
+  `[dev]` and imports `donkey_kit`). Grep the diff for framework imports at
   column 0 inside `integrations/`.
 - Any new top-level import in `core/`, `llm/`, `registry/`, `tools/` that pulls
   in an agent framework is a hard reject — it belongs in `integrations/`, lazily.
@@ -70,7 +70,7 @@ If you can't tell from CI, run it locally from `python/`: `lint-imports`.
 ### 2. Verification discipline (§0.3 — never invent an endpoint, header, or class name)
 
 `docs/verified-apis.md` is the single source of truth; `core/_verify.py` holds
-the guards. See [[afdk-verification-discipline]] for the full mechanism. At
+the guards. See [[ddk-verification-discipline]] for the full mechanism. At
 review time:
 
 - A new endpoint path, header name, or framework class/kwarg in the diff must
@@ -135,9 +135,9 @@ constraints**, not encoded as pins. Keep the Python 3.10 floor
 ### 5. §N.N citation hygiene
 
 Citations come in two forms and must not be mixed: **`BG §N.N`** points into
-`spec/agent-fabric-sdk-build-guide.md` and is the form for all new
+`spec/donkey-development-kit-build-guide.md` and is the form for all new
 feature-scope references; a **bare `§N.N`** points into the archived v1 plan at
-`spec/archive/agent-fabric-sdk-build-plan-v1.md`. A new bare `§N.N` added by
+`spec/archive/donkey-development-kit-build-plan-v1.md`. A new bare `§N.N` added by
 the diff is a comment — it should almost certainly be `BG §`. When the diff
 adds or moves a citation:
 
@@ -149,7 +149,7 @@ adds or moves a citation:
 ### 6. Typing: `py.typed` + `mypy --strict`
 
 `mypy` runs `--strict` and is **blocking in CI** (`typecheck-and-lint`,
-`files=src/agent_fabric`). If that job is red, request changes — don't approve
+`files=src/donkey_kit`). If that job is red, request changes — don't approve
 around it. Public surfaces are fully annotated; the package ships `py.typed`, so
 untyped `Any` leaking into a public signature degrades downstream users. `ruff
 check .` (line-length 100; rules E,F,I,UP,B) must also be green.
@@ -182,17 +182,17 @@ product or endorses it. Keep the "for consuming Agent Fabric" framing.
   (the `base-only` job runs `pytest -q tests/unit`).
 - `classify()` changes must come with fixture-backed cases (see §3 above).
 - Live/sandbox tests stay off by default, gated by markers/env (`local_gateway`,
-  `sandbox` + `FABRIC_SANDBOX_TESTS=1`). A diff that un-gates them, or hardcodes a
+  `sandbox` + `DONKEY_SANDBOX_TESTS=1`). A diff that un-gates them, or hardcodes a
   sandbox host into a default-run test, is a request-changes.
 
-See [[afdk-testing]] for the full testing conventions.
+See [[ddk-testing]] for the full testing conventions.
 
 ### 10. Deferred fixes become tracked issues
 
 If a review comment defers a fix — "out of scope for this PR", "follow-up",
 "not blocking, do later" — that deferred work must get its own GitHub issue,
-not just a comment thread. File it via [[afdk-filing-issues]] and wire it per
-[[afdk-issue-relationships]] ("Deferred scope always gets its own issue")
+not just a comment thread. File it via [[ddk-filing-issues]] and wire it per
+[[ddk-issue-relationships]] ("Deferred scope always gets its own issue")
 before the PR merges. A `--comment` that punts work with no linked issue is
 exactly how deferred fixes get lost.
 
@@ -213,7 +213,7 @@ python scripts/verify_frameworks.py --emit-verified   # §8 rows to paste
 
 ## How to leave the review
 
-Per [[afdk-pr-workflow]], `gh pr review --approve` requires explicit user
+Per [[ddk-pr-workflow]], `gh pr review --approve` requires explicit user
 sign-off. Drafting the review body is automatic; **submitting an approve is
 not.**
 
@@ -227,9 +227,9 @@ not.**
 
 ```bash
 # Draft review (do NOT submit --approve without user approval)
-gh pr review <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk --comment         --body-file review.md
-gh pr review <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk --request-changes --body-file review.md
-# gh pr review <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk --approve  ← user-approved only
+gh pr review <pr#> --repo Donkey-Development-Kit/donkey-development-kit --comment         --body-file review.md
+gh pr review <pr#> --repo Donkey-Development-Kit/donkey-development-kit --request-changes --body-file review.md
+# gh pr review <pr#> --repo Donkey-Development-Kit/donkey-development-kit --approve  ← user-approved only
 ```
 
 Avoid a blanket "looks good" with no evidence. Quote the rule and the `§N.N`.
@@ -249,4 +249,4 @@ Avoid a blanket "looks good" with no evidence. Quote the rule and the `§N.N`.
 | Upper version pin added to an extra | Contradicts "floors, never ceilings" (§8.4). |
 | `pytest.skip`/`xfail` in the conformance suite instead of `KNOWN_LIMITATIONS` | Silent skip hides an unsupported framework (§8.1). |
 | Wording implying first-party MuleSoft/Salesforce product | Trademark misuse (§0.4). |
-| Review defers a fix ("do later") with no follow-up issue filed | Deferred work with no issue is a silent drop — file + wire it ([[afdk-issue-relationships]]). |
+| Review defers a fix ("do later") with no follow-up issue filed | Deferred work with no issue is a silent drop — file + wire it ([[ddk-issue-relationships]]). |

@@ -1,9 +1,9 @@
 ---
-name: afdk-merge-strategy
-description: Use when merging an agent-fabric-sdk PR into `develop` or promoting `develop` to `main`. Defines the merge method for each direction (squash for branch→develop, no-ff merge commit for develop→main), the approval gates, hotfix handling, and revert recipes. Triggers when about to run `gh pr merge`, cut a release, or touch `main`.
+name: ddk-merge-strategy
+description: Use when merging a donkey-development-kit PR into `develop` or promoting `develop` to `main`. Defines the merge method for each direction (squash for branch→develop, no-ff merge commit for develop→main), the approval gates, hotfix handling, and revert recipes. Triggers when about to run `gh pr merge`, cut a release, or touch `main`.
 ---
 
-# AFDK Merge Strategy
+# DDK Merge Strategy
 
 ## Overview
 
@@ -20,9 +20,9 @@ different purposes:
 
 Picking the right method per direction keeps both logs useful and `git revert`
 clean. This skill covers the merge *method* and gates only — for branch
-naming/setup see [[afdk-git-workflow]], for the PR lifecycle see
-[[afdk-pr-workflow]]. Release **tagging** is intentionally out of scope here —
-it's owned by [[afdk-release]], which runs *after* the promotion merge lands.
+naming/setup see [[ddk-git-workflow]], for the PR lifecycle see
+[[ddk-pr-workflow]]. Release **tagging** is intentionally out of scope here —
+it's owned by [[ddk-release]], which runs *after* the promotion merge lands.
 
 ## The rule
 
@@ -44,12 +44,12 @@ it's owned by [[afdk-release]], which runs *after* the promotion merge lands.
 
 ## Direction 1: `<branch>` → `develop` (squash)
 
-This is the default lifecycle covered by [[afdk-git-workflow]] +
-[[afdk-pr-workflow]]. The only thing this skill adds is the **merge method**.
+This is the default lifecycle covered by [[ddk-git-workflow]] +
+[[ddk-pr-workflow]]. The only thing this skill adds is the **merge method**.
 
 ### Approval gate
 
-Same as the rest of [[afdk-pr-workflow]]: explicit user "go ahead" before
+Same as the rest of [[ddk-pr-workflow]]: explicit user "go ahead" before
 `gh pr merge`. No autonomy at the merge step, even for a well-formed,
 CI-green PR. Before merging, confirm CI is green on the PR (`base-only`,
 `typecheck-and-lint` — including `mypy --strict` and `lint-imports` — and the
@@ -58,7 +58,7 @@ CI-green PR. Before merging, confirm CI is green on the PR (`base-only`,
 ### Command
 
 ```bash
-gh pr merge <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr merge <pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --squash \
   --delete-branch \
   --subject "<imperative subject> (#<pr#>)" \
@@ -70,12 +70,12 @@ Notes:
 - `--squash` is mandatory. Do not pass `--merge` or `--rebase` for this
   direction.
 - `--delete-branch` removes the remote branch after merge. Local branch/
-  worktree teardown is handled per [[afdk-git-workflow]].
+  worktree teardown is handled per [[ddk-git-workflow]].
 - The squash subject **must** include the PR number as ` (#<pr#>)` — GitHub
   usually inserts this automatically, but pass it explicitly so the squashed
   commit on `develop` is greppable.
 - `Closes #<issue#>` in the body keeps the auto-close link working post-squash.
-  Verify it fired per [[afdk-pr-workflow]].
+  Verify it fired per [[ddk-pr-workflow]].
 - If the change touches a `§N.N`-cited guard (build plan, `core/_verify.py`,
   `docs/verified-apis.md`), make sure the PR body/commit references the
   section per §0.3 — this is a repo convention, not optional polish.
@@ -136,19 +136,19 @@ their history. Never assign new work to them, and never promote against them.
 indicates it's ready to promote. Check before opening the release PR:
 
 ```bash
-gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh issue list --repo Donkey-Development-Kit/donkey-development-kit \
   --milestone "Phase 1 — Build the MVP (0.1.0)" --state open
 ```
 
 An empty result means the milestone's work has all landed on `develop`.
 
 **After the promotion merge lands,** close the milestone (this is separate from
-release **tagging** — that's [[afdk-release]]'s job, run after this; the
+release **tagging** — that's [[ddk-release]]'s job, run after this; the
 milestone's version string is exactly what its tag carries):
 
 ```bash
 gh api -X PATCH \
-  repos/Agent-Fabric-SDK/agent-fabric-sdk/milestones/<number> \
+  repos/Donkey-Development-Kit/donkey-development-kit/milestones/<number> \
   -f state=closed
 ```
 
@@ -175,7 +175,7 @@ not a local `git merge` pushed straight to `main`.
 
 ```bash
 # 1. Open the release PR. Title carries the milestone + its version.
-gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr create --repo Donkey-Development-Kit/donkey-development-kit \
   --base main --head develop \
   --title "Release: Phase 1 — Build the MVP (0.1.0)" \
   --body "$(cat <<'EOF'
@@ -192,13 +192,13 @@ EOF
 )"
 
 # 2. After user approval, merge with a merge commit (no fast-forward, no squash).
-gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr merge <release-pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --merge \
   --subject "Release: Phase 1 — Build the MVP (0.1.0) (#<release-pr#>)"
 # (do NOT pass --delete-branch — develop is not disposable)
 
 # 3. After the merge lands, close the completed milestone (see
-#    "Milestone / version awareness" above). Then tag + release: [[afdk-release]].
+#    "Milestone / version awareness" above). Then tag + release: [[ddk-release]].
 ```
 
 Notes:
@@ -208,7 +208,7 @@ Notes:
 - **Do not pass `--delete-branch`.** `develop` is the long-lived integration
   branch.
 - Release **tagging** is deliberately not covered by this skill — it's owned
-  by [[afdk-release]], which tags `main`'s new tip and cuts the GitHub Release
+  by [[ddk-release]], which tags `main`'s new tip and cuts the GitHub Release
   once this promotion merge has landed.
 - After the merge, `develop` already contains everything now on `main` (it
   was the source), so no fast-forward of `develop` is needed. The merge
@@ -220,10 +220,10 @@ If `main` needs a fix that can't wait for the next `develop` promotion
 (security, prod-down):
 
 1. Branch from `main`: `hotfix/<#>-<slug>` (issue still mandatory, per
-   [[afdk-git-workflow]]).
+   [[ddk-git-workflow]]).
 2. PR into `main` with a **squash** merge (one commit, fast revert):
    ```bash
-   gh pr merge <hotfix-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+   gh pr merge <hotfix-pr#> --repo Donkey-Development-Kit/donkey-development-kit \
      --squash --delete-branch \
      --subject "<title> (#<hotfix-pr#>)"
    ```
@@ -241,7 +241,7 @@ If `main` needs a fix that can't wait for the next `develop` promotion
 
 | Scenario | How |
 | --- | --- |
-| Back out one issue from `develop` | `git revert <squash-sha-on-develop>`. Open as a normal PR (with an issue) — the revert is itself a change, per [[afdk-pr-workflow]]. |
+| Back out one issue from `develop` | `git revert <squash-sha-on-develop>`. Open as a normal PR (with an issue) — the revert is itself a change, per [[ddk-pr-workflow]]. |
 | Back out a whole release from `main` | `git revert -m 1 <release-merge-sha>`. The `-m 1` picks the first parent (the previous `main` tip) as mainline. Cherry-pick the revert onto `develop` so the two stay aligned. |
 | Back out a hotfix from `main` | `git revert <hotfix-sha>`. Then revert the cherry-pick on `develop` too. |
 
@@ -276,7 +276,7 @@ If `main` needs a fix that can't wait for the next `develop` promotion
 
 ```bash
 # Branch → develop (squash, after user approval)
-gh pr merge <pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr merge <pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --squash --delete-branch \
   --subject "<title> (#<pr#>)" --body "Closes #<issue#>"
 # Then, after user approval, remove local branch + worktree:
@@ -285,18 +285,18 @@ git branch -D <branch-name>
 
 # develop → main (release PR, then merge commit). Title = milestone + version.
 # Promote when the milestone has 0 open issues; close the milestone after merge.
-gh issue list --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh issue list --repo Donkey-Development-Kit/donkey-development-kit \
   --milestone "Phase 1 — Build the MVP (0.1.0)" --state open   # expect empty
-gh pr create --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr create --repo Donkey-Development-Kit/donkey-development-kit \
   --base main --head develop \
   --title "Release: Phase 1 — Build the MVP (0.1.0)" --body "<notes>"
-gh pr merge <release-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr merge <release-pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --merge --subject "Release: Phase 1 — Build the MVP (0.1.0) (#<release-pr#>)"
-gh api -X PATCH repos/Agent-Fabric-SDK/agent-fabric-sdk/milestones/<number> \
-  -f state=closed   # then tag + release: [[afdk-release]]
+gh api -X PATCH repos/Donkey-Development-Kit/donkey-development-kit/milestones/<number> \
+  -f state=closed   # then tag + release: [[ddk-release]]
 
 # Hotfix on main (squash), then cherry-pick onto develop
-gh pr merge <hotfix-pr#> --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh pr merge <hotfix-pr#> --repo Donkey-Development-Kit/donkey-development-kit \
   --squash --delete-branch --subject "<title> (#<hotfix-pr#>)"
 git checkout develop && git pull --ff-only
 git cherry-pick <hotfix-sha-on-main> && git push origin develop

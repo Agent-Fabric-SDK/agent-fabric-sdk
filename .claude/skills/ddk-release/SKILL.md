@@ -1,24 +1,24 @@
 ---
-name: afdk-release
-description: Use when tagging an agent-fabric-sdk release, cutting a GitHub Release, writing release notes, or bumping the package version. Owns the PEP 440 milestone-driven tag convention, the pre-release ladder (.devN → aN/bN/rcN → final), where the version string is bumped, the `gh release create` recipe, and the hotfix-tag case. Triggers when about to run `git tag`, `gh release create`, or when someone says "cut a release", "tag the release", "write release notes", or "bump the version". This is the tagging half that [[afdk-merge-strategy]] deliberately leaves out.
+name: ddk-release
+description: Use when tagging a donkey-development-kit release, cutting a GitHub Release, writing release notes, or bumping the package version. Owns the PEP 440 milestone-driven tag convention, the pre-release ladder (.devN → aN/bN/rcN → final), where the version string is bumped, the `gh release create` recipe, and the hotfix-tag case. Triggers when about to run `git tag`, `gh release create`, or when someone says "cut a release", "tag the release", "write release notes", or "bump the version". This is the tagging half that [[ddk-merge-strategy]] deliberately leaves out.
 ---
 
-# AFDK Release
+# DDK Release
 
 ## Overview
 
-`agent-fabric-sdk` releases are **git tags plus GitHub Releases on `main`**.
+`donkey-development-kit` releases are **git tags plus GitHub Releases on `main`**.
 This skill owns everything from "the promotion merge has landed on `main`"
 onward: the version string, the tag, the GitHub Release, and its notes.
 
-It is the sibling of [[afdk-merge-strategy]], and the split is deliberate:
+It is the sibling of [[ddk-merge-strategy]], and the split is deliberate:
 
-- [[afdk-merge-strategy]] gets the release **content** onto `main` (the
+- [[ddk-merge-strategy]] gets the release **content** onto `main` (the
   `develop → main` no-ff promotion merge) and closes the milestone. It states
   outright that **tagging is out of scope** and defers here.
 - **This skill turns that promotion into a named, tagged, released version.**
 
-So the full release lifecycle is: promote (`afdk-merge-strategy`) → **tag +
+So the full release lifecycle is: promote (`ddk-merge-strategy`) → **tag +
 release (this skill)**. Never tag a commit that isn't already the tip of `main`
 after a promotion merge — a tag is a claim about `main`, not about `develop`.
 
@@ -43,7 +43,7 @@ standing milestones (§0.3), not releases. Do not tag against them.
 ### The pre-release ladder (before a milestone is complete)
 
 A milestone is **release-ready only at 0 open issues** (the signal defined in
-[[afdk-merge-strategy]]). Before then, promotions still happen — docs, spec,
+[[ddk-merge-strategy]]). Before then, promotions still happen — docs, spec,
 and scaffolding land on `main` ahead of the feature work — and those get
 **pre-release** tags on the ladder toward the milestone's final version.
 
@@ -70,7 +70,7 @@ on GitHub (`--prerelease`).
 The version string lives in **two files**, which MUST always agree:
 
 - `python/pyproject.toml` → `version = "…"`
-- `python/src/agent_fabric/__init__.py` → `__version__ = "…"`
+- `python/src/donkey_kit/__init__.py` → `__version__ = "…"`
 
 **Bump both on `develop`, in the PR that finishes a version's work, BEFORE the
 promotion PR** — so the code on `main` already reads the version its tag will
@@ -81,14 +81,14 @@ those two files at that commit. A tag whose version disagrees with
 ## Release procedure
 
 Run this **after** the `develop → main` promotion merge from
-[[afdk-merge-strategy]] has landed (and, for a final release, after that skill
+[[ddk-merge-strategy]] has landed (and, for a final release, after that skill
 has closed the milestone).
 
 ### Approval gate
 
 Tagging and publishing a GitHub Release are **outward-facing, `main`-touching**
 actions. Confirm with the user before running, every time — the same standard
-[[afdk-merge-strategy]] applies to promotion. Discussion is not approval;
+[[ddk-merge-strategy]] applies to promotion. Discussion is not approval;
 confirm at the moment of tagging. Before tagging, verify:
 
 1. The commit you're tagging **is the current tip of `main`** (a promotion
@@ -102,13 +102,13 @@ confirm at the moment of tagging. Before tagging, verify:
 ### Steps
 
 ```bash
-REPO=Agent-Fabric-SDK/agent-fabric-sdk
+REPO=Donkey-Development-Kit/donkey-development-kit
 
 # 1. Confirm main's tip and the version string agree with the tag.
 git fetch origin --tags
 git log --oneline origin/main -1
 git show origin/main:python/pyproject.toml | rg '^version'          # must equal the tag
-git show origin/main:python/src/agent_fabric/__init__.py | rg '__version__'
+git show origin/main:python/src/donkey_kit/__init__.py | rg '__version__'
 
 # 2. Annotated tag on main's tip, v-prefixed. One tag per promotion.
 git tag -a v<VERSION> <main-tip-sha> -m "v<VERSION> — <one-line summary>"
@@ -153,7 +153,7 @@ Build the notes in two passes:
    release is hand-written** (there's nothing to diff from).
 2. **Curate.** Rewrite the auto-list into a short human summary. The Release
    body MUST call out — mirroring the promotion PR body
-   [[afdk-merge-strategy]] already requires:
+   [[ddk-merge-strategy]] already requires:
    - **Breaking changes** (and the migration).
    - **Verification-status changes (§0.3)** — any surface that flipped
      `blocked → verified` or vice-versa; link the `docs/verified-apis.md` row.
@@ -168,7 +168,7 @@ trademark/support wording per §0.4 — a Release page is public.
 
 ## Hotfix tags
 
-When [[afdk-merge-strategy]]'s hotfix path lands a fix straight on `main`
+When [[ddk-merge-strategy]]'s hotfix path lands a fix straight on `main`
 (squash PR into `main`, then cherry-pick to `develop`), it produces a new
 `main` tip that needs its own tag:
 
@@ -206,15 +206,15 @@ When [[afdk-merge-strategy]]'s hotfix path lands a fix straight on `main`
 ## Quick reference
 
 ```bash
-REPO=Agent-Fabric-SDK/agent-fabric-sdk
+REPO=Donkey-Development-Kit/donkey-development-kit
 
 # Version = the shipping milestone (Phase N → 0.N.0, Phase 5 → 1.0.0).
 # Below final → pre-release ladder: 0.N.0.devK < …a1 < …b1 < …rc1 < 0.N.0
 # Bump BOTH files on develop before the promotion PR:
 #   python/pyproject.toml            version = "<VERSION>"
-#   python/src/agent_fabric/__init__.py   __version__ = "<VERSION>"
+#   python/src/donkey_kit/__init__.py   __version__ = "<VERSION>"
 
-# After the develop→main promotion merge lands (afdk-merge-strategy), with approval:
+# After the develop→main promotion merge lands (ddk-merge-strategy), with approval:
 git fetch origin --tags
 git tag -a v<VERSION> <main-tip-sha> -m "v<VERSION> — <summary>"
 git push origin v<VERSION>

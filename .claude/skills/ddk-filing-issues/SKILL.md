@@ -1,14 +1,14 @@
 ---
-name: afdk-filing-issues
-description: Use when the user asks to file, open, create, or report a GitHub issue (bug or enhancement) against this Agent Fabric SDK repo
+name: ddk-filing-issues
+description: Use when the user asks to file, open, create, or report a GitHub issue (bug or enhancement) against this Donkey Development Kit repo
 ---
 
-# Filing Agent Fabric SDK GitHub Issues
+# Filing Donkey Development Kit GitHub Issues
 
 ## Overview
 
-Issues are filed against `Agent-Fabric-SDK/agent-fabric-sdk` — the user does not
-maintain a fork. Always pass `--repo Agent-Fabric-SDK/agent-fabric-sdk`
+Issues are filed against `Donkey-Development-Kit/donkey-development-kit` — the user does not
+maintain a fork. Always pass `--repo Donkey-Development-Kit/donkey-development-kit`
 explicitly to `gh` so the issue lands on the right repo regardless of the
 working directory or which of `develop`/`main` is checked out.
 
@@ -40,10 +40,10 @@ a **confirmation**. Draft → show → wait → file.
 ## Target repo
 
 ```
-Agent-Fabric-SDK/agent-fabric-sdk
+Donkey-Development-Kit/donkey-development-kit
 ```
 
-Always pass `--repo Agent-Fabric-SDK/agent-fabric-sdk` to `gh issue create` and
+Always pass `--repo Donkey-Development-Kit/donkey-development-kit` to `gh issue create` and
 `gh issue list`. Branch model is `develop` (integration) → `main` (release);
 which branch is checked out locally is irrelevant to where the issue is filed.
 
@@ -144,13 +144,13 @@ section.
 
 | Surface | Where it lives | Ask yourself |
 | --- | --- | --- |
-| **`core/`** | `python/src/agent_fabric/core/` — config, auth, transport, errors, telemetry, cache | Framework-free by contract (§1.1). Does this change a shared header, error classification (`core/errors.classify()`), or a `_verify.py` guard/placeholder? |
-| **`llm/`** | `python/src/agent_fabric/llm/` — OpenAI-compatible proxy client + catalog | Does the LLM data-plane contract (base URL, `client_id`/`client_secret` headers, streaming, rejection shapes, §2–§4) change? |
-| **`registry/`** | `python/src/agent_fabric/registry/` — Exchange/governed-state | Does Exchange lookup or governed-state shape change? |
-| **`tools/`** | `python/src/agent_fabric/tools/` — MCP discovery/binding | Does `fabric.tools.discover` or any MCP-bridge binding logic change (currently blocked on verification, §6.7)? |
-| **`integrations/`** | `python/src/agent_fabric/integrations/` — LangGraph (the one deep, conformance-gated adapter) plus seven frameworks supported at `connection_kwargs()` only | Does the deep adapter change, or the shared `connection_kwargs()` contract? A shared-contract change (e.g. header injection) puts every framework in scope at once — the conformance kit (`python/tests/conformance/suite.py`) exists precisely to catch that drift. See `BG §1.8`. |
+| **`core/`** | `python/src/donkey_kit/core/` — config, auth, transport, errors, telemetry, cache | Framework-free by contract (§1.1). Does this change a shared header, error classification (`core/errors.classify()`), or a `_verify.py` guard/placeholder? |
+| **`llm/`** | `python/src/donkey_kit/llm/` — OpenAI-compatible proxy client + catalog | Does the LLM data-plane contract (base URL, `client_id`/`client_secret` headers, streaming, rejection shapes, §2–§4) change? |
+| **`registry/`** | `python/src/donkey_kit/registry/` — Exchange/governed-state | Does Exchange lookup or governed-state shape change? |
+| **`tools/`** | `python/src/donkey_kit/tools/` — MCP discovery/binding | Does `donkey.tools.discover` or any MCP-bridge binding logic change (currently blocked on verification, §6.7)? |
+| **`integrations/`** | `python/src/donkey_kit/integrations/` — LangGraph (the one deep, conformance-gated adapter) plus seven frameworks supported at `connection_kwargs()` only | Does the deep adapter change, or the shared `connection_kwargs()` contract? A shared-contract change (e.g. header injection) puts every framework in scope at once — the conformance kit (`python/tests/conformance/suite.py`) exists precisely to catch that drift. See `BG §1.8`. |
 | **TypeScript parity (Phase 5, `BG §3.5`)** | not yet in code | Would a Python-side fix need a matching TS-side note/follow-up once TS ships? Flag it even though there's no TS code yet, so the parity gap is tracked. |
-| **Provisioning CLI** | `python/src/agent_fabric/provisioning/cli.py` (`agent-fabric` command: `validate`, `plan`, `apply`, `drift`, `lint`, `generate`, `status`, `init`, `publish`, `verify`) | Does a CLI command's behavior, output, or `_blocked(...)` message change? |
+| **Provisioning CLI** | `python/src/donkey_kit/provisioning/cli.py` (`donkey-kit` command: `validate`, `plan`, `apply`, `drift`, `lint`, `generate`, `status`, `init`, `publish`, `verify`) | Does a CLI command's behavior, output, or `_blocked(...)` message change? |
 | **Nextra docs site** | `website/pages/` (`index.mdx`, `quickstart.mdx`, `feature-overview.mdx`, `errors.mdx`, `publishing.mdx`, plus `concepts/`, `frameworks/`, `provisioning/`, `reference/`, `tool-access/`) | Does a documented flow, code sample, or reference page describe the behavior being changed? |
 | **`docs/verified-apis.md`** | repo root `docs/verified-apis.md` + guards in `core/_verify.py` | Does this issue flip a row's status (UNVERIFIED → VERIFIED-*), add a new row, or touch a `_verify.blocked(...)` / `Unverified(...)` guard? Say which row. |
 
@@ -160,7 +160,7 @@ How to apply the verdict:
   Proposal and add the matching `area:*` label.
 - **In scope, but deliberately deferred:** say so in `## Out of scope` and file
   a dedicated follow-up issue for the deferred slice, then wire it via
-  [[afdk-issue-relationships]] ("Deferred scope always gets its own issue").
+  [[ddk-issue-relationships]] ("Deferred scope always gets its own issue").
   This is the general rule, not a cross-surface special case — **any** slice of
   work deferred but still needed gets its own issue. Never silently drop a
   surface *or* a deferred piece of work.
@@ -179,7 +179,7 @@ Forbidden rationalizations:
 | --- | --- |
 | "User only asked about core" | The user named the symptom surface. Map the full blast radius across layers. |
 | "The adapter fix is obvious, the implementer will notice" | Implementers scope to the issue; an unmentioned adapter is an unfixed adapter. |
-| "Docs can be updated later" | "Later" is how docs rot. Either in this issue or a linked follow-up — [[afdk-docs-sync]]. |
+| "Docs can be updated later" | "Later" is how docs rot. Either in this issue or a linked follow-up — [[ddk-docs-sync]]. |
 | "TypeScript doesn't exist yet" | Then the issue is where the future parity gap gets recorded. Flag it now. |
 | "Listing unaffected surfaces is noise" | An explicit "not affected" is the audit trail proving you evaluated it. |
 
@@ -190,7 +190,7 @@ duplicates:
 
 ```bash
 gh issue list \
-  --repo Agent-Fabric-SDK/agent-fabric-sdk \
+  --repo Donkey-Development-Kit/donkey-development-kit \
   --state all --limit 20 \
   --search "<2-3 distinctive keywords from the title or symptom>"
 ```
@@ -250,7 +250,7 @@ Signals that push an issue up a size bucket:
 - Adds a new framework integration or a new CLI command.
 
 If the issue feels larger than `size/l`, decompose into sub-issues via
-[[afdk-issue-relationships]] rather than filing one oversized issue.
+[[ddk-issue-relationships]] rather than filing one oversized issue.
 
 **Area label (apply one *per area the issue touches*).** These use a **colon**
 (`area:skeleton`), not a slash. The old `area/*` slash labels are **retired** —
@@ -260,18 +260,18 @@ tells a reader which part of the guide is that issue's spec:
 
 | Label | Covers | `BG §` |
 | --- | --- | --- |
-| `area:skeleton` | `FabricAsyncClient`, config, transport hooks, the `Fabric` facade | `1.1` |
+| `area:skeleton` | `DonkeyAsyncClient`, config, transport hooks, the `Donkey` facade | `1.1` |
 | `area:refusals` | `classify()`, the typed error taxonomy, refusal handlers | `1.2`, `2.1`, `2.2` |
 | `area:budget` | `Budget` object, pacing, rate-limit awareness | `1.3` |
-| `area:simulator` | `fabric mock` — the local gateway simulator | `1.4` |
+| `area:simulator` | `donkey mock` — the local gateway simulator | `1.4` |
 | `area:testing` | `simulate()`, the public pytest plugin, conformance kit | `1.5` |
 | `area:telemetry` | OTel GenAI spans, correlation IDs, cost tags | `1.6`, `1.7` |
 | `area:adapters` | Framework adapters and `connection_kwargs()` | `1.8`, `2.8` |
-| `area:cli` | The `fabric` CLI and the decorators | `1.9` |
+| `area:cli` | The `donkey` CLI and the decorators | `1.9` |
 | `area:docs` | Docs site, README, `llms.txt`, examples | `1.10` |
 | `area:hitl` | Human-in-the-loop normalisation, approval routing | `2.3` |
 | `area:identity` | On-behalf-of, RFC 8693 token exchange | `2.4` |
-| `area:scanner` | `fabric scan` / `publish` and the GitHub Action | `2.5` |
+| `area:scanner` | `donkey scan` / `publish` and the GitHub Action | `2.5` |
 | `area:tools` | MCP tool discovery and governed tool consumption | `2.7` |
 | `area:a2a` | A2A `serve` / `expose` / `dev` | `2.9` |
 | `area:policies` | Policy handshake and to-the-code push | `3.2`, `3.3` |
@@ -295,21 +295,21 @@ Before applying an area label for the first time, create it — run all needed
 exist:
 
 ```bash
-R="--repo Agent-Fabric-SDK/agent-fabric-sdk"
+R="--repo Donkey-Development-Kit/donkey-development-kit"
 
 # area (colon, not slash)
-gh label create area:skeleton           $R --color 5319e7 --description "FabricAsyncClient, config, transport hooks, Fabric facade (1.1)" 2>/dev/null || true
+gh label create area:skeleton           $R --color 5319e7 --description "DonkeyAsyncClient, config, transport hooks, Donkey facade (1.1)" 2>/dev/null || true
 gh label create area:refusals           $R --color e11d21 --description "classify(), the typed error taxonomy, handlers (1.2, 2.1, 2.2)" 2>/dev/null || true
 gh label create area:budget             $R --color d93f0b --description "Budget object, pacing, rate-limit awareness (1.3)" 2>/dev/null || true
-gh label create area:simulator          $R --color 0e8a16 --description "fabric mock — the local gateway simulator (1.4)" 2>/dev/null || true
+gh label create area:simulator          $R --color 0e8a16 --description "donkey mock — the local gateway simulator (1.4)" 2>/dev/null || true
 gh label create area:testing            $R --color bfd4f2 --description "simulate(), the pytest plugin, conformance kit (1.5)" 2>/dev/null || true
 gh label create area:telemetry          $R --color 1d76db --description "OTel GenAI spans, correlation IDs, cost tags (1.6, 1.7)" 2>/dev/null || true
 gh label create area:adapters           $R --color fbca04 --description "Framework adapters and connection_kwargs() (1.8, 2.8)" 2>/dev/null || true
-gh label create area:cli                $R --color b60205 --description "The fabric CLI and decorators (1.9)" 2>/dev/null || true
+gh label create area:cli                $R --color b60205 --description "The donkey CLI and decorators (1.9)" 2>/dev/null || true
 gh label create area:docs               $R --color c2e0c6 --description "Docs site, README, llms.txt, examples (1.10)" 2>/dev/null || true
 gh label create area:hitl               $R --color f9d0c4 --description "Human-in-the-loop normalisation and approval routing (2.3)" 2>/dev/null || true
 gh label create area:identity           $R --color 006b75 --description "On-behalf-of, RFC 8693 token exchange (2.4)" 2>/dev/null || true
-gh label create area:scanner            $R --color c5def5 --description "fabric scan / publish and the GitHub Action (2.5)" 2>/dev/null || true
+gh label create area:scanner            $R --color c5def5 --description "donkey scan / publish and the GitHub Action (2.5)" 2>/dev/null || true
 gh label create area:tools              $R --color 0052cc --description "MCP tool discovery and governed tool consumption (2.7)" 2>/dev/null || true
 gh label create area:a2a                $R --color 5319e7 --description "A2A serve / expose / dev (2.9)" 2>/dev/null || true
 gh label create area:policies           $R --color bfdadc --description "Policy handshake and to-the-code push (3.2, 3.3)" 2>/dev/null || true
@@ -370,9 +370,9 @@ area/surface:
 | --- | --- |
 | verification / `_verify.py` guards / flipping a `docs/verified-apis.md` row | `Verification` |
 | a product ask only the gateway team can close (no SDK code will fix it) | `Upstream gaps` |
-| the skeleton, transport hooks, config, or the `Fabric` facade | `Phase 1 — Build the MVP (0.1.0)` |
+| the skeleton, transport hooks, config, or the `Donkey` facade | `Phase 1 — Build the MVP (0.1.0)` |
 | any of the six-piece minimum: refusals, budget, simulator, `simulate()`/conformance, OTel GenAI, correlation/cost tags | `Phase 1 — Build the MVP (0.1.0)` |
-| the LangGraph deep adapter, `connection_kwargs()`, decorators, the `fabric` CLI, quickstart/docs, PyPI release | `Phase 1 — Build the MVP (0.1.0)` |
+| the LangGraph deep adapter, `connection_kwargs()`, decorators, the `donkey` CLI, quickstart/docs, PyPI release | `Phase 1 — Build the MVP (0.1.0)` |
 | refusal handlers, classification registry, HITL, identity/OBO, scanner + Action, kill-switch, MCP tool discovery, A2A, the second adapter | `Phase 2 — Differentiate, go beyond (0.2.0)` |
 | policy handshake, to-the-code push, structured output, eval hooks | `Phase 3 — Platform capabilities (0.3.0)` |
 | security review, perf budget, deprecation policy, compliance evidence, support model | `Phase 4 — Enterprise readiness (0.4.0)` |
@@ -393,14 +393,14 @@ title>"`. To set or change it on an already-filed issue: `gh issue edit <#>
 --milestone "<exact title>"`. To read an issue's milestone back:
 
 ```bash
-gh api repos/Agent-Fabric-SDK/agent-fabric-sdk/issues/<#> --jq '.milestone.title'
+gh api repos/Donkey-Development-Kit/donkey-development-kit/issues/<#> --jq '.milestone.title'
 ```
 
 ## Title conventions
 
 - Imperative, present tense: "Classify PII rejection before token-budget
   rejection" (not "Classified" or "Classifying").
-- Bugs lead with the symptom, not the fix: "`fabric.llm.client()` omits
+- Bugs lead with the symptom, not the fix: "`donkey.llm.client()` omits
   `client_secret` header on retry" not "Add header to retry logic".
 - No issue numbers, no `[BUG]` prefixes — labels cover that.
 
@@ -462,7 +462,7 @@ Unverified(...) placeholder or _verify.blocked(...) guard to add/remove>
 ## Out of scope
 <what this issue intentionally does NOT cover. Any slice named here that still
 needs doing gets its own dedicated follow-up issue, wired per
-[[afdk-issue-relationships]] — a deferral is not a drop.>
+[[ddk-issue-relationships]] — a deferral is not a drop.>
 
 ## Acceptance criteria
 - [ ] <observable behavior>
@@ -486,7 +486,7 @@ needs doing gets its own dedicated follow-up issue, wired per
 
 **File new issues unassigned.** Assignee marks who is *actively working* on an
 issue, not who triages it. The assignee is set later, when someone picks the
-issue up — see [[afdk-git-workflow]]. Do not pass `--assignee` on `gh issue
+issue up — see [[ddk-git-workflow]]. Do not pass `--assignee` on `gh issue
 create` unless the user explicitly names one.
 
 ## Filing command
@@ -495,7 +495,7 @@ Use a heredoc for the body so multi-line markdown survives intact:
 
 ```bash
 gh issue create \
-  --repo Agent-Fabric-SDK/agent-fabric-sdk \
+  --repo Donkey-Development-Kit/donkey-development-kit \
   --title "Classify PII rejection before token-budget rejection" \
   --milestone "Phase 1 — Build the MVP (0.1.0)" \
   --label bug --label area:refusals --label priority/p1 --label size/s \
@@ -526,7 +526,7 @@ Depends on` or `## Related` section to the body before filing:
 ```
 
 The structural wiring (sub-issue / blocked-by / cross-link comment) happens
-**after** the issue is filed, via [[afdk-issue-relationships]]. Don't use
+**after** the issue is filed, via [[ddk-issue-relationships]]. Don't use
 closing keywords (`Closes #X`, `Fixes #X`) issue → issue; those only work in PR
 descriptions.
 
@@ -563,7 +563,7 @@ If you find yourself about to run `gh issue create` and any of these are true,
 - The issue touches more than one architecture layer but has only one
   `area:*` label.
 - The issue depends on another open issue, but the body has no `## Depends
-  on` section (wiring the structural link is [[afdk-issue-relationships]]'s
+  on` section (wiring the structural link is [[ddk-issue-relationships]]'s
   job, but the markdown section must be in the body at filing time).
 - The Proposal claims a gap that is actually a known, already-tracked
   `_verify.blocked("…")` guard — the issue should say which `Verification`
@@ -573,7 +573,7 @@ If you find yourself about to run `gh issue create` and any of these are true,
 
 | Mistake | Fix |
 | --- | --- |
-| Filing against a fork or `tbolis/...` | User has no fork. Always `--repo Agent-Fabric-SDK/agent-fabric-sdk`. |
+| Filing against a fork or `tbolis/...` | User has no fork. Always `--repo Donkey-Development-Kit/donkey-development-kit`. |
 | `--label "bug,area:refusals"` (one combined string) | Use repeated `--label` flags. |
 | Pasting body via `--body "$(printf ...)"` with unescaped backticks | Use a quoted heredoc (`<<'EOF'`) — single-quoted EOF disables shell expansion. |
 | Skipping an area label because it doesn't exist | Create it first with `gh label create ... || true`, then file. |
@@ -585,7 +585,7 @@ If you find yourself about to run `gh issue create` and any of these are true,
 ```bash
 # Smallest valid invocation
 gh issue create \
-  --repo Agent-Fabric-SDK/agent-fabric-sdk \
+  --repo Donkey-Development-Kit/donkey-development-kit \
   --title "<imperative title>" \
   --milestone "Phase 1 — Build the MVP (0.1.0)" \
   --label <type> --label <area>... --label <priority> --label <size> \
@@ -597,9 +597,9 @@ EOF
 
 ## Related skills
 
-- [[afdk-issue-relationships]] — wiring dependency/blocking links after filing,
+- [[ddk-issue-relationships]] — wiring dependency/blocking links after filing,
   and decomposing oversized issues into sub-issues.
-- [[afdk-git-workflow]] — picking up a filed issue, branching, and assignee
+- [[ddk-git-workflow]] — picking up a filed issue, branching, and assignee
   handling.
-- [[afdk-docs-sync]] — keeping `website/` and `docs/verified-apis.md` in sync
+- [[ddk-docs-sync]] — keeping `website/` and `docs/verified-apis.md` in sync
   with code changes described in an issue's Proposal.

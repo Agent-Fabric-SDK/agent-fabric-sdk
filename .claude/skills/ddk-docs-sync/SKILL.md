@@ -1,9 +1,9 @@
 ---
-name: afdk-docs-sync
-description: Use when a PR touches a load-bearing SDK surface (core/errors.py, provisioning/*, tools/*, registry/*, integrations/*, docs/verified-apis.md, README.md) that the website, the in-repo contributor docs (ARCHITECTURE.md, CONTRIBUTING.md), or the python/examples/*/README.md files describe. Forces the contributor to update the matching page (a website/pages/**.mdx page, the contributor doc, or the paired example README) in the same PR or file a documentation-labeled follow-up issue. Companion to [[afdk-docs-authoring]].
+name: ddk-docs-sync
+description: Use when a PR touches a load-bearing SDK surface (core/errors.py, provisioning/*, tools/*, registry/*, integrations/*, docs/verified-apis.md, README.md) that the website, the in-repo contributor docs (ARCHITECTURE.md, CONTRIBUTING.md), or the python/examples/*/README.md files describe. Forces the contributor to update the matching page (a website/pages/**.mdx page, the contributor doc, or the paired example README) in the same PR or file a documentation-labeled follow-up issue. Companion to [[ddk-docs-authoring]].
 ---
 
-# AFDK Docs Sync
+# DDK Docs Sync
 
 ## Overview
 
@@ -19,7 +19,7 @@ the discipline lives entirely in the mapping table below and in whether
 reviewers enforce it.
 
 For page structure, the `Callout type="info"` planned-design disclaimer, and
-the audience contract, see [[afdk-docs-authoring]]. This skill only adds the
+the audience contract, see [[ddk-docs-authoring]]. This skill only adds the
 *when-to-update* mapping.
 
 ## When this skill activates
@@ -31,39 +31,39 @@ git diff --name-only origin/develop...HEAD
 or, reviewing a PR you didn't author:
 
 ```bash
-gh pr diff <pr#> --name-only --repo Agent-Fabric-SDK/agent-fabric-sdk
+gh pr diff <pr#> --name-only --repo Donkey-Development-Kit/donkey-development-kit
 ```
 
 Cross-reference every touched path against the mapping table below. The table
-is the ground truth — it was built from the real `python/src/agent_fabric/`
+is the ground truth — it was built from the real `python/src/donkey_kit/`
 tree and the real `website/pages/` tree, not guessed.
 
 ## Surface → docs-page mapping
 
 | Code surface | Docs page(s) | Why |
 | --- | --- | --- |
-| `python/src/agent_fabric/core/errors.py` | `website/pages/errors.mdx` | The six-shape rejection taxonomy (four live-verified, plus injection and content-moderation whose bodies are pending capture, #253) and the typed-exception taxonomy documented there come straight from `classify()` and the exception classes here. |
-| `python/src/agent_fabric/core/config.py`, `core/auth.py` | `website/pages/reference/configuration.mdx` | `Fabric.from_env()` precedence (kwargs → env vars → `.agent-fabric.toml` → defaults) and the three required LLM-proxy values are documented there. |
-| `python/src/agent_fabric/core/_verify.py`, `docs/verified-apis.md` | `website/pages/concepts/verification.mdx` + `website/pages/reference/unsupported-boundary.mdx` | Verification status legend, `_verify.blocked(...)` guards, and the unsupported-boundary list are the public face of §0.3. |
-| `python/src/agent_fabric/llm/*` (`catalog.py`, `client.py`) | `website/pages/feature-overview.mdx`, `website/pages/concepts/attribution.mdx` | Model catalog shape, capability flags, and the live-verified attribution headers. |
-| `python/src/agent_fabric/registry/governance.py`, `python/src/agent_fabric/governance.py` | `website/pages/concepts/governance.mdx`, `website/pages/concepts/environments.mdx` | The `Governance` object's three verbs and what each environment can actually enforce. |
-| `python/src/agent_fabric/registry/publication.py`, `registry/exchange.py` | `website/pages/publishing.mdx` | Publishing-to-Exchange is documented as symmetric with `Governance` — both objects share code and doc structure by design. |
-| `python/src/agent_fabric/registry/introspect.py`, `registry/models.py` | `website/pages/tool-access/discovery.mdx` | `fabric.tools.discover(...)` narrowing (search/governance/domain/tags/asset type/environment) and the `ToolSet` shape. |
-| `python/src/agent_fabric/tools/filter.py` | `website/pages/tool-access/discovery.mdx` | Filter semantics documented there must match the actual filter keys/behavior. |
-| `python/src/agent_fabric/tools/session.py` | `website/pages/tool-access/binding.mdx` | MCP session management section documents lifecycle for sessions created here. |
-| `python/src/agent_fabric/registry/*` (lockfile/version resolution, wherever `version="latest"` pinning lives) | `website/pages/tool-access/lockfile.mdx` | Pinning/lockfile behavior for governed tool catalogs. |
-| `python/src/agent_fabric/integrations/*` (`adk.py`, `agent_framework.py`, `anthropic.py`, `crewai.py`, `langgraph.py`, `llamaindex.py`, `openai_agents.py`, `strands.py`, `_base.py`) | `website/pages/frameworks/<same-framework>.mdx` (`adk.mdx`, `agent-framework.mdx`, `anthropic.mdx`, `crewai.mdx`, `langgraph.mdx`, `llamaindex.mdx`, `openai.mdx`, `strands.mdx`) + `website/pages/frameworks/index.mdx` if the framework list or an adapter's support depth changes | Each adapter file maps 1:1 to a framework doc page; note `integrations/openai_agents.py` → `frameworks/openai.mdx` (name mismatch — verify before assuming a literal filename match). |
-| `python/src/agent_fabric/tools/*` binding into an A2A `AgentHandle.as_tool()` path | `website/pages/tool-access/a2a.mdx` | A2A agent-as-tool wrapping semantics. |
-| `python/src/agent_fabric/provisioning/spec.py` | `website/pages/provisioning/spec.mdx` | The declarative YAML spec format and its pydantic-validated shape. |
-| `python/src/agent_fabric/provisioning/planner.py`, `provisioning/applier.py` | `website/pages/provisioning/plan-apply.mdx` | `agent-fabric plan` / `agent-fabric apply` diff-and-change semantics. |
-| `python/src/agent_fabric/provisioning/lint.py` | `website/pages/provisioning/governance-lint.mdx` | `agent-fabric lint` ruleset behavior and CI-failing severities. |
-| `python/src/agent_fabric/provisioning/publish.py` | `website/pages/provisioning/index.mdx`, `website/pages/publishing.mdx` | Legacy provisioning overview. The provisioning control plane is **cut** — these pages describe a surface the plan no longer builds, and are pending the docs realignment follow-up. |
-| `python/src/agent_fabric/provisioning/cli.py` | `website/pages/provisioning/index.mdx`, `website/pages/quickstart.mdx` if CLI invocation syntax shown there changes | CLI command names/flags shown in provisioning docs and any quickstart CLI snippet. |
+| `python/src/donkey_kit/core/errors.py` | `website/pages/errors.mdx` | The six-shape rejection taxonomy (four live-verified, plus injection and content-moderation whose bodies are pending capture, #253) and the typed-exception taxonomy documented there come straight from `classify()` and the exception classes here. |
+| `python/src/donkey_kit/core/config.py`, `core/auth.py` | `website/pages/reference/configuration.mdx` | `Donkey.from_env()` precedence (kwargs → env vars → `.donkey-kit.toml` → defaults) and the three required LLM-proxy values are documented there. |
+| `python/src/donkey_kit/core/_verify.py`, `docs/verified-apis.md` | `website/pages/concepts/verification.mdx` + `website/pages/reference/unsupported-boundary.mdx` | Verification status legend, `_verify.blocked(...)` guards, and the unsupported-boundary list are the public face of §0.3. |
+| `python/src/donkey_kit/llm/*` (`catalog.py`, `client.py`) | `website/pages/feature-overview.mdx`, `website/pages/concepts/attribution.mdx` | Model catalog shape, capability flags, and the live-verified attribution headers. |
+| `python/src/donkey_kit/registry/governance.py`, `python/src/donkey_kit/governance.py` | `website/pages/concepts/governance.mdx`, `website/pages/concepts/environments.mdx` | The `Governance` object's three verbs and what each environment can actually enforce. |
+| `python/src/donkey_kit/registry/publication.py`, `registry/exchange.py` | `website/pages/publishing.mdx` | Publishing-to-Exchange is documented as symmetric with `Governance` — both objects share code and doc structure by design. |
+| `python/src/donkey_kit/registry/introspect.py`, `registry/models.py` | `website/pages/tool-access/discovery.mdx` | `donkey.tools.discover(...)` narrowing (search/governance/domain/tags/asset type/environment) and the `ToolSet` shape. |
+| `python/src/donkey_kit/tools/filter.py` | `website/pages/tool-access/discovery.mdx` | Filter semantics documented there must match the actual filter keys/behavior. |
+| `python/src/donkey_kit/tools/session.py` | `website/pages/tool-access/binding.mdx` | MCP session management section documents lifecycle for sessions created here. |
+| `python/src/donkey_kit/registry/*` (lockfile/version resolution, wherever `version="latest"` pinning lives) | `website/pages/tool-access/lockfile.mdx` | Pinning/lockfile behavior for governed tool catalogs. |
+| `python/src/donkey_kit/integrations/*` (`adk.py`, `agent_framework.py`, `anthropic.py`, `crewai.py`, `langgraph.py`, `llamaindex.py`, `openai_agents.py`, `strands.py`, `_base.py`) | `website/pages/frameworks/<same-framework>.mdx` (`adk.mdx`, `agent-framework.mdx`, `anthropic.mdx`, `crewai.mdx`, `langgraph.mdx`, `llamaindex.mdx`, `openai.mdx`, `strands.mdx`) + `website/pages/frameworks/index.mdx` if the framework list or an adapter's support depth changes | Each adapter file maps 1:1 to a framework doc page; note `integrations/openai_agents.py` → `frameworks/openai.mdx` (name mismatch — verify before assuming a literal filename match). |
+| `python/src/donkey_kit/tools/*` binding into an A2A `AgentHandle.as_tool()` path | `website/pages/tool-access/a2a.mdx` | A2A agent-as-tool wrapping semantics. |
+| `python/src/donkey_kit/provisioning/spec.py` | `website/pages/provisioning/spec.mdx` | The declarative YAML spec format and its pydantic-validated shape. |
+| `python/src/donkey_kit/provisioning/planner.py`, `provisioning/applier.py` | `website/pages/provisioning/plan-apply.mdx` | `donkey plan` / `donkey apply` diff-and-change semantics. |
+| `python/src/donkey_kit/provisioning/lint.py` | `website/pages/provisioning/governance-lint.mdx` | `donkey lint` ruleset behavior and CI-failing severities. |
+| `python/src/donkey_kit/provisioning/publish.py` | `website/pages/provisioning/index.mdx`, `website/pages/publishing.mdx` | Legacy provisioning overview. The provisioning control plane is **cut** — these pages describe a surface the plan no longer builds, and are pending the docs realignment follow-up. |
+| `python/src/donkey_kit/provisioning/cli.py` | `website/pages/provisioning/index.mdx`, `website/pages/quickstart.mdx` if CLI invocation syntax shown there changes | CLI command names/flags shown in provisioning docs and any quickstart CLI snippet. |
 | `docs/unsupported-boundary.md` | `website/pages/reference/unsupported-boundary.mdx` | That page explicitly defers to the repo file as the authoritative, maintained list — keep them in lockstep. |
 | `docs/verified-apis.md` (status legend, any row flipping status) | `website/pages/concepts/verification.mdx` + `website/pages/reference/unsupported-boundary.mdx` | Both pages assert specific verification claims (live-verified LLM data plane, attribution, rejection shapes) that must track the real status table. |
 | `README.md` (install steps, Status section, extras) | `website/pages/quickstart.mdx`, `website/pages/index.mdx` | The README's install/quickstart narrative and the site's landing/quickstart pages must not diverge on install command, extras, or verified-status claims. |
-| `spec/agent-fabric-sdk-build-guide.md` (any `BG §N.N` a docs page cites) | whichever page cites that section | Pages cite the build guide as authority for feature scope; if the cited section changes meaning, the citing page is now wrong even if no code changed. |
-| `spec/agent-fabric-sdk-build-plan.md` (phases, invariants, the do-not-build list) | any page describing roadmap, milestones, or a capability boundary | A page promising something on the do-not-build list, or naming a retired milestone, is wrong regardless of code. |
+| `spec/donkey-development-kit-build-guide.md` (any `BG §N.N` a docs page cites) | whichever page cites that section | Pages cite the build guide as authority for feature scope; if the cited section changes meaning, the citing page is now wrong even if no code changed. |
+| `spec/donkey-development-kit-build-plan.md` (phases, invariants, the do-not-build list) | any page describing roadmap, milestones, or a capability boundary | A page promising something on the do-not-build list, or naming a retired milestone, is wrong regardless of code. |
 
 If a PR touches a surface not on this list but you suspect a docs implication
 (new public API, new env var, new CLI flag), default to surfacing it — the
@@ -84,10 +84,10 @@ PR (or record the divergence as an intentional decision).
 | --- | --- | --- |
 | `core/_verify.py`, `docs/verified-apis.md` (guard mechanism, flip procedure) | `ARCHITECTURE.md` → *Verification discipline (§0.3)* | The narrative of `blocked(...)` vs `Unverified(...)` and how a row flips to `verified=True` lives here; a change to that mechanism dates the section. |
 | `core/errors.py` (taxonomy invariants, `classify()`) | `ARCHITECTURE.md` → *Error-taxonomy design (§2.4)* | Documents the two invariants (`PolicyViolation` never retried; every error carries `remediation`) and that `classify()` is fixture-driven. |
-| `core/transport.py` (the four lifecycle hooks `_on_request`/`_on_response`/`_on_refusal`/`_swap_transport`, retry policy) | `ARCHITECTURE.md` → *How the pieces connect* (hook table) | The hook table maps each seam to the six-piece-minimum feature (`BG §1.1`) and states the `super()._on_response(...)` / spans-in-`finally` / 429-terminal contracts; a hook rename, a new hook, or a contract change dates it. Also mirrored in [[afdk-implementing-features]] Pattern A. |
-| `pyproject.toml` `importlinter` config, or a new layer under `src/agent_fabric/` | `ARCHITECTURE.md` → *Layered architecture (§1.1)* | The 5-layer stack (`integrations → tools → registry → llm → core`) and the framework-free-core rule are described there. |
+| `core/transport.py` (the four lifecycle hooks `_on_request`/`_on_response`/`_on_refusal`/`_swap_transport`, retry policy) | `ARCHITECTURE.md` → *How the pieces connect* (hook table) | The hook table maps each seam to the six-piece-minimum feature (`BG §1.1`) and states the `super()._on_response(...)` / spans-in-`finally` / 429-terminal contracts; a hook rename, a new hook, or a contract change dates it. Also mirrored in [[ddk-implementing-features]] Pattern A. |
+| `pyproject.toml` `importlinter` config, or a new layer under `src/donkey_kit/` | `ARCHITECTURE.md` → *Layered architecture (§1.1)* | The 5-layer stack (`integrations → tools → registry → llm → core`) and the framework-free-core rule are described there. |
 | `tests/conformance/suite.py` `KNOWN_LIMITATIONS`, adapter support depth | `ARCHITECTURE.md` → *Framework tiering* | Which adapter is conformance-gated vs `connection_kwargs()`-only, and the rationale. The Tier 1/2 vocabulary is retired (`BG §1.8`). |
-| Branch/PR/release flow, CI gates (`.github/workflows/ci.yml`), pytest surfaces/markers (`pyproject.toml`), coding conventions | `CONTRIBUTING.md` (§1 workflow / §2 testing / §3 conventions) | This file is the human-readable distillation of the `afdk-*` skills; a workflow, CI-gate, test-surface, or convention change must move with it. |
+| Branch/PR/release flow, CI gates (`.github/workflows/ci.yml`), pytest surfaces/markers (`pyproject.toml`), coding conventions | `CONTRIBUTING.md` (§1 workflow / §2 testing / §3 conventions) | This file is the human-readable distillation of the `ddk-*` skills; a workflow, CI-gate, test-surface, or convention change must move with it. |
 
 ### The deliberate example-README duplication
 
@@ -116,7 +116,7 @@ For every surface match, the PR author (or reviewing agent) must do one of:
    bottom against the diff; rewrite the affected section(s). Mention the doc
    edit in the PR body.
 2. **File a `documentation`-labeled follow-up issue** referencing the PR (see
-   [[afdk-filing-issues]] for the filing flow). Title:
+   [[ddk-filing-issues]] for the filing flow). Title:
    `docs: update <page>.mdx for <change> (follow-up to #<pr#>)`. Body: what
    changed in the code and what the page needs to reflect. Cross-link the
    issue from the PR description.
@@ -150,7 +150,7 @@ When in doubt, update in the same PR — follow-ups decay.
    changed.
 2. Walk the page section by section: "is this still true after my PR merges?"
 3. Rewrite any paragraph that is now wrong, respecting the audience contract
-   in [[afdk-docs-authoring]] (including the `Callout type="info"` "Planned
+   in [[ddk-docs-authoring]] (including the `Callout type="info"` "Planned
    design" disclaimer where the page already carries one — don't silently
    remove it unless the underlying platform contract really is now
    `VERIFIED`).
@@ -178,13 +178,13 @@ When in doubt, update in the same PR — follow-ups decay.
 
 ## Workflow when reviewing a PR
 
-1. `gh pr diff <pr#> --name-only --repo Agent-Fabric-SDK/agent-fabric-sdk` and
+1. `gh pr diff <pr#> --name-only --repo Donkey-Development-Kit/donkey-development-kit` and
    grep against the mapping table's left column.
 2. For each match, check whether the PR (a) updated the mapped page, (b)
    linked a `documentation`-labeled follow-up issue, or (c) did neither.
 3. If (c): block the merge with a review comment listing the surface
    match(es) and the specific page(s) that need one of (a) or (b). See
-   [[afdk-pr-review]] for how this fits into the broader review pass.
+   [[ddk-pr-review]] for how this fits into the broader review pass.
 
 ## Forbidden rationalizations
 
@@ -224,10 +224,10 @@ git diff --name-only origin/develop...HEAD | grep -E \
   'core/errors\.py|core/config\.py|core/auth\.py|core/_verify\.py|llm/|registry/|tools/|integrations/|provisioning/|docs/verified-apis\.md|docs/unsupported-boundary\.md|README\.md'
 
 # Reviewing someone else's PR
-gh pr diff <pr#> --name-only --repo Agent-Fabric-SDK/agent-fabric-sdk
+gh pr diff <pr#> --name-only --repo Donkey-Development-Kit/donkey-development-kit
 
 # Filing a follow-up
-gh issue create --repo Agent-Fabric-SDK/agent-fabric-sdk \
+gh issue create --repo Donkey-Development-Kit/donkey-development-kit \
   --title "docs: update <page>.mdx for <change> (follow-up to #<pr#>)" \
   --label documentation
 ```
@@ -243,9 +243,9 @@ provisioning verb, new registry concept):
    before writing the row — do not assume a plausible filename; `ls
    website/pages/<dir>`.
 3. If no matching page exists yet, that's a signal the new surface needs a new
-   page — coordinate with [[afdk-docs-authoring]] rather than silently
+   page — coordinate with [[ddk-docs-authoring]] rather than silently
    skipping the row.
 
-See [[afdk-verification-discipline]] for the deeper rule this table is a
+See [[ddk-verification-discipline]] for the deeper rule this table is a
 special case of: never let a doc page assert something the code (or
 `docs/verified-apis.md`) doesn't back up.

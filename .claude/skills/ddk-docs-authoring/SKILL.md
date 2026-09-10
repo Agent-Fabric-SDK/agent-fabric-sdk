@@ -1,17 +1,17 @@
 ---
-name: afdk-docs-authoring
+name: ddk-docs-authoring
 description: Use when writing or editing pages under website/pages/**.mdx (the Nextra docs site) — owns the pages layout, _meta.js ordering, the SDK-developer audience contract, the VERIFICATION-STATUS framing, the trademark/support boundary (§0.4), and the "cite a symbol, not path:line" rule. Read before adding a page or substantially rewriting one.
 ---
 
-# AFDK Docs Authoring
+# DDK Docs Authoring
 
 ## Overview
 
 `website/` is a Nextra 3 site (`next` + `nextra-theme-docs`) documenting the
-`agent-fabric` Python SDK for people who consume it, not people who
+`donkey-kit` Python SDK for people who consume it, not people who
 build it. It ships from `website/pages/**.mdx`, ordered by `_meta.js` files,
 themed by `website/theme.config.tsx`. This skill is the authoring runbook —
-what to read and obey *before* you write or rewrite a page. [[afdk-docs-sync]]
+what to read and obey *before* you write or rewrite a page. [[ddk-docs-sync]]
 owns the complementary PR-time gate: when a code change under `python/src/`
 should trigger a doc update, and what happens if the docs lag.
 
@@ -26,10 +26,10 @@ should trigger a doc update, and what happens if the docs lag.
 
 ## Audience contract
 
-The reader is a developer integrating `agent-fabric` into their own
+The reader is a developer integrating `donkey-kit` into their own
 agent code. They have:
 
-- Python and pip, and are willing to run `pip install "agent-fabric[...]"`.
+- Python and pip, and are willing to run `pip install "donkey-kit[...]"`.
 - No access to this repo's private planning docs (`spec/`) or its issue
   tracker.
 - No need to know internal test layout, CI job names, or which milestone
@@ -177,7 +177,7 @@ term. This SDK is **descriptive, not first-party** — it is "an SDK *for*
 Agent Fabric," not a MuleSoft-branded product. `theme.config.tsx`
 encodes this in the footer:
 
-> Agent Fabric SDK — an SDK *for* Agent Fabric. "Agent Fabric",
+> Donkey Development Kit — an SDK *for* Agent Fabric. "Agent Fabric",
 > "Anypoint", and "Omni Gateway" are Salesforce trademarks; this project is
 > descriptive (§0.4).
 
@@ -194,20 +194,20 @@ When writing or reviewing prose:
   backed by an actual maintainer commitment; the trademark footer's job is
   precisely to keep the "who supports this" question honest.
 - `theme.config.tsx`'s `project.link` and `docsRepositoryBase` currently point
-  at a placeholder (`your-org/agent-fabric`) with a `TODO` — flag
+  at a placeholder (`your-org/donkey-kit`) with a `TODO` — flag
   this if you're doing a pre-publish pass, but don't silently "fix" it to a
-  guessed URL; the real slug is `Agent-Fabric-SDK/agent-fabric-sdk` per repo
+  guessed URL; the real slug is `Donkey-Development-Kit/donkey-development-kit` per repo
   facts, confirm with a maintainer before changing site chrome that affects
   trademark posture.
 
 ## Cite a symbol, not path:line
 
-Never write `python/src/agent_fabric/core/errors.py:142` in rendered prose.
+Never write `python/src/donkey_kit/core/errors.py:142` in rendered prose.
 Line numbers drift the moment anyone edits above that line, and the citation
 silently goes stale with no build failure to catch it. Instead:
 
-- Cite the **importable symbol**: `agent_fabric.PIIDetected`,
-  `agent_fabric.core.errors.classify()`, `fabric.llm.client(sync=True)`. This
+- Cite the **importable symbol**: `donkey_kit.PIIDetected`,
+  `donkey_kit.core.errors.classify()`, `donkey.llm.client(sync=True)`. This
   is how `errors.mdx` and `quickstart.mdx` already do it — every code sample
   cites a class or function name a reader can `import` and check, never a
   line number.
@@ -216,7 +216,7 @@ silently goes stale with no build failure to catch it. Instead:
   `core/_verify.py`" (from `concepts/verification.mdx`) — a path survives
   refactors inside the file; a line number does not.
 - Cite a **section, not a line range**, for design authority — `BG §N.N` for
-  `spec/agent-fabric-sdk-build-guide.md`, a bare `§N.N` only for the archived
+  `spec/donkey-development-kit-build-guide.md`, a bare `§N.N` only for the archived
   v1 plan. Sections are stable identifiers, line numbers aren't.
 - Cite a **command** the reader can run to reproduce a claim
   (`python scripts/verify_frameworks.py --live`) rather than describing what
@@ -231,8 +231,8 @@ file path, stop and find the symbol or section name instead.
   `Callout`, `Steps`, `Tabs` are used today (`quickstart.mdx` uses all three;
   `errors.mdx` uses `Callout`). Use `<Callout type="info">` for framing notes,
   `<Callout type="warning">` where a subtlety could bite (e.g. `errors.mdx`'s
-  warning that `fabric.llm.client()` raises `openai.APIStatusError`, not a
-  `FabricError`, until bridged with `classify()`), `<Callout type="error">`
+  warning that `donkey.llm.client()` raises `openai.APIStatusError`, not a
+  `DonkeyError`, until bridged with `classify()`), `<Callout type="error">`
   only for the highest-severity warnings (verification.mdx uses it exactly
   once, for "never invent an endpoint, header name, or class name").
 - **`<Steps>`** for install/configure/run sequences (see `quickstart.mdx`).
@@ -267,7 +267,7 @@ file path, stop and find the symbol or section name instead.
    ```
    Confirm the page renders, the sidebar position and label are right, and
    every cross-link resolves.
-6. If the page states anything [[afdk-docs-sync]] would consider a
+6. If the page states anything [[ddk-docs-sync]] would consider a
    code-surface claim (e.g. a new adapter's exact factory signature), make
    sure that skill's mapping is updated too — this skill owns *how* to write
    the page, not *whether* a given code change obligates one.
@@ -279,7 +279,7 @@ file path, stop and find the symbol or section name instead.
    internal planning doc. Would any sentence read as an official-support or
    verified-fact claim that isn't backed by `docs/verified-apis.md` today?
 3. Check every code sample still names real, importable symbols
-   (`agent_fabric.PIIDetected`, `fabric.langgraph.chat_model`, etc.) —
+   (`donkey_kit.PIIDetected`, `donkey.langgraph.chat_model`, etc.) —
    renamed exports are the most common source of silent doc drift.
 4. Re-check `_meta.js` if the edit changed the page's role (e.g. it's no
    longer an entry point, or it now belongs in a different group).
@@ -307,7 +307,7 @@ npm run build && npm run start   # production build check
 grep -n "VERIFIED\|UNVERIFIED" docs/verified-apis.md | less
 
 # Find every place a fact is guarded pending verification
-rg "blocked on verification" python/src/agent_fabric
+rg "blocked on verification" python/src/donkey_kit
 
 # Reproduce the framework-adapter verification claims yourself
 cd python
@@ -315,6 +315,6 @@ python scripts/verify_frameworks.py            # signature check, offline
 python scripts/verify_frameworks.py --live     # + real proxy round-trip
 ```
 
-See [[afdk-verification-discipline]] for the engineering-side rules that
-produce `docs/verified-apis.md` in the first place, and [[afdk-docs-sync]]
+See [[ddk-verification-discipline]] for the engineering-side rules that
+produce `docs/verified-apis.md` in the first place, and [[ddk-docs-sync]]
 for when a `python/src/` change obligates a doc update at all.
