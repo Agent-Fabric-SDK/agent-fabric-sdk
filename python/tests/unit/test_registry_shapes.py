@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from agent_fabric.registry.models import AssetRef, McpServerHandle
-from agent_fabric.tools.filter import ToolDescriptor, resolve_collisions
+from donkey_kit.registry.models import AssetRef, McpServerHandle
+from donkey_kit.tools.filter import ToolDescriptor, resolve_collisions
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "a2d"
 

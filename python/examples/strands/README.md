@@ -16,18 +16,18 @@ method call on the model.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[Strands Agents](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/strands)**.
+> **[Strands Agents](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/strands)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[strands]"
+pip install "donkey-kit[strands]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/strands/main.py
 ```
@@ -44,18 +44,18 @@ from strands.models.openai import OpenAIModel
 m = OpenAIModel(
     model_id="gpt-4o",
     client_args={
-        "base_url": AGENT_FABRIC_LLM_PROXY_URL,
+        "base_url": DONKEY_LLM_PROXY_URL,
         "api_key": "unused",  # the proxy enforces client_id/client_secret headers instead
         "default_headers": {
-            "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-            "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+            "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+            "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
         },
         "http_client": httpx.AsyncClient(...),
     },
 )
 ```
 
-The factory (`agent_fabric.integrations.strands.model`) fills in all of
+The factory (`donkey_kit.integrations.strands.model`) fills in all of
 `client_args` from one governed config source, including the SDK's shared
 transport.
 

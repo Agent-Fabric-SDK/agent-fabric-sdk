@@ -8,31 +8,31 @@ import asyncio
 import httpx
 import pytest
 
-from agent_fabric.core import telemetry
-from agent_fabric.core._verify import UnverifiedValueWarning
-from agent_fabric.core.auth import StaticToken
-from agent_fabric.core.budget import Budget
-from agent_fabric.core.config import FabricConfig
-from agent_fabric.core.telemetry import current_correlation_id, run_context
-from agent_fabric.core.transport import (
+from donkey_kit.core import telemetry
+from donkey_kit.core._verify import UnverifiedValueWarning
+from donkey_kit.core.auth import StaticToken
+from donkey_kit.core.budget import Budget
+from donkey_kit.core.config import DonkeyConfig
+from donkey_kit.core.telemetry import current_correlation_id, run_context
+from donkey_kit.core.transport import (
     CALL_ID_HEADER,
     CORRELATION_HEADER,
-    FabricAsyncClient,
-    FabricClient,
+    DonkeyAsyncClient,
+    DonkeyClient,
     proxy_auth_headers,
 )
 
 
-def _client(handler, cfg=None, auth=None) -> FabricAsyncClient:
-    c = FabricAsyncClient(cfg or FabricConfig(), auth, transport=httpx.MockTransport(handler))
+def _client(handler, cfg=None, auth=None) -> DonkeyAsyncClient:
+    c = DonkeyAsyncClient(cfg or DonkeyConfig(), auth, transport=httpx.MockTransport(handler))
     return c
 
 
-def _sync_client(handler, cfg=None) -> FabricClient:
-    return FabricClient(cfg or FabricConfig(), transport=httpx.MockTransport(handler))
+def _sync_client(handler, cfg=None) -> DonkeyClient:
+    return DonkeyClient(cfg or DonkeyConfig(), transport=httpx.MockTransport(handler))
 
 
-class _RecordingAsync(FabricAsyncClient):
+class _RecordingAsync(DonkeyAsyncClient):
     """Overrides the logical hooks with counters, to assert call-once semantics."""
 
     def __init__(self, *args, **kwargs) -> None:
@@ -47,7 +47,7 @@ class _RecordingAsync(FabricAsyncClient):
         self.responses.append(response.status_code)
 
 
-class _RecordingSync(FabricClient):
+class _RecordingSync(DonkeyClient):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.requests = 0
@@ -67,7 +67,7 @@ async def test_correlation_and_attribution_headers_injected() -> None:
         seen.update(request.headers)
         return httpx.Response(200)
 
-    cfg = FabricConfig(application_name="hr-agent", business_group="finance")
+    cfg = DonkeyConfig(application_name="hr-agent", business_group="finance")
     async with _client(handler, cfg) as client:
         with pytest.warns(UnverifiedValueWarning):  # placeholder header names warn (§0.3)
             with run_context("run-1"):
@@ -82,7 +82,7 @@ async def test_correlation_and_attribution_headers_injected() -> None:
 def test_proxy_auth_headers_carry_verified_client_id_secret() -> None:
     """§2/§3 (LIVE): the direct-proxy auth is a client_id/client_secret request-
     header pair — verified names, no warning, no bearer."""
-    cfg = FabricConfig(
+    cfg = DonkeyConfig(
         llm_proxy_url="https://proxy",
         llm_proxy_client_id="cid",
         llm_proxy_client_secret="csecret",
@@ -94,7 +94,7 @@ def test_proxy_auth_headers_carry_verified_client_id_secret() -> None:
 
 
 def test_proxy_auth_headers_omit_absent_credentials() -> None:
-    assert proxy_auth_headers(FabricConfig(llm_proxy_url="https://proxy")) == {}
+    assert proxy_auth_headers(DonkeyConfig(llm_proxy_url="https://proxy")) == {}
 
 
 async def test_retries_on_503_then_succeeds() -> None:
@@ -104,7 +104,7 @@ async def test_retries_on_503_then_succeeds() -> None:
         calls["n"] += 1
         return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
 
-    async with _client(handler, FabricConfig(max_retries=3)) as client:
+    async with _client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = await client.get("https://x")
     assert resp.status_code == 200
     assert calls["n"] == 3
@@ -117,7 +117,7 @@ async def test_does_not_retry_4xx_policy_rejection() -> None:
         calls["n"] += 1
         return httpx.Response(400)
 
-    async with _client(handler, FabricConfig(max_retries=3)) as client:
+    async with _client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = await client.get("https://x")
     assert resp.status_code == 400
     assert calls["n"] == 1  # terminal — NOT retried (§2.4)
@@ -130,14 +130,14 @@ async def test_401_triggers_single_token_refresh() -> None:
         calls["n"] += 1
         return httpx.Response(401) if calls["n"] == 1 else httpx.Response(200)
 
-    async with _client(handler, FabricConfig(), StaticToken("t")) as client:
+    async with _client(handler, DonkeyConfig(), StaticToken("t")) as client:
         resp = await client.get("https://x")
     assert resp.status_code == 200
     assert calls["n"] == 2  # refreshed once, retried once (§2.2)
 
 
 # --- blocking twin (client(sync=True)) ------------------------------------
-# The point of FabricClient is that a synchronous caller is governed on exactly
+# The point of DonkeyClient is that a synchronous caller is governed on exactly
 # the same terms, so these mirror the async cases above.
 
 
@@ -148,7 +148,7 @@ def test_sync_correlation_and_attribution_headers_injected() -> None:
         seen.update(request.headers)
         return httpx.Response(200)
 
-    cfg = FabricConfig(application_name="hr-agent", business_group="finance")
+    cfg = DonkeyConfig(application_name="hr-agent", business_group="finance")
     # No pytest.warns here: _verify warns once per key per process, so the async
     # case above has already consumed it. That contract is asserted there.
     with _sync_client(handler, cfg) as client:
@@ -193,7 +193,7 @@ def test_sync_requests_share_one_id_inside_a_run_context() -> None:
 
 
 # --- the two ids: run correlation id vs per-call id (§2.3, #195) ------------
-# X-Correlation-Id groups a run (shared); X-Fabric-Request-Id pinpoints one
+# X-Correlation-Id groups a run (shared); X-Donkey-Request-Id pinpoints one
 # request within it (unique, but stable across that request's own retries).
 
 
@@ -231,7 +231,7 @@ async def test_call_id_is_stable_across_retries() -> None:
         )
         return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
 
-    async with _client(handler, FabricConfig(max_retries=3)) as client:
+    async with _client(handler, DonkeyConfig(max_retries=3)) as client:
         with run_context("run-r"):
             await client.get("https://x")
 
@@ -249,7 +249,7 @@ async def test_config_overrides_correlation_and_call_id_header_names() -> None:
         seen.update(request.headers)
         return httpx.Response(200)
 
-    cfg = FabricConfig(correlation_header="X-Trace-Id", call_id_header="X-Req-Seq")
+    cfg = DonkeyConfig(correlation_header="X-Trace-Id", call_id_header="X-Req-Seq")
     async with _client(handler, cfg) as client:
         with run_context("run-ovr"):
             await client.get("https://x")
@@ -264,7 +264,7 @@ async def test_config_overrides_correlation_and_call_id_header_names() -> None:
 async def test_concurrent_runs_do_not_leak_correlation_ids() -> None:
     """No leakage across concurrent runs (#195 AC): two runs racing on their own
     asyncio tasks each stamp ONLY their own run id on the wire, even though they
-    share one FabricAsyncClient and interleave. The id is a contextvar, so each
+    share one DonkeyAsyncClient and interleave. The id is a contextvar, so each
     ``asyncio.gather`` child runs in its own copied context — one run cannot see
     the other's binding."""
 
@@ -317,7 +317,7 @@ def test_sync_call_id_is_stable_across_retries() -> None:
         seen.append(request.headers[CALL_ID_HEADER])
         return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
 
-    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+    with _sync_client(handler, DonkeyConfig(max_retries=3)) as client:
         client.get("https://x")
 
     assert calls["n"] == 3
@@ -331,7 +331,7 @@ def test_sync_retries_on_503_then_succeeds() -> None:
         calls["n"] += 1
         return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
 
-    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+    with _sync_client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = client.get("https://x")
     assert resp.status_code == 200
     assert calls["n"] == 3
@@ -344,14 +344,14 @@ def test_sync_does_not_retry_4xx_policy_rejection() -> None:
         calls["n"] += 1
         return httpx.Response(400)
 
-    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+    with _sync_client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = client.get("https://x")
     assert resp.status_code == 400
     assert calls["n"] == 1  # terminal — NOT retried (§2.4)
 
 
 def test_sync_401_is_terminal_because_there_is_no_token_to_refresh() -> None:
-    """The async client retries a 401 once after refreshing. FabricClient takes
+    """The async client retries a 401 once after refreshing. DonkeyClient takes
     no AuthProvider (async-only protocol), so a 401 is a real credential failure
     and must not be retried."""
     calls = {"n": 0}
@@ -360,7 +360,7 @@ def test_sync_401_is_terminal_because_there_is_no_token_to_refresh() -> None:
         calls["n"] += 1
         return httpx.Response(401)
 
-    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+    with _sync_client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = client.get("https://x")
     assert resp.status_code == 401
     assert calls["n"] == 1
@@ -390,7 +390,7 @@ async def test_on_request_called_once_across_retries() -> None:
         return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
 
     client = _RecordingAsync(
-        FabricConfig(max_retries=3), None, transport=httpx.MockTransport(handler)
+        DonkeyConfig(max_retries=3), None, transport=httpx.MockTransport(handler)
     )
     async with client:
         resp = await client.get("https://x")
@@ -410,7 +410,7 @@ async def test_hooks_fire_once_across_the_401_refresh_path() -> None:
         return httpx.Response(401) if calls["n"] == 1 else httpx.Response(200)
 
     client = _RecordingAsync(
-        FabricConfig(), StaticToken("t"), transport=httpx.MockTransport(handler)
+        DonkeyConfig(), StaticToken("t"), transport=httpx.MockTransport(handler)
     )
     async with client:
         resp = await client.get("https://x")
@@ -432,7 +432,7 @@ async def test_401_refresh_retries_even_on_the_final_attempt() -> None:
         return httpx.Response(401) if calls["n"] == 1 else httpx.Response(200)
 
     client = _RecordingAsync(
-        FabricConfig(max_retries=0), StaticToken("t"), transport=httpx.MockTransport(handler)
+        DonkeyConfig(max_retries=0), StaticToken("t"), transport=httpx.MockTransport(handler)
     )
     async with client:
         resp = await client.get("https://x")
@@ -445,7 +445,7 @@ async def test_on_response_not_called_when_transport_errors() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom")
 
-    client = _RecordingAsync(FabricConfig(), None, transport=httpx.MockTransport(handler))
+    client = _RecordingAsync(DonkeyConfig(), None, transport=httpx.MockTransport(handler))
     async with client:
         with pytest.raises(httpx.ConnectError):
             await client.get("https://x")
@@ -467,7 +467,7 @@ def test_sync_on_request_called_once_across_retries() -> None:
         calls["n"] += 1
         return httpx.Response(503) if calls["n"] < 3 else httpx.Response(200)
 
-    client = _RecordingSync(FabricConfig(max_retries=3), transport=httpx.MockTransport(handler))
+    client = _RecordingSync(DonkeyConfig(max_retries=3), transport=httpx.MockTransport(handler))
     with client:
         resp = client.get("https://x")
     assert resp.status_code == 200
@@ -479,7 +479,7 @@ def test_sync_on_response_not_called_when_transport_errors() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom")
 
-    client = _RecordingSync(FabricConfig(), transport=httpx.MockTransport(handler))
+    client = _RecordingSync(DonkeyConfig(), transport=httpx.MockTransport(handler))
     with client:
         with pytest.raises(httpx.ConnectError):
             client.get("https://x")
@@ -509,7 +509,7 @@ async def test_does_not_retry_429_budget_refusal() -> None:
         calls["n"] += 1
         return httpx.Response(429)  # empty body, no retry-after (docs §4)
 
-    async with _client(handler, FabricConfig(max_retries=3)) as client:
+    async with _client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = await client.get("https://x")
     assert resp.status_code == 429
     assert calls["n"] == 1  # terminal on the first hit — never retried (§2.4, #183)
@@ -522,7 +522,7 @@ async def test_does_not_retry_403_policy_rejection() -> None:
         calls["n"] += 1
         return httpx.Response(403)  # e.g. PII detected
 
-    async with _client(handler, FabricConfig(max_retries=3)) as client:
+    async with _client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = await client.get("https://x")
     assert resp.status_code == 403
     assert calls["n"] == 1
@@ -538,7 +538,7 @@ async def test_429_is_terminal_but_5xx_still_retries() -> None:
         n429["n"] += 1
         return httpx.Response(429)
 
-    async with _client(h429, FabricConfig(max_retries=2)) as client:
+    async with _client(h429, DonkeyConfig(max_retries=2)) as client:
         await client.get("https://x")
     assert n429["n"] == 1  # terminal
 
@@ -548,7 +548,7 @@ async def test_429_is_terminal_but_5xx_still_retries() -> None:
         n503["n"] += 1
         return httpx.Response(503)
 
-    async with _client(h503, FabricConfig(max_retries=2)) as client:
+    async with _client(h503, DonkeyConfig(max_retries=2)) as client:
         await client.get("https://x")
     assert n503["n"] == 3  # max_retries=2 → 3 attempts; 5xx stays retryable
 
@@ -560,7 +560,7 @@ def test_sync_does_not_retry_429_budget_refusal() -> None:
         calls["n"] += 1
         return httpx.Response(429)
 
-    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+    with _sync_client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = client.get("https://x")
     assert resp.status_code == 429
     assert calls["n"] == 1
@@ -573,21 +573,21 @@ def test_sync_does_not_retry_403_policy_rejection() -> None:
         calls["n"] += 1
         return httpx.Response(403)
 
-    with _sync_client(handler, FabricConfig(max_retries=3)) as client:
+    with _sync_client(handler, DonkeyConfig(max_retries=3)) as client:
         resp = client.get("https://x")
     assert resp.status_code == 403
     assert calls["n"] == 1
 
 
 # --- the guarantee holds through the native framework clients (AC #4) ------
-# fabric.llm.client() and the adapters set the OpenAI SDK's own max_retries=0 and
+# donkey.llm.client() and the adapters set the OpenAI SDK's own max_retries=0 and
 # hand it our shared client, so the transport's no-429-retry is the whole story:
 # a budget refusal reaches the wire exactly once.
 
 
 async def test_openai_client_does_not_retry_429_end_to_end() -> None:
     openai = pytest.importorskip("openai")
-    from agent_fabric.llm.client import LLMClient
+    from donkey_kit.llm.client import LLMClient
 
     calls = {"n": 0}
 
@@ -595,13 +595,13 @@ async def test_openai_client_does_not_retry_429_end_to_end() -> None:
         calls["n"] += 1
         return httpx.Response(429, json={"error": "budget exhausted"})
 
-    cfg = FabricConfig(
+    cfg = DonkeyConfig(
         llm_proxy_url="https://proxy",
         llm_proxy_client_id="cid",
         llm_proxy_client_secret="sec",
         max_retries=3,
     )
-    shared = FabricAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
+    shared = DonkeyAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
     async with shared:
         oai = LLMClient(cfg, shared).client()
         with pytest.raises(openai.APIStatusError):
@@ -614,7 +614,7 @@ async def test_openai_client_does_not_retry_429_end_to_end() -> None:
 async def test_langgraph_adapter_does_not_retry_429_end_to_end() -> None:
     pytest.importorskip("langchain_openai")
     openai = pytest.importorskip("openai")
-    from agent_fabric.integrations.langgraph import LangGraphAdapter
+    from donkey_kit.integrations.langgraph import LangGraphAdapter
 
     calls = {"n": 0}
 
@@ -622,13 +622,13 @@ async def test_langgraph_adapter_does_not_retry_429_end_to_end() -> None:
         calls["n"] += 1
         return httpx.Response(429, json={"error": "budget exhausted"})
 
-    cfg = FabricConfig(
+    cfg = DonkeyConfig(
         llm_proxy_url="https://proxy",
         llm_proxy_client_id="cid",
         llm_proxy_client_secret="sec",
         max_retries=3,
     )
-    shared = FabricAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
+    shared = DonkeyAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
     adapter = LangGraphAdapter(cfg, shared)
     # Composition: the adapter disables the framework's own retry and hands it our
     # shared client, so the transport is what governs the retry policy.
@@ -647,11 +647,11 @@ async def test_langgraph_adapter_does_not_retry_429_end_to_end() -> None:
 # through send(). A GenAI request is a POST whose JSON body carries a `model`;
 # GETs / token fetches / bodyless calls get no span, so all the tests above stay
 # byte-identical. The span carries both the pinned gen_ai.* attributes and the
-# stable fabric.* attributes on ONE span (AC #5). Wired to a real in-memory
+# stable donkey.* attributes on ONE span (AC #5). Wired to a real in-memory
 # tracer here; skipped where the `otel` extra is not installed.
 
 _PROVIDER_HEADER = "x-llm-proxy-llm-provider"
-_LLM_CFG = FabricConfig(llm_proxy_url="https://proxy")
+_LLM_CFG = DonkeyConfig(llm_proxy_url="https://proxy")
 
 
 def _tracer_exporter():
@@ -663,7 +663,7 @@ def _tracer_exporter():
     provider = TracerProvider()
     exporter = InMemorySpanExporter()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    return provider.get_tracer("agent_fabric.test"), exporter
+    return provider.get_tracer("donkey_kit.test"), exporter
 
 
 def _use_tracer(monkeypatch):
@@ -689,7 +689,7 @@ async def test_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None
         )
 
     budget = Budget()
-    client = FabricAsyncClient(
+    client = DonkeyAsyncClient(
         _LLM_CFG, None, budget=budget, transport=httpx.MockTransport(handler)
     )
     # run_context is a sync CM (it binds a contextvar); nest it outside the async
@@ -706,21 +706,21 @@ async def test_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None
     assert attrs["gen_ai.system"] == "openai"  # from the verified provider header
     assert attrs["gen_ai.usage.input_tokens"] == 1420
     assert attrs["gen_ai.usage.output_tokens"] == 310
-    assert attrs["fabric.policy.decision"] == "allow"
-    assert attrs["fabric.budget.remaining"] == 18450  # after _on_response fed the budget
-    assert attrs["fabric.correlation_id"] == "run-7f3a"  # equals the header actually sent
+    assert attrs["donkey.policy.decision"] == "allow"
+    assert attrs["donkey.budget.remaining"] == 18450  # after _on_response fed the budget
+    assert attrs["donkey.correlation_id"] == "run-7f3a"  # equals the header actually sent
 
 
 async def test_every_span_in_a_run_shares_the_run_id(monkeypatch) -> None:
     """Per-run id on EVERY span in the block (#195 AC): two model calls inside one
-    ``fabric.run()`` open two spans, and both carry the same
-    ``fabric.correlation_id`` — the run id, not a fresh id per call."""
+    ``donkey.run()`` open two spans, and both carry the same
+    ``donkey.correlation_id`` — the run id, not a fresh id per call."""
     exporter = _use_tracer(monkeypatch)
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, headers={_PROVIDER_HEADER: "openai"}, json=_SUCCESS_BODY)
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     with run_context("run-multi"):
         async with client:
             await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "a"})
@@ -728,7 +728,7 @@ async def test_every_span_in_a_run_shares_the_run_id(monkeypatch) -> None:
 
     spans = exporter.get_finished_spans()
     assert len(spans) == 2  # one span per model call
-    assert {dict(s.attributes)["fabric.correlation_id"] for s in spans} == {"run-multi"}
+    assert {dict(s.attributes)["donkey.correlation_id"] for s in spans} == {"run-multi"}
 
 
 async def test_llm_refusal_records_refuse_decision_and_policy_type(monkeypatch) -> None:
@@ -737,7 +737,7 @@ async def test_llm_refusal_records_refuse_decision_and_policy_type(monkeypatch) 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(429)  # empty body → TokenBudgetExceeded (docs §4)
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     async with client:
         resp = await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
     assert resp.status_code == 429
@@ -745,8 +745,8 @@ async def test_llm_refusal_records_refuse_decision_and_policy_type(monkeypatch) 
     (span,) = exporter.get_finished_spans()
     attrs = dict(span.attributes)
     assert attrs["gen_ai.request.model"] == "gpt-4o"
-    assert attrs["fabric.policy.decision"] == "refuse"
-    assert attrs["fabric.policy.type"] == "token_budget"
+    assert attrs["donkey.policy.decision"] == "refuse"
+    assert attrs["donkey.policy.type"] == "token_budget"
     assert "gen_ai.usage.input_tokens" not in attrs  # no usage on a refusal
 
 
@@ -755,7 +755,7 @@ async def test_get_request_emits_no_span(monkeypatch) -> None:
     # retry tests above remain byte-identical with telemetry on.
     exporter = _use_tracer(monkeypatch)
     transport = httpx.MockTransport(lambda r: httpx.Response(200))
-    client = FabricAsyncClient(_LLM_CFG, None, transport=transport)
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=transport)
     async with client:
         await client.get("https://proxy/thing")
     assert exporter.get_finished_spans() == ()
@@ -765,7 +765,7 @@ async def test_post_without_model_emits_no_span(monkeypatch) -> None:
     # A POST that is not a model call (no `model` in the body) gets no span.
     exporter = _use_tracer(monkeypatch)
     transport = httpx.MockTransport(lambda r: httpx.Response(200))
-    client = FabricAsyncClient(_LLM_CFG, None, transport=transport)
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=transport)
     async with client:
         await client.post("https://proxy/thing", json={"hello": "world"})
     assert exporter.get_finished_spans() == ()
@@ -773,9 +773,9 @@ async def test_post_without_model_emits_no_span(monkeypatch) -> None:
 
 async def test_span_suppressed_when_telemetry_disabled(monkeypatch) -> None:
     exporter = _use_tracer(monkeypatch)
-    cfg = FabricConfig(llm_proxy_url="https://proxy", telemetry=False)
+    cfg = DonkeyConfig(llm_proxy_url="https://proxy", telemetry=False)
     transport = httpx.MockTransport(lambda r: httpx.Response(200, json=_SUCCESS_BODY))
-    client = FabricAsyncClient(cfg, None, transport=transport)
+    client = DonkeyAsyncClient(cfg, None, transport=transport)
     async with client:
         await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
     assert exporter.get_finished_spans() == ()
@@ -797,7 +797,7 @@ async def test_streaming_response_span_omits_usage(monkeypatch) -> None:
             content=b"event: response.created\n\n",
         )
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     async with client:
         await client.post("https://proxy/chat", json={"model": "gpt-4o", "stream": True})
 
@@ -805,7 +805,7 @@ async def test_streaming_response_span_omits_usage(monkeypatch) -> None:
     attrs = dict(span.attributes)
     assert attrs["gen_ai.request.model"] == "gpt-4o"
     assert attrs["gen_ai.system"] == "openai"
-    assert attrs["fabric.policy.decision"] == "allow"
+    assert attrs["donkey.policy.decision"] == "allow"
     assert "gen_ai.usage.input_tokens" not in attrs
     assert "gen_ai.usage.output_tokens" not in attrs
 
@@ -819,7 +819,7 @@ async def test_transport_error_closes_span_without_masking(monkeypatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom")
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     async with client:
         with pytest.raises(httpx.ConnectError):
             await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
@@ -827,7 +827,7 @@ async def test_transport_error_closes_span_without_masking(monkeypatch) -> None:
     (span,) = exporter.get_finished_spans()  # closed, not leaked
     attrs = dict(span.attributes)
     assert attrs["gen_ai.request.model"] == "gpt-4o"  # recorded at span start
-    assert "fabric.policy.decision" not in attrs  # never reached _finish
+    assert "donkey.policy.decision" not in attrs  # never reached _finish
 
 
 def test_sync_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None:
@@ -841,7 +841,7 @@ def test_sync_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None:
         )
 
     budget = Budget()
-    client = FabricClient(_LLM_CFG, budget=budget, transport=httpx.MockTransport(handler))
+    client = DonkeyClient(_LLM_CFG, budget=budget, transport=httpx.MockTransport(handler))
     with client, run_context("run-sync"):
         resp = client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
     assert resp.status_code == 200
@@ -852,9 +852,9 @@ def test_sync_llm_post_emits_one_span_with_both_namespaces(monkeypatch) -> None:
     assert attrs["gen_ai.request.model"] == "gpt-4o"
     assert attrs["gen_ai.system"] == "openai"
     assert attrs["gen_ai.usage.input_tokens"] == 1420
-    assert attrs["fabric.policy.decision"] == "allow"
-    assert attrs["fabric.budget.remaining"] == 9000
-    assert attrs["fabric.correlation_id"] == "run-sync"
+    assert attrs["donkey.policy.decision"] == "allow"
+    assert attrs["donkey.budget.remaining"] == 9000
+    assert attrs["donkey.correlation_id"] == "run-sync"
 
 
 # --- refused requests and streaming span lifecycle (#193, BG §1.6) ----------
@@ -933,15 +933,15 @@ async def test_pii_refusal_span_has_refuse_decision_and_error_status(monkeypatch
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(403, json=_PII_403)
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     async with client:
         resp = await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "e@x.io"})
     assert resp.status_code == 403
 
     (span,) = exporter.get_finished_spans()
     attrs = dict(span.attributes)
-    assert attrs["fabric.policy.decision"] == "refuse"
-    assert attrs["fabric.policy.type"] == "pii_detected"
+    assert attrs["donkey.policy.decision"] == "refuse"
+    assert attrs["donkey.policy.type"] == "pii_detected"
     assert span.status.status_code is StatusCode.ERROR
 
 
@@ -954,7 +954,7 @@ async def test_transport_error_span_has_error_status(monkeypatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom")
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     async with client:
         with pytest.raises(httpx.ConnectError):
             await client.post("https://proxy/chat", json={"model": "gpt-4o", "input": "hi"})
@@ -969,7 +969,7 @@ async def test_streaming_span_captures_usage_from_terminal_chunk(monkeypatch) ->
     exporter = _use_tracer(monkeypatch)
     sse = _AsyncSSE(_SSE_WITH_USAGE)
 
-    client = FabricAsyncClient(
+    client = DonkeyAsyncClient(
         _LLM_CFG, None, transport=httpx.MockTransport(lambda r: _sse_response(sse))
     )
     async with client:
@@ -988,7 +988,7 @@ async def test_streaming_span_captures_usage_from_terminal_chunk(monkeypatch) ->
     attrs = dict(span.attributes)
     assert attrs["gen_ai.request.model"] == "gpt-4o"
     assert attrs["gen_ai.system"] == "openai"
-    assert attrs["fabric.policy.decision"] == "allow"
+    assert attrs["donkey.policy.decision"] == "allow"
     assert attrs["gen_ai.usage.input_tokens"] == 11  # prompt_tokens from the usage event
     assert attrs["gen_ai.usage.output_tokens"] == 3  # completion_tokens from the usage event
 
@@ -999,7 +999,7 @@ async def test_streaming_span_closes_when_abandoned_mid_iteration(monkeypatch) -
     exporter = _use_tracer(monkeypatch)
     sse = _AsyncSSE(_SSE_WITH_USAGE)
 
-    client = FabricAsyncClient(
+    client = DonkeyAsyncClient(
         _LLM_CFG, None, transport=httpx.MockTransport(lambda r: _sse_response(sse))
     )
     async with client:
@@ -1021,7 +1021,7 @@ async def test_streaming_span_closes_on_exception_during_iteration(monkeypatch) 
     exporter = _use_tracer(monkeypatch)
     sse = _AsyncSSE(_SSE_WITH_USAGE)
 
-    client = FabricAsyncClient(
+    client = DonkeyAsyncClient(
         _LLM_CFG, None, transport=httpx.MockTransport(lambda r: _sse_response(sse))
     )
     async with client:
@@ -1050,7 +1050,7 @@ async def test_streaming_refusal_produces_one_span_with_error_status(monkeypatch
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(403, json=_PII_403)
 
-    client = FabricAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
+    client = DonkeyAsyncClient(_LLM_CFG, None, transport=httpx.MockTransport(handler))
     async with client:
         req = client.build_request(
             "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
@@ -1060,8 +1060,8 @@ async def test_streaming_refusal_produces_one_span_with_error_status(monkeypatch
         (span,) = exporter.get_finished_spans()
         await resp.aclose()
     attrs = dict(span.attributes)
-    assert attrs["fabric.policy.decision"] == "refuse"
-    assert attrs["fabric.policy.type"] == "pii_detected"
+    assert attrs["donkey.policy.decision"] == "refuse"
+    assert attrs["donkey.policy.type"] == "pii_detected"
     assert span.status.status_code is StatusCode.ERROR
     assert len(exporter.get_finished_spans()) == 1  # still exactly one
 
@@ -1072,7 +1072,7 @@ def test_sync_streaming_span_captures_usage_from_terminal_chunk(monkeypatch) -> 
     exporter = _use_tracer(monkeypatch)
     sse = _SyncSSE(_SSE_WITH_USAGE)
 
-    client = FabricClient(_LLM_CFG, transport=httpx.MockTransport(lambda r: _sse_response(sse)))
+    client = DonkeyClient(_LLM_CFG, transport=httpx.MockTransport(lambda r: _sse_response(sse)))
     with client:
         req = client.build_request(
             "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}
@@ -1095,7 +1095,7 @@ def test_sync_streaming_span_closes_when_abandoned_mid_iteration(monkeypatch) ->
     exporter = _use_tracer(monkeypatch)
     sse = _SyncSSE(_SSE_WITH_USAGE)
 
-    client = FabricClient(_LLM_CFG, transport=httpx.MockTransport(lambda r: _sse_response(sse)))
+    client = DonkeyClient(_LLM_CFG, transport=httpx.MockTransport(lambda r: _sse_response(sse)))
     with client:
         req = client.build_request(
             "POST", "https://proxy/chat", json={"model": "gpt-4o", "stream": True}

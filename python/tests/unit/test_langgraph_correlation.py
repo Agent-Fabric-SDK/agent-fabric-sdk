@@ -2,7 +2,7 @@
 
 Proves the #195 acceptance criterion "propagation reaches every LangGraph node
 via contextvar (no threading through state)": a run id bound once with
-``fabric.run(id=…)`` is visible inside every node the graph runs, without being
+``donkey.run(id=…)`` is visible inside every node the graph runs, without being
 passed through the graph's state channel. LangGraph runs nodes on tasks that
 copy the current context at creation, so a contextvar-bound id reaches them for
 free — nothing is threaded through call arguments or state.
@@ -15,12 +15,12 @@ from __future__ import annotations
 
 import pytest
 
-from agent_fabric import Fabric, FabricConfig
-from agent_fabric.core.telemetry import current_correlation_id
+from donkey_kit import Donkey, DonkeyConfig
+from donkey_kit.core.telemetry import current_correlation_id
 
 
-def _cfg() -> FabricConfig:
-    return FabricConfig(
+def _cfg() -> DonkeyConfig:
+    return DonkeyConfig(
         llm_proxy_url="https://proxy",
         llm_proxy_client_id="cid",
         llm_proxy_client_secret="csecret",
@@ -53,7 +53,7 @@ async def test_run_id_reaches_every_langgraph_node() -> None:
     builder.add_edge("second", END)
     graph = builder.compile()
 
-    fab = Fabric(_cfg())
+    fab = Donkey(_cfg())
     with fab.run(id="run-lg"):
         await graph.ainvoke({})
 

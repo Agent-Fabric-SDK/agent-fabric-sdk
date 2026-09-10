@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import pytest
 
-from agent_fabric import Budget, BudgetReserveReached
-from agent_fabric.core import budget as budget_mod
+from donkey_kit import Budget, BudgetReserveReached
+from donkey_kit.core import budget as budget_mod
 
 _FIXED_NOW = datetime(2026, 9, 8, 14, 0, 0, tzinfo=timezone.utc)
 
@@ -43,18 +43,18 @@ def recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 # --- BudgetReserveReached exists and is exported ----------------------------
 
 
-def test_reserve_reached_is_exported_and_a_fabric_error() -> None:
-    from agent_fabric import FabricError
-    from agent_fabric.core.errors import BudgetReserveReached as CoreReserveReached
+def test_reserve_reached_is_exported_and_a_donkey_error() -> None:
+    from donkey_kit import DonkeyError
+    from donkey_kit.core.errors import BudgetReserveReached as CoreReserveReached
 
     assert BudgetReserveReached is CoreReserveReached
-    assert issubclass(BudgetReserveReached, FabricError)
+    assert issubclass(BudgetReserveReached, DonkeyError)
 
 
 def test_reserve_reached_is_not_a_policy_violation() -> None:
     """It is a client-side pre-emptive signal, not a gateway refusal — catching it
     as a PolicyViolation would misclassify it (and it is meant to be recovered from)."""
-    from agent_fabric.core.errors import PolicyViolation
+    from donkey_kit.core.errors import PolicyViolation
 
     assert not issubclass(BudgetReserveReached, PolicyViolation)
 

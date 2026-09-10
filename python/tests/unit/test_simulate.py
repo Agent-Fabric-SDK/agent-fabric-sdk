@@ -1,10 +1,10 @@
-"""``fabric.simulate()`` — in-process refusal injection with no server (#190, BG §1.5).
+"""``donkey.simulate()`` — in-process refusal injection with no server (#190, BG §1.5).
 
-The in-process sibling of the fabric mock server (BG §1.4): instead of a TCP
-port, it swaps a fixture-returning transport onto the live Fabric client for the
+The in-process sibling of the donkey mock server (BG §1.4): instead of a TCP
+port, it swaps a fixture-returning transport onto the live Donkey client for the
 next N calls, so the refusal branch of an agent runs with no network and no
 server. Framework-free — driven straight through the shared ``httpx`` client,
-exactly as ``fabric.openai()`` would, so these run under ``[dev]`` alone (no
+exactly as ``donkey.openai()`` would, so these run under ``[dev]`` alone (no
 ``[local]`` extra, no ``importorskip``).
 
 Acceptance bar (issue #190):
@@ -19,9 +19,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from agent_fabric import Fabric
-from agent_fabric.core.config import FabricConfig
-from agent_fabric.core.errors import (
+from donkey_kit import Donkey
+from donkey_kit.core.config import DonkeyConfig
+from donkey_kit.core.errors import (
     AuthError,
     ContentSafetyBlocked,
     PIIDetected,
@@ -32,20 +32,20 @@ from agent_fabric.core.errors import (
     UpstreamRequestError,
     classify,
 )
-from agent_fabric.simulator import fixtures as fx
-from agent_fabric.simulator.app import SIMULATOR_HEADER
+from donkey_kit.simulator import fixtures as fx
+from donkey_kit.simulator.app import SIMULATOR_HEADER
 
 _URL = "http://sim.local/responses"
 
 
-def _fabric(cfg: FabricConfig | None = None) -> Fabric:
-    return Fabric(cfg or FabricConfig())
+def _donkey(cfg: DonkeyConfig | None = None) -> Donkey:
+    return Donkey(cfg or DonkeyConfig())
 
 
-async def _post(fabric: Fabric) -> httpx.Response:
+async def _post(donkey: Donkey) -> httpx.Response:
     """One async round-trip through the shared client (stands in for the OpenAI
-    client / fabric.openai())."""
-    return await fabric._http.post(_URL, json={"model": "gpt-5.1"})
+    client / donkey.openai())."""
+    return await donkey._http.post(_URL, json={"model": "gpt-5.1"})
 
 
 def _sentinel(status: int = 299) -> httpx.MockTransport:
@@ -73,10 +73,10 @@ async def test_injected_refusal_replays_fixture_and_classifies_back(
 ) -> None:
     # AC (4): the injected body is byte-identical to the fixture classify() is
     # tested against, so it lights up as exactly the requested typed refusal.
-    fabric = _fabric()
-    async with fabric:
-        with fabric.simulate(exc):
-            resp = await _post(fabric)
+    donkey = _donkey()
+    async with donkey:
+        with donkey.simulate(exc):
+            resp = await _post(donkey)
         assert resp.content == fx.load(shape).body
         assert isinstance(classify(resp), exc)
 
@@ -85,16 +85,16 @@ async def test_injected_response_is_honesty_stamped() -> None:
     # BG §1.4 honesty rule holds for in-process injection too: a simulated
     # refusal is identifiable as simulated in a log/trace, never mistaken for a
     # real gateway response — while the body stays the real captured fixture.
-    fabric = _fabric()
-    async with fabric:
-        with fabric.simulate(PIIDetected):
-            resp = await _post(fabric)
+    donkey = _donkey()
+    async with donkey:
+        with donkey.simulate(PIIDetected):
+            resp = await _post(donkey)
         assert resp.headers[SIMULATOR_HEADER] == "true"
         assert resp.content == fx.load("pii-detected").body
 
 
 async def test_mapping_table_matches_documented_set() -> None:
-    from agent_fabric.simulator.inject import _EXC_TO_SHAPE
+    from donkey_kit.simulator.inject import _EXC_TO_SHAPE
 
     assert _EXC_TO_SHAPE == dict(_ROUND_TRIP)
 
@@ -102,26 +102,26 @@ async def test_mapping_table_matches_documented_set() -> None:
 async def test_times_is_honoured_exactly_then_passes_through() -> None:
     # AC (2): the first ``times`` calls get the fixture; call times+1 proceeds
     # normally (to the wrapped transport).
-    fabric = _fabric()
-    fabric._http._swap_transport(_sentinel())
-    async with fabric:
-        with fabric.simulate(PIIDetected, times=2):
-            r1 = await _post(fabric)
-            r2 = await _post(fabric)
-            r3 = await _post(fabric)  # times+1 → wrapped transport
+    donkey = _donkey()
+    donkey._http._swap_transport(_sentinel())
+    async with donkey:
+        with donkey.simulate(PIIDetected, times=2):
+            r1 = await _post(donkey)
+            r2 = await _post(donkey)
+            r3 = await _post(donkey)  # times+1 → wrapped transport
         assert (r1.status_code, r2.status_code) == (403, 403)
         assert r3.status_code == 299
         # After the block the wrapped transport is restored: no fixture leaks out.
-        assert (await _post(fabric)).status_code == 299
+        assert (await _post(donkey)).status_code == 299
 
 
 async def test_default_times_is_one() -> None:
-    fabric = _fabric()
-    fabric._http._swap_transport(_sentinel())
-    async with fabric:
-        with fabric.simulate(PIIDetected):
-            first = await _post(fabric)
-            second = await _post(fabric)
+    donkey = _donkey()
+    donkey._http._swap_transport(_sentinel())
+    async with donkey:
+        with donkey.simulate(PIIDetected):
+            first = await _post(donkey)
+            second = await _post(donkey)
         assert first.status_code == 403
         assert second.status_code == 299
 
@@ -131,12 +131,12 @@ async def test_retryable_5xx_consumes_one_count_across_retries() -> None:
     # retry. ``times`` counts logical calls, not transport sends: request-identity
     # dedup means the whole retry sequence of one logical call consumes exactly
     # one count, so a second logical call still passes through.
-    fabric = _fabric(FabricConfig(max_retries=2))
-    fabric._http._swap_transport(_sentinel())
-    async with fabric:
-        with fabric.simulate(UpstreamModelError, times=1):
-            r1 = await _post(fabric)  # 503 through every retry — one logical call
-            r2 = await _post(fabric)  # second logical call → wrapped transport
+    donkey = _donkey(DonkeyConfig(max_retries=2))
+    donkey._http._swap_transport(_sentinel())
+    async with donkey:
+        with donkey.simulate(UpstreamModelError, times=1):
+            r1 = await _post(donkey)  # 503 through every retry — one logical call
+            r2 = await _post(donkey)  # second logical call → wrapped transport
         assert r1.status_code == 503
         assert r2.status_code == 299
 
@@ -144,30 +144,30 @@ async def test_retryable_5xx_consumes_one_count_across_retries() -> None:
 async def test_nesting_and_exception_restore_previous_transport() -> None:
     # AC (3): nested simulate() composes, and each block restores the transport
     # it captured — even when the body raises.
-    fabric = _fabric()
-    original = fabric._http._transport
-    async with fabric:
-        with fabric.simulate(PIIDetected):
-            after_outer = fabric._http._transport
+    donkey = _donkey()
+    original = donkey._http._transport
+    async with donkey:
+        with donkey.simulate(PIIDetected):
+            after_outer = donkey._http._transport
             assert after_outer is not original
             with pytest.raises(RuntimeError):
-                with fabric.simulate(AuthError):
-                    assert (await _post(fabric)).status_code == 401  # inner wins
+                with donkey.simulate(AuthError):
+                    assert (await _post(donkey)).status_code == 401  # inner wins
                     raise RuntimeError("boom")
             # inner block restored the PII transport despite the exception
-            assert fabric._http._transport is after_outer
-            assert (await _post(fabric)).status_code == 403
+            assert donkey._http._transport is after_outer
+            assert (await _post(donkey)).status_code == 403
         # outer block restored the original transport
-        assert fabric._http._transport is original
+        assert donkey._http._transport is original
 
 
 async def test_sync_client_swapped_when_already_built() -> None:
     # Sync coverage: a blocking client built BEFORE the block is a target.
-    fabric = _fabric()
-    sync = fabric._sync_http_client()  # build first
+    donkey = _donkey()
+    sync = donkey._sync_http_client()  # build first
     sync._swap_transport(_sentinel())
-    async with fabric:
-        with fabric.simulate(PIIDetected):
+    async with donkey:
+        with donkey.simulate(PIIDetected):
             assert sync.post(_URL, json={}).status_code == 403
         assert sync.post(_URL, json={}).status_code == 299  # restored
 
@@ -175,28 +175,28 @@ async def test_sync_client_swapped_when_already_built() -> None:
 async def test_sync_client_built_inside_block_is_not_retro_swapped() -> None:
     # Documented limitation: a sync client created INSIDE the block was not a
     # target at enter time, so it is not injected into.
-    fabric = _fabric()
-    assert fabric._sync_http is None
-    async with fabric:
-        with fabric.simulate(PIIDetected):
-            sync = fabric._sync_http_client()
+    donkey = _donkey()
+    assert donkey._sync_http is None
+    async with donkey:
+        with donkey.simulate(PIIDetected):
+            sync = donkey._sync_http_client()
             sync._swap_transport(_sentinel())  # avoid touching the network
             assert sync.post(_URL, json={}).status_code == 299  # NOT injected
 
 
-async def test_unmapped_fabric_error_raises_value_error() -> None:
+async def test_unmapped_donkey_error_raises_value_error() -> None:
     # ContentSafetyBlocked is deliberately unmapped (classify() never produces it
     # from the captured shapes); asking for it is a clear error, not a silent miss.
-    fabric = _fabric()
-    async with fabric:
+    donkey = _donkey()
+    async with donkey:
         with pytest.raises(ValueError, match="ContentSafetyBlocked"):
-            with fabric.simulate(ContentSafetyBlocked):
+            with donkey.simulate(ContentSafetyBlocked):
                 pass
 
 
-async def test_non_fabric_error_type_is_rejected() -> None:
-    fabric = _fabric()
-    async with fabric:
+async def test_non_donkey_error_type_is_rejected() -> None:
+    donkey = _donkey()
+    async with donkey:
         with pytest.raises((TypeError, ValueError)):
-            with fabric.simulate(ValueError):  # type: ignore[arg-type]
+            with donkey.simulate(ValueError):  # type: ignore[arg-type]
                 pass

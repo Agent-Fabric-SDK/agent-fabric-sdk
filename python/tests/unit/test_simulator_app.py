@@ -7,7 +7,7 @@ the flip side of [[test_simulator_base_only]] — importing the package there mu
 still succeed, but exercising the app requires the extra.
 
 The point being pinned: a stock client (here plain ``httpx``, standing in for
-``openai`` / ``fabric.llm.client()``) gets byte-identical rejection bodies and
+``openai`` / ``donkey.llm.client()``) gets byte-identical rejection bodies and
 the exact discriminator headers, so ``core.errors.classify()`` lights up the
 typed refusals against the simulator with no real gateway.
 """
@@ -20,8 +20,8 @@ pytest.importorskip("starlette")
 
 import httpx  # noqa: E402
 
-from agent_fabric import Budget  # noqa: E402
-from agent_fabric.core.errors import (  # noqa: E402
+from donkey_kit import Budget  # noqa: E402
+from donkey_kit.core.errors import (  # noqa: E402
     AuthError,
     PIIDetected,
     PolicyViolation,
@@ -31,9 +31,9 @@ from agent_fabric.core.errors import (  # noqa: E402
     UpstreamRequestError,
     classify,
 )
-from agent_fabric.simulator import build_app  # noqa: E402
-from agent_fabric.simulator import fixtures as fx  # noqa: E402
-from agent_fabric.simulator.app import SIM_MODEL_PREFIX, SIMULATOR_HEADER  # noqa: E402
+from donkey_kit.simulator import build_app  # noqa: E402
+from donkey_kit.simulator import fixtures as fx  # noqa: E402
+from donkey_kit.simulator.app import SIM_MODEL_PREFIX, SIMULATOR_HEADER  # noqa: E402
 
 
 def _client() -> httpx.AsyncClient:
@@ -51,7 +51,7 @@ async def test_happy_path_replays_success_verbatim_and_stamps_honesty() -> None:
     assert resp.headers["content-type"].startswith("application/json")
     assert resp.headers[SIMULATOR_HEADER] == "true"  # honesty header, always
     assert resp.headers["x-llm-proxy-llm-provider"] == "openai"  # replayed attribution
-    # x-request-id is replayed so classify() can surface it as FabricError.request_id.
+    # x-request-id is replayed so classify() can surface it as DonkeyError.request_id.
     assert resp.headers["x-request-id"] == fx.load("success").headers["x-request-id"]
     # Gateway-identity headers from the capture are stripped, not replayed.
     assert "server" not in resp.headers
@@ -110,7 +110,7 @@ async def test_unknown_route_is_an_honest_404() -> None:
 
 
 async def test_framework_generated_405_is_still_honesty_stamped() -> None:
-    # BG §1.4: EVERY response carries x-fabric-simulator, including the 405 that
+    # BG §1.4: EVERY response carries x-donkey-simulator, including the 405 that
     # starlette generates for an unsupported method — which never passes through
     # _Simulator._response, so only the _HonestyStamp ASGI wrapper covers it.
     async with _client() as client:

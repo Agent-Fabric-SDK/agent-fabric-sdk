@@ -2,7 +2,7 @@
 
 The canonical index of the gateway rejection shapes `core/errors.classify()`
 discriminates, one row per shape. These fixtures are **shared with the local
-gateway simulator** (`fabric mock`, #187): the simulator replays these exact
+gateway simulator** (`donkey mock`, #187): the simulator replays these exact
 files, so contract drift fails `classify()` and the simulator at once. Keep them
 byte-faithful and parser-compatible (see `../anypoint/llm_proxy/README.md` for
 the `.headers.txt` / `.body.json` / `.body.empty` convention).

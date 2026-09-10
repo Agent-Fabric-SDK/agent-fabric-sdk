@@ -17,7 +17,7 @@ from pathlib import Path
 
 import httpx
 
-from agent_fabric.core.errors import (
+from donkey_kit.core.errors import (
     PIIDetected,
     PolicyViolation,
     PromptInjectionBlocked,
@@ -26,7 +26,7 @@ from agent_fabric.core.errors import (
     UpstreamRequestError,
     classify,
 )
-from agent_fabric.simulator.fixtures import parse_headers
+from donkey_kit.simulator.fixtures import parse_headers
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 REJECTIONS = _FIXTURES / "rejections"

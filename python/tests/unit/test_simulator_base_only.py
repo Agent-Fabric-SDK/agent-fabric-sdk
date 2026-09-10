@@ -13,11 +13,11 @@ import ast
 import inspect
 from types import ModuleType
 
-import agent_fabric.simulator as sim
-import agent_fabric.simulator.app as app_mod
-import agent_fabric.simulator.fixtures as fixtures_mod
-import agent_fabric.simulator.inject as inject_mod
-import agent_fabric.simulator.server as server_mod
+import donkey_kit.simulator as sim
+import donkey_kit.simulator.app as app_mod
+import donkey_kit.simulator.fixtures as fixtures_mod
+import donkey_kit.simulator.inject as inject_mod
+import donkey_kit.simulator.server as server_mod
 
 
 def test_package_and_submodules_import_without_local_extra() -> None:
@@ -45,7 +45,7 @@ def _module_scope_import_roots(module: ModuleType) -> set[str]:
 
 def test_no_module_top_framework_import() -> None:
     # starlette/uvicorn must be imported lazily INSIDE build_app()/serve(), never
-    # at module scope — otherwise `import agent_fabric.simulator` would drag a web
+    # at module scope — otherwise `import donkey_kit.simulator` would drag a web
     # framework onto the base import path the base-only CI job protects. An AST
     # scan of module-scope imports catches every form (`import starlette` AND
     # `from starlette.applications import Starlette`), unlike a hasattr() probe.

@@ -1,7 +1,7 @@
 """The base-only guarantee for the conformance kit (§1.1, BG §1.5).
 
-The pytest11 entry point auto-loads ``agent_fabric.conformance.plugin`` on EVERY
-pytest run once ``agent-fabric`` is installed — including this base-only job,
+The pytest11 entry point auto-loads ``donkey_kit.conformance.plugin`` on EVERY
+pytest run once ``donkey-kit`` is installed — including this base-only job,
 which installs ``[dev]`` only (no ``openai``, no ``starlette``). So importing the
 package and the auto-loaded modules must NOT require any framework or ``openai``.
 
@@ -17,11 +17,11 @@ import ast
 import inspect
 from types import ModuleType
 
-import agent_fabric.conformance as conf
-import agent_fabric.conformance.harness as harness_mod
-import agent_fabric.conformance.plugin as plugin_mod
-import agent_fabric.conformance.report as report_mod
-import agent_fabric.conformance.suite as suite_mod
+import donkey_kit.conformance as conf
+import donkey_kit.conformance.harness as harness_mod
+import donkey_kit.conformance.plugin as plugin_mod
+import donkey_kit.conformance.report as report_mod
+import donkey_kit.conformance.suite as suite_mod
 
 
 def test_package_and_modules_import_without_openai_or_framework() -> None:

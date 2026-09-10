@@ -15,7 +15,7 @@ from pathlib import Path
 
 import httpx
 
-from agent_fabric.core.errors import (
+from donkey_kit.core.errors import (
     AuthError,
     PIIDetected,
     PolicyViolation,
@@ -23,7 +23,7 @@ from agent_fabric.core.errors import (
     UpstreamRequestError,
     classify,
 )
-from agent_fabric.simulator.fixtures import parse_headers
+from donkey_kit.simulator.fixtures import parse_headers
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "anypoint" / "llm_proxy"
 

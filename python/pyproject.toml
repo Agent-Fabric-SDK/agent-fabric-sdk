@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-fabric"
+name = "donkey-kit"
 version = "0.1.0.dev0"
 description = "An SDK for consuming Agent Fabric capabilities (governed model access, governed tools, provisioning-as-code) from your own agent framework."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [{ name = "See README for maintainer + support statement" }]
-keywords = ["agent-fabric", "mulesoft", "anypoint", "agent", "llm", "mcp", "gateway"]
+keywords = ["donkey-kit", "mulesoft", "anypoint", "agent", "llm", "mcp", "gateway"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
@@ -46,7 +46,7 @@ strands = ["strands-agents>=0.1"]
 mcp = ["mcp>=1.2"]
 a2a = ["a2a-sdk>=0.1"]
 
-# --- Local gateway simulator (BG §1.4): `agent-fabric mock` ---
+# --- Local gateway simulator (BG §1.4): `donkey mock` ---
 # Pure-Python ASGI (starlette) served by uvicorn. Plain `uvicorn`, NOT
 # `uvicorn[standard]`: uvloop/httptools are C extensions and would break BG §1.4's
 # pure-Python promise. Floors only, no upper pins (§8.4).
@@ -58,19 +58,19 @@ otel = ["opentelemetry-api>=1.24", "opentelemetry-sdk>=1.24"]
 # --- CLI + provisioning (§5) ---
 cli = ["typer>=0.12", "pyyaml>=6.0", "rich>=13.0"]
 
-# --- Conformance pytest plugin (BG §1.5): `agent-fabric[test]` ---
+# --- Conformance pytest plugin (BG §1.5): `donkey-kit[test]` ---
 # The public, run-it-against-your-own-agent plugin
-# (`pytest --fabric-conformance --agent=my_app:build`), registered via the
+# (`pytest --donkey-conformance --agent=my_app:build`), registered via the
 # pytest11 entry point below. pytest-asyncio so a customer's own async agent
-# tests — and the `fabric` fixture used with `simulate()` — run under the
+# tests — and the `donkey` fixture used with `simulate()` — run under the
 # repo-standard asyncio_mode="auto". The plugin itself needs no framework and no
-# `[llm]`; it drives the agent through the customer's own Fabric. Floors only,
+# `[llm]`; it drives the agent through the customer's own Donkey. Floors only,
 # no upper pins (§8.4).
 test = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 # --- Everything, for convenience ---
 all = [
-    "agent-fabric[llm,langgraph,adk,strands,agent_framework,openai-agents,anthropic,crewai,llamaindex,mcp,otel,cli,local,test]",
+    "donkey-kit[llm,langgraph,adk,strands,agent_framework,openai-agents,anthropic,crewai,llamaindex,mcp,otel,cli,local,test]",
 ]
 
 dev = [
@@ -87,33 +87,33 @@ dev = [
 ]
 
 [project.scripts]
-agent-fabric = "agent_fabric.provisioning.cli:app"
+donkey = "donkey_kit.provisioning.cli:app"
 
 [project.entry-points.pytest11]
 # Registers the conformance plugin (BG §1.5). Entry points are package metadata,
-# so this loads on EVERY pytest run once agent-fabric is installed — even under
+# so this loads on EVERY pytest run once donkey-kit is installed — even under
 # `[dev]` alone with no `[test]` extra. That is why plugin.py and its module-top
 # imports stay framework-free and openai-free (only stdlib + pytest + the
-# framework-free suite/report siblings); the harness that pulls in Fabric is
-# imported lazily. The plugin is inert unless `--fabric-conformance` is passed.
-agent_fabric_conformance = "agent_fabric.conformance.plugin"
+# framework-free suite/report siblings); the harness that pulls in Donkey is
+# imported lazily. The plugin is inert unless `--donkey-conformance` is passed.
+donkey_kit_conformance = "donkey_kit.conformance.plugin"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agent_fabric"]
+packages = ["src/donkey_kit"]
 
 [tool.hatch.build.targets.wheel.force-include]
 # Package the captured fixtures the local gateway simulator (BG §1.4) replays
-# INTO the wheel, so `pip install "agent-fabric[local]" && agent-fabric mock`
-# finds them. The loader (agent_fabric/simulator/fixtures.py) resolves this
+# INTO the wheel, so `pip install "donkey-kit[local]" && donkey mock`
+# finds them. The loader (donkey_kit/simulator/fixtures.py) resolves this
 # packaged copy first, falling back to the source-checkout tests/fixtures/ tree.
-"tests/fixtures/rejections" = "agent_fabric/simulator/_fixtures/rejections"
-"tests/fixtures/anypoint/llm_proxy" = "agent_fabric/simulator/_fixtures/anypoint/llm_proxy"
+"tests/fixtures/rejections" = "donkey_kit/simulator/_fixtures/rejections"
+"tests/fixtures/anypoint/llm_proxy" = "donkey_kit/simulator/_fixtures/anypoint/llm_proxy"
 
 [tool.mypy]
 # Working instruction #8: mypy --strict, blocking in CI.
 strict = true
 python_version = "3.10"
-files = ["src/agent_fabric"]
+files = ["src/donkey_kit"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
@@ -155,7 +155,7 @@ testpaths = ["tests"]
 addopts = "-m 'not local_gateway and not sandbox'"
 markers = [
     "local_gateway: boots the pure-Python local gateway simulator (BG §1.4) on a real TCP port; off by default",
-    "sandbox: requires a real Anypoint sandbox (FABRIC_SANDBOX_TESTS=1); off by default",
+    "sandbox: requires a real Anypoint sandbox (DONKEY_SANDBOX_TESTS=1); off by default",
 ]
 
 [tool.ruff]
@@ -167,22 +167,22 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 # typer's API requires calling typer.Option(...) in argument defaults (B008).
-"src/agent_fabric/provisioning/cli.py" = ["B008"]
+"src/donkey_kit/provisioning/cli.py" = ["B008"]
 
 # --- import-linter: enforce the §1.1 layering rule in CI, from day one ---
 [tool.importlinter]
-root_package = "agent_fabric"
+root_package = "donkey_kit"
 
 [[tool.importlinter.contracts]]
 name = "core is framework-free (nothing in integrations may be imported by lower layers)"
 type = "forbidden"
 source_modules = [
-    "agent_fabric.core",
-    "agent_fabric.llm",
-    "agent_fabric.registry",
-    "agent_fabric.tools",
+    "donkey_kit.core",
+    "donkey_kit.llm",
+    "donkey_kit.registry",
+    "donkey_kit.tools",
 ]
-forbidden_modules = ["agent_fabric.integrations"]
+forbidden_modules = ["donkey_kit.integrations"]
 
 [[tool.importlinter.contracts]]
 name = "layered architecture (§1.1)"
@@ -191,11 +191,11 @@ type = "layers"
 # registry/llm sit above the framework-free core (bottom). Lower never imports
 # higher.
 layers = [
-    "agent_fabric.integrations",
-    "agent_fabric.tools",
-    "agent_fabric.registry",
-    "agent_fabric.llm",
-    "agent_fabric.core",
+    "donkey_kit.integrations",
+    "donkey_kit.tools",
+    "donkey_kit.registry",
+    "donkey_kit.llm",
+    "donkey_kit.core",
 ]
 
 [[tool.importlinter.contracts]]
@@ -203,15 +203,15 @@ name = "simulator is a dev-only sibling (BG §1.4)"
 type = "forbidden"
 # The local gateway simulator pulls in starlette/uvicorn lazily. No production
 # layer may import it, so a framework dep can never drift onto the base
-# `import agent_fabric` path. The simulator importing core downward is allowed.
+# `import donkey_kit` path. The simulator importing core downward is allowed.
 source_modules = [
-    "agent_fabric.core",
-    "agent_fabric.llm",
-    "agent_fabric.registry",
-    "agent_fabric.tools",
-    "agent_fabric.integrations",
+    "donkey_kit.core",
+    "donkey_kit.llm",
+    "donkey_kit.registry",
+    "donkey_kit.tools",
+    "donkey_kit.integrations",
 ]
-forbidden_modules = ["agent_fabric.simulator"]
+forbidden_modules = ["donkey_kit.simulator"]
 
 [[tool.importlinter.contracts]]
 name = "conformance is a dev-only sibling (BG §1.5)"
@@ -219,13 +219,13 @@ type = "forbidden"
 # The conformance kit's pytest plugin auto-loads via a pytest11 entry point and
 # its harness reuses the simulator. Like the simulator, it is a dev-only sibling:
 # no production layer may import it, so nothing it pulls in (pytest, the harness's
-# Fabric wiring) can drift onto the base `import agent_fabric` path. The kit
-# importing core/fabric and the simulator downward is allowed.
+# Donkey wiring) can drift onto the base `import donkey_kit` path. The kit
+# importing core/donkey and the simulator downward is allowed.
 source_modules = [
-    "agent_fabric.core",
-    "agent_fabric.llm",
-    "agent_fabric.registry",
-    "agent_fabric.tools",
-    "agent_fabric.integrations",
+    "donkey_kit.core",
+    "donkey_kit.llm",
+    "donkey_kit.registry",
+    "donkey_kit.tools",
+    "donkey_kit.integrations",
 ]
-forbidden_modules = ["agent_fabric.conformance"]
+forbidden_modules = ["donkey_kit.conformance"]
