@@ -1,0 +1,97 @@
+# Model access
+
+Governed model access from eight agent frameworks. Each adapter returns the
+framework's **own native object**, pointed at your Omni Gateway proxy with
+verified auth, attribution, and retries injected.
+
+  **Language support.** Python is the only first-party SDK today; a TypeScript
+  SDK is planned. Until then, every framework
+  page's **TypeScript** tab reaches the same governed proxy over its
+  OpenAI-compatible API with the official `openai` npm client (or
+  `@anthropic-ai/sdk` for Anthropic) — a real, typed native integration, with no
+  first-party TS package implied. Native TypeScript SDKs exist for LangGraph,
+  ADK, Strands, the OpenAI Agents SDK, the Anthropic SDK, and LlamaIndex;
+  **CrewAI (Python-only)** and **MS Agent Framework (.NET/Python/Go)** have none.
+
+## One deep adapter, seven supported
+
+Support depth is about **how much is guaranteed by tests**, not about quality
+or how well a framework works:
+
+- **Deep** — conformance-gated in blocking CI, with the full scenario suite run
+  against it.
+- **Supported at `connection_kwargs()`** — the governed connection is verified
+  at the kwargs level; the factory methods exist and return native objects, but
+  the constructor call itself is not conformance-gated.
+
+  **Why one deep adapter and not eight.** Eight conformance-gated adapters cost
+  more to maintain than they returned, and the maintenance came out of the
+  budget for the things that actually differentiate the SDK — budget pacing, the
+  simulator, the conformance plugin. A second framework is promoted to deep
+  support based on **real demand**, one at a time, rather than guessed up front.
+  This makes `connection_kwargs()` the most load-bearing surface here: it is the
+  entire supported contract for seven of the eight.
+
+  
+    `chat_model()` → `langchain_openai.ChatOpenAI`
+  
+  
+    `model()` → `google.adk … LiteLlm`
+  
+  
+    `model()` → `strands … OpenAIModel`
+  
+  
+    `chat_client()` → Agent Framework chat client
+  
+  
+    `model()` → `agents.OpenAIChatCompletionsModel`
+  
+  
+    `client()` → `anthropic.AsyncAnthropic`
+  
+  
+    `llm()` → `crewai.LLM` (LiteLLM-backed)
+  
+  
+    `llm()` → `OpenAILike` (`is_chat_model=True`)
+  
+  
+    `donkey.llm.client()` → `openai.AsyncOpenAI` (or `OpenAI` with `sync=True`)
+  
+
+## The shape is the same everywhere
+
+```bash
+pip install "donkey-kit[<framework>]"
+export DONKEY_LLM_PROXY_URL=…  DONKEY_LLM_PROXY_CLIENT_ID=…  DONKEY_LLM_PROXY_CLIENT_SECRET=…
+```
+
+```python
+from donkey_kit import Donkey
+async with Donkey.from_env() as donkey:
+    model = donkey.<framework>.<factory>("gpt-4o")   # native object at the proxy
+```
+
+Each page shows the factory name, the native class you get back, the three ways
+to construct it, and — importantly — **the manual equivalent** so you can eject
+to plain framework code whenever you want.
+
+## Injection depth differs by framework
+
+How completely the SDK can inject its governed HTTP transport depends on what
+each framework exposes:
+
+| Framework | Header injection | Transport injection | Notes |
+|---|---|---|---|
+| LangGraph | ✅ | ✅ | Best case — `default_headers` + custom async client. |
+| Strands | ✅ | ✅ | Via `client_args`. |
+| LlamaIndex | ✅ | ✅ | `is_chat_model=True` forced (avoids the completions-endpoint gotcha). |
+| OpenAI Agents SDK | ✅ | ✅ | We build the `AsyncOpenAI` client ourselves. |
+| Anthropic SDK | ✅ | ✅ | Returns a bare `client()`, not a model-bound object — see the [divergence note](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/anthropic.md). |
+| MS Agent Framework | ✅ | ✅ | Class name/kwarg **unverified**. |
+| Google ADK | ✅ (`extra_headers`) | ❌ | LiteLLM owns the transport — correlation-ID is per-client, a documented exemption. |
+| CrewAI | ✅ (`extra_headers`) | ❌ | LiteLLM-backed `LLM`; same correlation-ID exemption as Google ADK. |
+
+  The proxy contract is verified; the exact **constructor signatures** are still
+  being confirmed per framework — see [Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md).

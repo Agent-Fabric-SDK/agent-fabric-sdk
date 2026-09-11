@@ -2,6 +2,7 @@ export default {
   index: 'Introduction',
   quickstart: 'Quickstart',
   'feature-overview': 'Feature overview',
+  'use-with-your-agent': 'Use with your agent',
   roadmap: 'Roadmap',
   '-- live': {
     type: 'separator',

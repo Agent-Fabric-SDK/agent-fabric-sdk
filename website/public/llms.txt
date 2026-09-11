@@ -1,0 +1,67 @@
+# Donkey Development Kit
+
+> An SDK for consuming Agent Fabric governance from Python agent code, without adopting Mule.
+
+## Getting started
+
+- [Introduction](https://donkey-development-kit.github.io/donkey-development-kit/index.md): An SDK for Agent Fabric — governed model access from your own agent framework, with budget, refusals, telemetry and simulation on one skeleton.
+- [Quickstart](https://donkey-development-kit.github.io/donkey-development-kit/quickstart.md): Make your first **governed** model call. You'll install the SDK with one framework extra, set three environment variables, and get back your framework's own native model object pointed at your Omni G…
+- [Feature overview](https://donkey-development-kit.github.io/donkey-development-kit/feature-overview.md): A tour of everything governed model access gives you today.
+- [Use with your agent](https://donkey-development-kit.github.io/donkey-development-kit/use-with-your-agent.md): Point your coding assistant at these docs — llms.txt, llms-full.txt, and a .md next to every page — so it writes correct governed code.
+- [Roadmap](https://donkey-development-kit.github.io/donkey-development-kit/roadmap.md): What ships when — the five phases, the six-piece minimum, and what this SDK deliberately will not build.
+
+## Model access
+
+- [Overview](https://donkey-development-kit.github.io/donkey-development-kit/frameworks.md): Governed model access from eight agent frameworks, each returning its own native object — LangGraph deep, the rest at connection_kwargs().
+- [LangGraph](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/langgraph.md): LangGraph (and LangChain more broadly) gets a governed `ChatOpenAI` pointed at the Agent Fabric LLM proxy, with full header and transport injection.
+- [Google ADK](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/adk.md): Google's Agent Development Kit (ADK) is Gemini-first; it reaches the Agent Fabric LLM proxy through ADK's `LiteLlm` model wrapper, which speaks LiteLLM's own model-string and kwarg conventions rather…
+- [Strands](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/strands.md): Strands Agents gets a governed `OpenAIModel`, with proxy connection details forwarded through Strands' `client_args`, which Strands passes straight through to the underlying OpenAI client.
+- [MS Agent Framework](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/agent-framework.md): Microsoft Agent Framework gets a governed chat client at the Agent Fabric LLM proxy, plus first-class policy middleware for terminating a run cleanly on a governance rejection instead of letting the…
+- [OpenAI Agents SDK](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/openai.md): The OpenAI Agents SDK (pip package `openai-agents`) gets a governed `OpenAIChatCompletionsModel` backed by a pre-built `AsyncOpenAI` client — the SDK constructs the OpenAI client itself, wired with i…
+- [Anthropic SDK](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/anthropic.md): The Anthropic SDK gets a governed `AsyncAnthropic` client pointed at the Agent Fabric LLM proxy, with the SDK's shared transport and verified headers injected directly into the client constructor.
+- [CrewAI](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/crewai.md): CrewAI gets a governed `LLM`, backed by LiteLLM under the hood, pointed at the Agent Fabric LLM proxy through LiteLLM's own model-string and kwarg conventions rather than raw OpenAI ones.
+- [LlamaIndex](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/llamaindex.md): LlamaIndex gets a governed `OpenAILike` LLM pointed at the Agent Fabric LLM proxy, with the one flag that a chat-only gateway absolutely requires forced on for you.
+
+## Live today
+
+- [Typed refusals](https://donkey-development-kit.github.io/donkey-development-kit/errors.md): The proxy doesn't just pass model calls through — it enforces policy. When it rejects a call, the SDK turns the response into a **typed exception** so you branch on the governance outcome instead of…
+
+## Phase 1 — the six-piece minimum
+
+- [Budget & pacing](https://donkey-development-kit.github.io/donkey-development-kit/budget.md): Remaining token budget as a first-class object, with pacing that slows down before it hits the wall.
+- [Local simulator](https://donkey-development-kit.github.io/donkey-development-kit/simulator.md): A local server that replays real gateway rejections, so you can develop against a governed gateway without having one.
+- [Testing & conformance](https://donkey-development-kit.github.io/donkey-development-kit/testing.md): In-process refusal injection plus a pytest plugin you run against your own agent.
+- [Telemetry & cost](https://donkey-development-kit.github.io/donkey-development-kit/telemetry.md): OpenTelemetry GenAI spans, per-run correlation IDs, and cost-attribution tags — in the dashboard you already run.
+- [CLI & decorators](https://donkey-development-kit.github.io/donkey-development-kit/cli.md): Decorators and a four-command CLI so the six pieces are reachable in one line.
+
+## Tool access
+
+- [Overview](https://donkey-development-kit.github.io/donkey-development-kit/tool-access.md): Phase 2 — discover governed MCP tools and bind them into any framework as native tool objects.
+- [Discovery, search & filter](https://donkey-development-kit.github.io/donkey-development-kit/tool-access/discovery.md): `donkey.tools.discover(...)` is the one entry point for finding governed tools. It narrows the catalog by **name/description (search)**, **governance**, domain, tags, asset type, and environment — so…
+- [Framework binding](https://donkey-development-kit.github.io/donkey-development-kit/tool-access/binding.md): Once [discovery](https://donkey-development-kit.github.io/donkey-development-kit/tool-access/discovery.md) hands you a `ToolSet`, binding is the step that turns governed MCP servers into a framework'…
+- [Pinning & lockfile](https://donkey-development-kit.github.io/donkey-development-kit/tool-access/lockfile.md): Governed tool catalogs change under you. A platform team edits an MCP server's tool schema, bumps a policy, or republishes an asset — and if your agent resolves `version="latest"` at startup, that ch…
+- [A2A agent tools](https://donkey-development-kit.github.io/donkey-development-kit/tool-access/a2a.md): Agent Broker is an A2A server, and A2A-compliant agents in the registry can be consumed directly from Python. `AgentHandle.as_tool()` wraps a remote A2A agent as a callable tool in each framework — t…
+
+## Phase 2 — differentiate
+
+- [A2A agents](https://donkey-development-kit.github.io/donkey-development-kit/a2a.md): Make your agent callable by other agents — serve, expose, and dev, wrapping the official a2a-sdk.
+- [Identity](https://donkey-development-kit.github.io/donkey-development-kit/identity.md): On-behalf-of token exchange, so the gateway can enforce per-user policy instead of seeing only the service.
+- [Human-in-the-loop](https://donkey-development-kit.github.io/donkey-development-kit/hitl.md): One vocabulary for pause-and-ask-a-human, mapped onto each framework's native interrupt.
+- [Scan & publish](https://donkey-development-kit.github.io/donkey-development-kit/publishing.md): Derive a manifest and agent card from your code, then register them from CI — the Agent Scanner for your git repo.
+
+## Phase 3 — platform
+
+- [Policy handshake](https://donkey-development-kit.github.io/donkey-development-kit/policies.md): Read the in-force policy set to avoid calls that will be refused — advisory only; the gateway always wins.
+
+## Concepts
+
+- [Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md): This is the most important thing to understand about the SDK's trustworthiness.
+- [Governance](https://donkey-development-kit.github.io/donkey-development-kit/concepts/governance.md): "Governance" is what the Omni Gateway proxy adds on top of a plain model call: authentication, attribution, routing, and policy enforcement — applied at the gateway, not in your code.
+- [Governance & environments](https://donkey-development-kit.github.io/donkey-development-kit/concepts/environments.md): **Planned design.** This documents SDK behaviour as designed in the build plan; platform contracts it depends on are being live-verified, and unverified paths raise `NotImplementedError("blocked on v…
+- [Attribution & cost](https://donkey-development-kit.github.io/donkey-development-kit/concepts/attribution.md): The core value of governed model access is **per-agent attribution**: knowing which agent/app spent which tokens, without every team rolling their own bookkeeping.
+- [Observability](https://donkey-development-kit.github.io/donkey-development-kit/concepts/observability.md): OTel GenAI spans at a pinned semconv version, dual-emitted with a stable donkey.* namespace.
+
+## Reference
+
+- [Configuration](https://donkey-development-kit.github.io/donkey-development-kit/reference/configuration.md): `Donkey.from_env()` resolves configuration from, in precedence order: explicit kwargs → environment variables → `.donkey-kit.toml` → defaults.
+- [Unsupported boundary](https://donkey-development-kit.github.io/donkey-development-kit/reference/unsupported-boundary.md): Enterprise buyers ask: *which platform APIs does this SDK call, and are they supported for third-party use?* Having the answer pre-written turns a procurement stall into a short conversation.
