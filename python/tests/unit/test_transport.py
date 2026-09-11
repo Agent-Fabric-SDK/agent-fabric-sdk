@@ -13,12 +13,16 @@ from donkey_kit.core._verify import UnverifiedValueWarning
 from donkey_kit.core.auth import StaticToken
 from donkey_kit.core.budget import Budget
 from donkey_kit.core.config import DonkeyConfig
-from donkey_kit.core.telemetry import current_correlation_id, run_context
+from donkey_kit.core.cost import CostTags
+from donkey_kit.core.telemetry import current_correlation_id, run_context, run_scope
 from donkey_kit.core.transport import (
     CALL_ID_HEADER,
     CORRELATION_HEADER,
     DonkeyAsyncClient,
     DonkeyClient,
+    attribution_headers,
+    cost_headers,
+    effective_cost_tags,
     proxy_auth_headers,
 )
 
@@ -1107,3 +1111,164 @@ def test_sync_streaming_span_closes_when_abandoned_mid_iteration(monkeypatch) ->
 
     (span,) = exporter.get_finished_spans()
     assert dict(span.attributes)["gen_ai.request.model"] == "gpt-4o"
+
+
+# --- cost-attribution tags on the wire + in spans (§3, BG §1.7, #196) --------
+# All header NAMES are UNVERIFIED placeholders (docs §3); these tests set the
+# ``cost_*_header`` config overrides so the asserted header keys are deterministic
+# and no placeholder warning is triggered. The span-attribute side carries the
+# full value regardless of the header question (AC #4).
+
+_COST_CFG = DonkeyConfig(
+    llm_proxy_url="https://proxy",
+    correlation_header="x-correlation-id",
+    call_id_header="x-call-id",
+    cost_team_header="x-cost-team",
+    cost_project_header="x-cost-project",
+    cost_env_header="x-cost-env",
+    cost_enduser_header="x-cost-enduser",
+)
+
+
+async def test_config_cost_tags_injected_as_request_headers() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(200)
+
+    cfg = _COST_CFG.with_overrides(
+        cost=CostTags(team="support", project="triage-v2", env="prod", enduser_id="u-42")
+    )
+    async with DonkeyAsyncClient(
+        cfg, None, transport=httpx.MockTransport(handler)
+    ) as client:
+        await client.get("https://proxy/thing")
+
+    assert seen["x-cost-team"] == "support"
+    assert seen["x-cost-project"] == "triage-v2"
+    assert seen["x-cost-env"] == "prod"
+    assert seen["x-cost-enduser"] == "u-42"
+
+
+async def test_unset_cost_dimensions_emit_no_header() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(200)
+
+    cfg = _COST_CFG.with_overrides(cost=CostTags(team="support"))
+    async with DonkeyAsyncClient(
+        cfg, None, transport=httpx.MockTransport(handler)
+    ) as client:
+        await client.get("https://proxy/thing")
+
+    assert seen["x-cost-team"] == "support"
+    # An unset dimension is absent — not an empty header (that would be a config
+    # mistake CostTags rejects; here it is simply "no tag").
+    assert "x-cost-project" not in seen
+    assert "x-cost-env" not in seen
+    assert "x-cost-enduser" not in seen
+
+
+async def test_run_scope_cost_override_wins_per_field_over_config() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(200)
+
+    cfg = _COST_CFG.with_overrides(cost=CostTags(team="support", env="prod"))
+    async with DonkeyAsyncClient(
+        cfg, None, transport=httpx.MockTransport(handler)
+    ) as client:
+        # A run overrides team + adds project; env falls back to the config tag.
+        with run_scope("run-1", CostTags(team="triage-team", project="triage-v2")):
+            await client.get("https://proxy/thing")
+
+    assert seen["x-cost-team"] == "triage-team"  # run wins
+    assert seen["x-cost-project"] == "triage-v2"  # run adds
+    assert seen["x-cost-env"] == "prod"  # config falls through
+
+
+def test_sync_client_injects_config_cost_headers() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(200)
+
+    cfg = _COST_CFG.with_overrides(cost=CostTags(team="support"))
+    with DonkeyClient(cfg, transport=httpx.MockTransport(handler)) as client:
+        client.get("https://proxy/thing")
+
+    assert seen["x-cost-team"] == "support"
+
+
+def test_attribution_headers_snapshot_carries_config_cost() -> None:
+    # The default_headers snapshot path (frameworks that take only a dict) carries
+    # the set-once config tags; a later run-scope override can't reach a snapshot.
+    cfg = _COST_CFG.with_overrides(cost=CostTags(team="support", project="triage-v2"))
+    headers = attribution_headers(cfg)
+    assert headers["x-cost-team"] == "support"
+    assert headers["x-cost-project"] == "triage-v2"
+
+
+def test_cost_headers_uses_placeholder_name_when_unoverridden() -> None:
+    # With no config override, the header NAME is the loud UNVERIFIED placeholder.
+    from donkey_kit.core import _verify
+
+    cfg = DonkeyConfig(cost=CostTags(team="support"))
+    with pytest.warns(UnverifiedValueWarning):
+        headers = cost_headers(cfg, cfg.cost)
+    assert headers[_verify.COST_TEAM_HEADER.placeholder] == "support"
+
+
+def test_effective_cost_tags_merges_run_over_config() -> None:
+    cfg = _COST_CFG.with_overrides(cost=CostTags(team="support", env="prod"))
+    assert effective_cost_tags(cfg) == cfg.cost  # no run scope: config as-is
+    with run_scope("r", CostTags(team="triage")):
+        merged = effective_cost_tags(cfg)
+    assert merged == CostTags(team="triage", env="prod")
+
+
+async def test_cost_tags_recorded_as_span_attributes(monkeypatch) -> None:
+    # AC #4: tags land as donkey.cost.* span attributes carrying the full value,
+    # independent of the (unverified) request-header name.
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={_PROVIDER_HEADER: "openai"}, json=_SUCCESS_BODY)
+
+    cfg = _COST_CFG.with_overrides(
+        cost=CostTags(team="support", project="triage-v2", env="prod", enduser_id="u-42")
+    )
+    client = DonkeyAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
+    async with client:
+        await client.post("https://proxy/chat", json={"model": "gpt-4o"})
+
+    (span,) = exporter.get_finished_spans()
+    attrs = dict(span.attributes)
+    assert attrs["donkey.cost.team"] == "support"
+    assert attrs["donkey.cost.project"] == "triage-v2"
+    assert attrs["donkey.cost.env"] == "prod"
+    assert attrs["donkey.cost.enduser.id"] == "u-42"
+
+
+async def test_run_scope_cost_override_reflected_in_span(monkeypatch) -> None:
+    exporter = _use_tracer(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={_PROVIDER_HEADER: "openai"}, json=_SUCCESS_BODY)
+
+    cfg = _COST_CFG.with_overrides(cost=CostTags(team="support"))
+    client = DonkeyAsyncClient(cfg, None, transport=httpx.MockTransport(handler))
+    async with client:
+        with run_scope("run-1", CostTags(team="triage", project="triage-v2")):
+            await client.post("https://proxy/chat", json={"model": "gpt-4o"})
+
+    (span,) = exporter.get_finished_spans()
+    attrs = dict(span.attributes)
+    assert attrs["donkey.cost.team"] == "triage"  # run override
+    assert attrs["donkey.cost.project"] == "triage-v2"  # run-added dimension

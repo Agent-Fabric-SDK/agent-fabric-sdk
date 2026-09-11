@@ -148,8 +148,11 @@ not forgotten:
 - **Exporter configuration.** Wiring an OTLP exporter/endpoint is
   [#194](https://github.com/Donkey-Development-Kit/donkey-development-kit/issues/194); the
   SDK emits spans through whatever `TracerProvider` you have configured.
-- **Cost tags.** The `donkey.cost.team` key is defined, but populating its
-  **value** is [#196](https://github.com/Donkey-Development-Kit/donkey-development-kit/issues/196).
+- **Cost tags.** The fixed `team` / `project` / `env` / `enduser.id` dimensions
+  now populate both `donkey.cost.*` span attributes and request headers, set once
+  via `Donkey.from_env(team=…)` and overridable per run via `donkey.run(team=…)`
+  ([#196](https://github.com/Donkey-Development-Kit/donkey-development-kit/issues/196),
+  shipped) — see [Telemetry & cost](/telemetry).
 - **Prompt/completion content stays off the span.** Message bodies are never
   attached — that privacy guarantee is
   [#306](https://github.com/Donkey-Development-Kit/donkey-development-kit/issues/306).

@@ -22,6 +22,7 @@ from .core import _verify
 from .core.auth import AnypointConnectedApp, AuthProvider
 from .core.budget import Budget
 from .core.config import DonkeyConfig
+from .core.cost import CostTags
 from .core.telemetry import RunScope, run_scope
 from .core.transport import (
     DonkeyAsyncClient,
@@ -135,8 +136,31 @@ class Donkey:
         self._adapter_cache: dict[str, Adapter] = {}
 
     @classmethod
-    def from_env(cls) -> Donkey:
-        return cls(DonkeyConfig.from_env())
+    def from_env(
+        cls,
+        *,
+        team: str | None = None,
+        project: str | None = None,
+        env: str | None = None,
+        enduser_id: str | None = None,
+    ) -> Donkey:
+        """Build from the environment (`BG §1.1`), optionally setting the fixed
+        cost-attribution tags once for every call (§3, BG §1.7, #196)::
+
+            donkey = Donkey.from_env(team="support", project="triage-v2", env="prod")
+
+        The four dimensions — ``team`` / ``project`` / ``env`` / ``enduser_id``
+        (the ``enduser.id`` tag) — are the fixed set; each override merges over
+        anything already resolved from ``DONKEY_COST_*`` env vars or the
+        ``[donkey.cost]`` toml table. Values are validated by
+        :class:`~donkey_kit.core.cost.CostTags`. Per-call overrides layer on via
+        ``donkey.run(...)``.
+        """
+        cfg = DonkeyConfig.from_env()
+        override = CostTags(team=team, project=project, env=env, enduser_id=enduser_id)
+        if not override.is_empty:
+            cfg = cfg.with_overrides(cost=cfg.cost.merge(override))
+        return cls(cfg)
 
     # --- framework-free surfaces -------------------------------------------
     @property
@@ -184,7 +208,15 @@ class Donkey:
     def tools(self) -> _ToolsFacade:
         return self._tools
 
-    def run(self, id: str | None = None) -> RunScope:
+    def run(
+        self,
+        id: str | None = None,
+        *,
+        team: str | None = None,
+        project: str | None = None,
+        env: str | None = None,
+        enduser_id: str | None = None,
+    ) -> RunScope:
         """Group one logical agent run under a shared correlation id (§2.3, #195).
 
         The headline ergonomic — bind a run id once, and every governed model
@@ -211,10 +243,14 @@ class Donkey:
         Works with or without OpenTelemetry installed — correlation is pure
         contextvar + headers; spans only decorate when OTel is present.
 
-        Only ``id`` is accepted today; cost-attribution fields (enduser/team/
-        project/env) land on ``donkey.run()`` in #196 without a breaking change.
+        Cost-attribution overrides (§3, BG §1.7, #196) bind for the block on top
+        of the tags set once on the Donkey: ``donkey.run(team=..., project=...,
+        env=..., enduser_id=...)`` wins per field for every call inside, and the
+        rest fall back to the configured tags. Like the run id, the binding rides
+        the contextvar, so it reaches framework-spawned tasks and restores on exit.
         """
-        return run_scope(id)
+        override = CostTags(team=team, project=project, env=env, enduser_id=enduser_id)
+        return run_scope(id, override if not override.is_empty else None)
 
     def run_context(self, run_id: str | None = None) -> RunScope:
         """Back-compat alias for :meth:`run` (§2.3). Prefer ``donkey.run(id=…)``."""

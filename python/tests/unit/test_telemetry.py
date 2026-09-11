@@ -64,6 +64,9 @@ def test_donkey_keys_are_the_stable_public_literal_strings() -> None:
     assert telemetry.DONKEY_POLICY_TYPE == "donkey.policy.type"
     assert telemetry.DONKEY_BUDGET_REMAINING == "donkey.budget.remaining"
     assert telemetry.DONKEY_COST_TEAM == "donkey.cost.team"
+    assert telemetry.DONKEY_COST_PROJECT == "donkey.cost.project"
+    assert telemetry.DONKEY_COST_ENV == "donkey.cost.env"
+    assert telemetry.DONKEY_COST_ENDUSER == "donkey.cost.enduser.id"
 
 
 def test_policy_decision_values_are_the_documented_literals() -> None:
@@ -84,6 +87,9 @@ def test_build_genai_attributes_emits_every_key_when_all_present() -> None:
         policy_type="pii_detected",
         budget_remaining=18450,
         cost_team="support",
+        cost_project="triage-v2",
+        cost_env="prod",
+        cost_enduser_id="user-42",
         correlation_id="run-7f3a",
     )
     assert attrs == {
@@ -95,6 +101,9 @@ def test_build_genai_attributes_emits_every_key_when_all_present() -> None:
         "donkey.policy.type": "pii_detected",
         "donkey.budget.remaining": 18450,
         "donkey.cost.team": "support",
+        "donkey.cost.project": "triage-v2",
+        "donkey.cost.env": "prod",
+        "donkey.cost.enduser.id": "user-42",
         "donkey.correlation_id": "run-7f3a",
     }
 

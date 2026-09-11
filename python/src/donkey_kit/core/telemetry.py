@@ -15,6 +15,7 @@ from collections.abc import Iterator
 from contextvars import ContextVar
 from typing import Any
 
+from .cost import CostTags
 from .errors import (
     ContentSafetyBlocked,
     DonkeyError,
@@ -25,6 +26,11 @@ from .errors import (
 )
 
 _correlation_id: ContextVar[str | None] = ContextVar("donkey_correlation_id", default=None)
+# Per-run cost-tag overrides bound by ``donkey.run(team=..., ...)`` (#196). Like
+# the correlation id it is contextvar-bound, so a run's overrides reach every
+# model call in the block — including calls on framework-spawned asyncio tasks,
+# which copy the current context — with no threading through framework state.
+_cost_tags: ContextVar[CostTags | None] = ContextVar("donkey_cost_tags", default=None)
 
 # Span name constants (§2.5).
 SPAN_LLM_CHAT = "donkey.llm.chat"
@@ -61,7 +67,14 @@ DONKEY_CORRELATION_ID = "donkey.correlation_id"
 DONKEY_POLICY_DECISION = "donkey.policy.decision"
 DONKEY_POLICY_TYPE = "donkey.policy.type"
 DONKEY_BUDGET_REMAINING = "donkey.budget.remaining"
+# Cost-attribution dimensions (§3, BG §1.7, #196). One donkey.cost.* attribute
+# per fixed dimension; ``enduser.id`` keeps its dotted external name. These
+# carry the full value on the span even while the request-header names are
+# UNVERIFIED (docs §3), so per-dimension spend attribution works end to end.
 DONKEY_COST_TEAM = "donkey.cost.team"
+DONKEY_COST_PROJECT = "donkey.cost.project"
+DONKEY_COST_ENV = "donkey.cost.env"
+DONKEY_COST_ENDUSER = "donkey.cost.enduser.id"
 
 # donkey.policy.decision values.
 POLICY_DECISION_ALLOW = "allow"
@@ -85,6 +98,14 @@ def new_call_id() -> str:
 
 def current_correlation_id() -> str | None:
     return _correlation_id.get()
+
+
+def current_cost_tags() -> CostTags | None:
+    """The cost-tag overrides bound by the enclosing ``donkey.run(...)`` block,
+    or ``None`` outside one (#196). The transport and span recorder merge these
+    over the configured tags, per field, so a run-scope dimension wins for its
+    block and the rest fall back to config."""
+    return _cost_tags.get()
 
 
 @contextlib.contextmanager
@@ -120,24 +141,35 @@ class RunScope:
     Enter and exit happen in the same task/context for both protocols, so the
     ``reset(token)`` is always valid.
 
-    The ``id`` keyword is deliberately the only field today; #196 extends
-    ``donkey.run()`` with cost-attribution fields (enduser/team/project/env)
-    without a breaking change — they layer on as additional bound state, leaving
-    this correlation binding intact.
+    Cost-attribution overrides (#196) layer on as additional bound state:
+    ``donkey.run(team=..., project=..., env=..., enduser_id=...)`` binds a
+    :class:`~donkey_kit.core.cost.CostTags` for the block, merged over the
+    configured tags per field. They ride the same enter/exit token discipline as
+    the correlation id, so a nested run's overrides shadow and restore cleanly,
+    and the correlation binding is unaffected when no cost fields are given.
     """
 
-    __slots__ = ("_run_id", "_token")
+    __slots__ = ("_run_id", "_cost", "_token", "_cost_token")
 
-    def __init__(self, run_id: str | None = None) -> None:
+    def __init__(self, run_id: str | None = None, cost: CostTags | None = None) -> None:
         self._run_id = run_id
+        # Store only a non-empty override, so a plain ``donkey.run(id=...)`` binds
+        # nothing on the cost contextvar and leaves any outer run's tags in place.
+        self._cost = cost if (cost is not None and not cost.is_empty) else None
         self._token: Any = None
+        self._cost_token: Any = None
 
     def _bind(self) -> str:
         rid = self._run_id or new_correlation_id()
         self._token = _correlation_id.set(rid)
+        if self._cost is not None:
+            self._cost_token = _cost_tags.set(self._cost)
         return rid
 
     def _unbind(self) -> None:
+        if self._cost_token is not None:
+            _cost_tags.reset(self._cost_token)
+            self._cost_token = None
         if self._token is not None:
             _correlation_id.reset(self._token)
             self._token = None
@@ -155,10 +187,11 @@ class RunScope:
         self._unbind()
 
 
-def run_scope(run_id: str | None = None) -> RunScope:
+def run_scope(run_id: str | None = None, cost: CostTags | None = None) -> RunScope:
     """Build a :class:`RunScope` — the dual sync/async run correlation binding
-    behind ``donkey.run(id=...)`` (§2.3, #195)."""
-    return RunScope(run_id)
+    behind ``donkey.run(id=...)`` (§2.3, #195), optionally carrying per-run
+    cost-tag overrides (#196)."""
+    return RunScope(run_id, cost)
 
 
 def ensure_correlation_id() -> str:
@@ -249,6 +282,9 @@ def build_genai_attributes(
     policy_type: str | None = None,
     budget_remaining: int | None = None,
     cost_team: str | None = None,
+    cost_project: str | None = None,
+    cost_env: str | None = None,
+    cost_enduser_id: str | None = None,
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the dual-namespace GenAI span attributes, omitting any field left
@@ -277,6 +313,12 @@ def build_genai_attributes(
         attrs[DONKEY_BUDGET_REMAINING] = budget_remaining
     if cost_team is not None:
         attrs[DONKEY_COST_TEAM] = cost_team
+    if cost_project is not None:
+        attrs[DONKEY_COST_PROJECT] = cost_project
+    if cost_env is not None:
+        attrs[DONKEY_COST_ENV] = cost_env
+    if cost_enduser_id is not None:
+        attrs[DONKEY_COST_ENDUSER] = cost_enduser_id
     if correlation_id is not None:
         attrs[DONKEY_CORRELATION_ID] = correlation_id
     return attrs

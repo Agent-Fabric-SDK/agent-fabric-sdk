@@ -1,4 +1,6 @@
-"""Anthropic SDK adapter (``donkey.anthropic``) (§3.3). Tier 1.
+"""Anthropic SDK adapter (``donkey.anthropic``) (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Returns a native ``anthropic.AsyncAnthropic`` client bound to the proxy. Because
 we construct the client ourselves and hand it our shared http client, header AND

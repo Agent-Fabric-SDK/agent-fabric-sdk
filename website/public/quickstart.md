@@ -1,0 +1,171 @@
+# Quickstart
+
+Make your first **governed** model call. You'll install the SDK with one
+framework extra, set three environment variables, and get back your framework's
+own native model object pointed at your Omni Gateway proxy.
+
+### Install
+
+Install the base SDK plus the raw LLM client and one framework extra:
+
+```bash
+pip install "donkey-kit[llm,langgraph]"
+```
+
+One extra per framework is available: `langgraph`, `adk`, `strands`,
+`agent_framework`, `openai-agents`, `anthropic`, `crewai`, `llamaindex`.
+
+### Configure
+
+Governed model access needs three values. The proxy authenticates on a
+`client_id` / `client_secret` **header pair** (consumer auth) — **not** a bearer
+token, and separate from any Anypoint control-plane credential.
+
+```bash
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+
+# Optional attribution, surfaced on telemetry
+export DONKEY_APP_NAME="checkout-agent"
+export DONKEY_BUSINESS_GROUP="payments"
+```
+
+  `Donkey.from_env()` reads these. Missing fields are reported **all at once**
+  with the env-var names, so you fix configuration in one pass.
+
+### Make a governed call
+
+  **Python is the only first-party SDK today** — it hands back your framework's
+  own native objects. There's no first-party TypeScript SDK yet, but the proxy is
+  **OpenAI-compatible**, so the **TypeScript** tab points the official `openai`
+  npm client at it for the same native, typed experience; the **cURL** tab shows
+  the raw wire format. All three use the verified base URL and the `client_id` /
+  `client_secret` headers — see [Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md).
+
+```python
+import asyncio
+from donkey_kit import Donkey
+
+async def main():
+    async with Donkey.from_env() as donkey:
+        # Returns a real langchain_openai.ChatOpenAI, pointed at the proxy.
+        model = donkey.langgraph.chat_model("gpt-4o", temperature=0)
+        reply = await model.ainvoke([("user", "Say hi in three words.")])
+        print(reply.content)
+
+asyncio.run(main())
+```
+
+Prefer no `donkey.` prefix? Use the module-level factory — or drop to the
+framework-free `AsyncOpenAI` client with `donkey.llm.client()`:
+
+```python
+from donkey_kit.integrations.langgraph import chat_model
+model = chat_model("gpt-4o", temperature=0)   # native ChatOpenAI at the proxy
+```
+
+No event loop, no `await`. `donkey.llm.client(sync=True)` returns the blocking
+`openai.OpenAI`, governed on identical terms — same base URL, same verified
+header pair, same correlation ID and retry policy:
+
+```python
+from donkey_kit import Donkey
+
+with Donkey.from_env() as donkey:
+    client = donkey.llm.client(sync=True)      # a real openai.OpenAI
+    reply = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Say hi in three words."}],
+    )
+    print(reply.choices[0].message.content)
+```
+
+Streaming and the Responses API work the same way, just without `async for`:
+
+```python
+stream = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Count to five."}],
+    stream=True,
+)
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+  The sync surface covers **governed model access**. The control-plane surfaces
+  — `donkey.registry` and `donkey.tools` — stay async, because credential
+  refresh there is an `async` protocol customers can implement themselves. See
+  [Feature overview](https://donkey-development-kit.github.io/donkey-development-kit/feature-overview.md#framework-free-client).
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: process.env.DONKEY_LLM_PROXY_URL,   // no /v1
+  apiKey: "unused",                              // required slot; proxy uses the headers below
+  defaultHeaders: {
+    client_id: process.env.DONKEY_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.DONKEY_LLM_PROXY_CLIENT_SECRET!,
+  },
+});
+
+const reply = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Say hi in three words." }],
+});
+console.log(reply.choices[0].message.content);
+```
+
+The same base URL + headers drop into any OpenAI-compatible TS SDK — LangChain.js
+`ChatOpenAI`, the Vercel AI SDK, or the OpenAI Agents SDK for JS — giving you a
+native framework object, just like the Python adapters do. Need the raw wire
+format instead? See the **cURL** tab.
+
+```bash
+curl "${DONKEY_LLM_PROXY_URL}chat/completions" \
+  -H "content-type: application/json" \
+  -H "client_id: ${DONKEY_LLM_PROXY_CLIENT_ID}" \
+  -H "client_secret: ${DONKEY_LLM_PROXY_CLIENT_SECRET}" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Say hi in three words."}]
+  }'
+```
+
+The base URL already carries the instance path and has **no `/v1`**, so the
+completions path is just `chat/completions` appended to it.
+
+### Handle governance outcomes
+
+The proxy can reject a call for policy reasons (PII, token budget, auth). Turn
+those into typed exceptions instead of parsing bodies — see the
+[Error taxonomy](https://donkey-development-kit.github.io/donkey-development-kit/errors.md):
+
+```python
+import openai
+from donkey_kit import PIIDetected, TokenBudgetExceeded
+from donkey_kit.core.errors import classify
+
+try:
+    resp = await client.chat.completions.create(model="gpt-4o", messages=msgs)
+except openai.APIStatusError as e:
+    governed = classify(e.response)           # bridge into the taxonomy
+    if isinstance(governed, PIIDetected):
+        print("blocked, entities:", governed.entities)
+    elif isinstance(governed, TokenBudgetExceeded):
+        print("retry after", governed.retry_after, "s")
+```
+
+This is identical on the sync client — drop the `await`. Both raise the same
+`openai.APIStatusError`, and `classify()` reads the response the same way.
+
+## Where to go next
+
+- **[Pick your framework](https://donkey-development-kit.github.io/donkey-development-kit/frameworks.md)** — the same three lines for ADK, Strands,
+  LlamaIndex, CrewAI, the OpenAI Agents SDK, the Anthropic SDK, and Agent
+  Framework, plus the manual equivalent so you can eject any time.
+- **[Feature overview](https://donkey-development-kit.github.io/donkey-development-kit/feature-overview.md)** — everything governed model access gives you.
+- **[Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md)** — what's confirmed vs. what
+  raises a clear error, and why.

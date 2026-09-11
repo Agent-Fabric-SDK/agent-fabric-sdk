@@ -1,4 +1,6 @@
-"""LangGraph / LangChain adapter example (§3.3). Tier 1.
+"""LangGraph / LangChain adapter example (§3.3).
+
+Deep adapter — conformance-tested (BG §1.8).
 
 Demonstrates constructing a native ``langchain_openai.ChatOpenAI`` pointed at
 the governed Agent Fabric LLM proxy with a single factory call:

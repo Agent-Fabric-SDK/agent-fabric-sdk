@@ -1,6 +1,6 @@
 # Anthropic SDK example
 
-Tier 1.
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 **What this shows.** A one-line factory call gets you a *native*
 `anthropic.AsyncAnthropic` client already pointed at the governed Agent Fabric LLM

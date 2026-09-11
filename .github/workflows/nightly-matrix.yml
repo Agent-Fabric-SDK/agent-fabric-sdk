@@ -1,10 +1,18 @@
-# Nightly framework matrix (§8.4).
+# Nightly framework matrix (§8.4, BG §1.8).
 #
-# Purpose: catch upstream framework churn early. Each framework's adapter targets
-# class names/kwargs recorded in docs/verified-apis.md §8; when a framework
-# renames a class or changes a signature, the verification harness turns red here
-# *before* a user hits it. This is also the DoD #4 gate ("listed in the nightly
-# matrix") for every adapter.
+# Purpose: catch upstream framework churn early for the CONFORMANCE-TESTED
+# adapter(s). Each adapter targets class names/kwargs recorded in
+# docs/verified-apis.md §8; when a framework renames a class or changes a
+# signature, the verification harness turns red here *before* a user hits it.
+#
+# Scope (#197): the roster is "one deep, seven shallow" — only LangGraph is
+# conformance-tested, so it is the only framework in this matrix. The other seven
+# are supported at connection_kwargs() only; their governed-kwargs shape is
+# guarded by the blocking unit suite (tests/unit/test_adapter_ergonomics.py), and
+# their native-constructor signatures can be checked on demand with
+# `python scripts/verify_frameworks.py` (FRAMEWORKS there stays the full roster).
+# A demoted framework rejoins this matrix when demand promotes it to deep support
+# (#223/#244).
 #
 # What runs per framework:
 #   1. verify_frameworks.py --only <fw>  — signature check (offline). Fails the job
@@ -66,24 +74,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Single source of truth for this list: scripts/verify_frameworks.py
-        # FRAMEWORKS. Every key MUST have a matching pyproject extra AND an
-        # examples/<key>/main.py. The "reject unwired framework" guard step below
-        # fails fast (with a clear message) if a stray key is added here, so the
-        # list can't silently drift into permanently-red jobs again (#140).
-        # These are the eight supported frameworks (§8) — note the OpenAI Agents
-        # SDK key is `openai_agents` (its extra is `openai-agents`, normalised by
-        # pip, and its examples/ dir is `openai_agents`). `donkey.openai()` is a
-        # separate raw-client method, not this adapter (#277).
+        # The conformance-tested roster (BG §1.8, #197): only LangGraph. Every
+        # key MUST have a matching pyproject extra AND an examples/<key>/main.py;
+        # the "reject unwired framework" guard step below fails fast (with a clear
+        # message) if a stray key is added, so the list can't silently drift into
+        # permanently-red jobs again (#140). To promote another framework to deep
+        # support (#223/#244), add its key here AND flip conformance_tested=True in
+        # the ADAPTERS registry. The other seven frameworks are supported at
+        # connection_kwargs() only and are covered by the blocking unit suite, not
+        # this matrix. `donkey.openai()` is a separate raw-client method (#277).
         framework:
           - langgraph
-          - adk
-          - strands
-          - agent_framework
-          - openai_agents
-          - anthropic
-          - crewai
-          - llamaindex
     name: verify (${{ matrix.framework }})
     env:
       # Bind the matrix value to an env var so it is never interpolated into a

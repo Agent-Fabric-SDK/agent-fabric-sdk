@@ -1,4 +1,6 @@
-"""Google ADK adapter (§3.3). Tier 1.
+"""Google ADK adapter (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 ADK is Gemini-first and reaches other providers through the ``LiteLlm`` wrapper,
 which takes LiteLLM-format model strings.

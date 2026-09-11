@@ -1,4 +1,6 @@
-"""Microsoft Agent Framework adapter (§3.3). Tier 1.
+"""Microsoft Agent Framework adapter (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Current Python surface is ``from agent_framework import Agent`` with
 ``Agent(client=<ChatClient>, name=..., instructions=...)``. The

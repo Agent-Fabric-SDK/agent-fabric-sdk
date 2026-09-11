@@ -1,4 +1,6 @@
-"""OpenAI Agents SDK adapter (``donkey.openai_agents``) (§3.3). Tier 1.
+"""OpenAI Agents SDK adapter (``donkey.openai_agents``) (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 The OpenAI Agents SDK (pip ``openai-agents``, import ``agents``) models a
 provider as an ``OpenAIChatCompletionsModel`` wrapping an ``AsyncOpenAI`` client.

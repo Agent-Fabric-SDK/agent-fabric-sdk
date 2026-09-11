@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from .core.budget import Budget
 from .core.config import DonkeyConfig, Region
+from .core.cost import CostTags
 from .core.errors import (
     AuthError,
     BudgetReserveReached,
@@ -65,6 +66,7 @@ __all__ = [
     "ConfigError",
     "Contact",
     "ContentSafetyBlocked",
+    "CostTags",
     "Donkey",
     "DonkeyConfig",
     "DonkeyError",

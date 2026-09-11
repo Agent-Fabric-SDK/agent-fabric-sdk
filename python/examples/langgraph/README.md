@@ -1,6 +1,6 @@
 # LangGraph example
 
-Tier 1.
+Deep adapter — conformance-tested (BG §1.8).
 
 **What this shows.** A one-line factory call gets you a *native*
 `langchain_openai.ChatOpenAI` already pointed at the governed Agent Fabric LLM

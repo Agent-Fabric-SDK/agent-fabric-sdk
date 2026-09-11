@@ -1,0 +1,158 @@
+# Scan & publish
+
+  **Phase 2 — designed, not yet shipped.** Command and API shapes below are a
+  proposal, and the Exchange publish API is currently
+  `blocked on verification`. See [Roadmap](https://donkey-development-kit.github.io/donkey-development-kit/roadmap.md) and
+  [Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md).
+
+`donkey scan` walks your repository, finds everything marked
+[`@donkey.tool`](https://donkey-development-kit.github.io/donkey-development-kit/cli.md), plus MCP server definitions and agent entry points, and
+produces a manifest and A2A agent card. `donkey publish` registers it with
+Exchange / Agent Registry. A GitHub Action runs both on every merge to `main`.
+
+The point: **the registry becomes a consequence of the code, not a chore.**
+
+A support agent with six tools is registered by hand today, if at all, and the
+tool list is stale within a week. With the Action, every merge updates it.
+
+## Positioning: this complements Agent Scanners, it does not compete
+
+  **MuleSoft's Agent Scanners already discover agents** from Agentforce,
+  Bedrock, Vertex AI, and Copilot Studio — at **runtime**. This feature is the
+  **design-time / CI complement**: it registers agents built in plain Python
+  that no cloud scanner can see.
+
+The one-line version: *the Agent Scanner for your git repo.* Re-implementing
+Agent Scanners is on the [will-not-build list](https://donkey-development-kit.github.io/donkey-development-kit/roadmap.md).
+
+## Scope: code-first assets only
+
+Publication exists for assets that **originate in the developer's code**:
+
+- an MCP server written in Python or TypeScript,
+- an agent exposed over [A2A](https://donkey-development-kit.github.io/donkey-development-kit/a2a.md),
+- an agent exposed as a tool without an A2A surface.
+
+It does **not** exist for assets the platform already owns. If an MCP server
+was created by MCP Bridge from an existing API, that capability is already in
+Exchange — publishing a second, code-derived descriptor for it creates two
+catalog entries for one capability, which is exactly the failure a registry
+exists to prevent.
+
+### Collision check
+
+Before publishing, the SDK searches Exchange for an existing asset with the
+same endpoint, name, or derived tool signature. On a probable match it
+**refuses** and prints the existing asset's coordinates. Override with an
+explicit `--allow-duplicate`, which logs at `WARNING`.
+
+## The `Publication` object
+
+```python
+from donkey_kit import Publication, AssetType, Contact
+
+pub = Publication(
+    asset_type=AssetType.MCP_SERVER,          # MCP_SERVER | A2A_AGENT | AGENT | API
+    group_id="${ANYPOINT_ORG_ID}",
+    asset_id="hr-tools-mcp",
+    version="1.3.0",                          # semver
+    name="HR Tools",
+    description="Employee lookup and leave-balance tools for HR agents.",
+
+    # Discovery metadata
+    tags=["hr", "internal", "agent-tool"],
+    categories={"Domain": "People", "Lifecycle": "Production"},
+    contact=Contact(team="People Platform", email="people-plat@acme.com"),
+
+    # Type-specific descriptor — exactly one, matching asset_type
+    descriptor="auto",                        # introspect the live server
+
+    # Documentation pages, published alongside the asset
+    docs=[
+        ("home", "docs/exchange/overview.md"),
+        ("getting-started", "docs/exchange/quickstart.md"),
+    ],
+
+    # Where it actually lives — metadata only
+    endpoint="https://hr-tools.internal.acme.com/mcp",
+)
+```
+
+`asset_type` drives which descriptor is required and how it is generated:
+
+| `asset_type` | Descriptor | Generated from |
+|---|---|---|
+| `MCP_SERVER` | MCP tool manifest — server info, tool names, descriptions, JSON Schema inputs | live `tools/list` against the running server |
+| `A2A_AGENT` | A2A Agent Card | declared skills, endpoint, auth schemes, input/output modes |
+| `AGENT` | agent descriptor (no A2A surface) | framework introspection, best-effort |
+| `API` | OpenAPI / AsyncAPI | user-supplied file; no generation |
+
+  **Verification gate.** Whether Exchange exposes first-class asset types for
+  MCP servers and AI agents is unverified. The Agent Registry is built on
+  Exchange, so it is likely — but if it does not, publication degrades to a
+  generic asset type carrying tags, which weakens discoverability and breaks
+  `asset_types=["mcp"]` filtering in [Tool access](https://donkey-development-kit.github.io/donkey-development-kit/tool-access.md). The two
+  features share this dependency; it is verified once, recorded once.
+
+## `descriptor="auto"` — deriving the spec from code
+
+Hand-maintained catalog descriptors go stale within one sprint. Generation is
+the entire value of this object.
+
+The key insight: **don't write a type-hint-to-JSON-Schema converter.** Every
+supported framework already derives JSON Schema from function signatures, type
+hints, and docstrings, because that is how tool calling works at all — `@tool`
+in LangChain and Strands, `FunctionTool` in ADK and LlamaIndex, `@mcp.tool()`
+in the MCP Python SDK, and each of CrewAI, the OpenAI Agents SDK, and the
+Anthropic SDK's own conventions. Each already builds a schema and attaches it
+to a tool object.
+
+So the SDK's job is to **ask the framework for the schema it already
+computed**. Re-deriving it would produce a second, subtly different schema from
+the one the model actually sees — worse than useless, because the catalog would
+then document something other than the running behaviour.
+
+### Three derivation modes, ranked by fidelity
+
+```python
+descriptor="auto"          # object introspection — the default
+descriptor="auto:live"     # live protocol introspection — highest fidelity
+descriptor="auto:static"   # AST only — lowest fidelity, no code execution
+descriptor="auto:check"    # generate, diff against committed file, fail on mismatch
+```
+
+- **`auto:live`** starts the server, performs the MCP initialize handshake, and
+  calls `tools/list` (plus `resources/list` and `prompts/list`). Highest
+  fidelity — it is exactly what a client sees — but the server must actually
+  run, with whatever credentials and network that needs.
+- **`auto`** (the default) imports your module, locates the tool and agent
+  objects, and reads their already-computed schemas. No server, no network,
+  works in CI. Importing user code executes it, so tool definitions must be
+  scanning:
+
+  ```toml
+  [publication.entrypoints]
+  "hr-tools-mcp" = "acme.hr.server:mcp"        # module:attribute
+  "hr-agent"     = "acme.hr.agent:build_agent" # a zero-arg factory also works
+  ```
+
+- **`auto:static`** parses decorators, signatures, and docstrings via AST
+  without executing anything. Useful only where importing user code is
+  unacceptable. It cannot see tools registered in a loop, from config or a
+  database, behind a feature flag, attached dynamically at startup, or built
+  from imported/generated pydantic models — so it emits a completeness warning
+  whenever it hits a pattern it cannot resolve, and it is never the default.
+
+`donkey publish --cross-check` runs `auto` and `auto:live` and diffs them.
+Disagreement means either dynamic registration the object graph does not
+reflect, or a broken framework adapter.
+
+  Type hints give the **shape**, not the **meaning** — `department: str` becomes
+  `{"type": "string"}` and says nothing about which departments are valid, or
+  when to use this tool over a similar one. `auto` fails publication on a
+  description that is tautological or missing, and `preview()` reports
+  description quality rather than a verdict.
+
+---
+
+**Status: Phase 2 — not yet shipped.**

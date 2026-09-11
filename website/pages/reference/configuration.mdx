@@ -31,6 +31,39 @@ you fix configuration in a single pass rather than one error per run.
 | `DONKEY_APP_NAME` | Human-readable app name, surfaced on telemetry. |
 | `DONKEY_BUSINESS_GROUP` | Business group for attribution. |
 
+## Cost-attribution tags
+
+A fixed set of dimensions set once and emitted on every call (both as request
+headers and as `donkey.cost.*` span attributes). Overridable per run via
+`donkey.run(team=…, project=…, env=…, enduser_id=…)`. The key set is fixed — an
+unknown dimension is a configuration error, not a silently-dropped tag. See
+[Telemetry & cost](/telemetry).
+
+| Env var | `Donkey.from_env` kwarg | Meaning |
+|---|---|---|
+| `DONKEY_COST_TEAM` | `team` | Owning team. |
+| `DONKEY_COST_PROJECT` | `project` | Project / workload. |
+| `DONKEY_COST_ENV` | `env` | Deployment environment (e.g. `prod`). |
+| `DONKEY_COST_ENDUSER_ID` | `enduser_id` | End-user id (the `enduser.id` tag). |
+
+In `.donkey-kit.toml` these live under a `[donkey.cost]` table (the end-user
+dimension keeps its dotted key):
+
+```toml
+[donkey.cost]
+team = "support"
+project = "triage-v2"
+env = "prod"
+"enduser.id" = "user-42"
+```
+
+The gateway-side request-header **names** are unverified, so they are overridable
+placeholders — point them at your real names with `DONKEY_COST_TEAM_HEADER`,
+`DONKEY_COST_PROJECT_HEADER`, `DONKEY_COST_ENV_HEADER`,
+`DONKEY_COST_ENDUSER_HEADER` (or the matching `cost_*_header` config keys). The
+`donkey.cost.*` span attributes carry the full value regardless
+([Verification policy](/concepts/verification)).
+
 ## Anypoint control plane (used by later phases)
 
 These match the Anypoint CLI's own variable names (CLI-verified):
