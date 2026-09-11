@@ -28,6 +28,9 @@ donkey.policy.type          = pii_detected | token_budget | injection | …
 donkey.budget.remaining     = 18450
 donkey.correlation_id       = …
 donkey.cost.team            = support
+donkey.cost.project         = triage-v2
+donkey.cost.env             = prod
+donkey.cost.enduser.id      = user-42
 ```
 
 Export goes over OTLP to wherever you already send spans. **Nothing in the
@@ -95,8 +98,14 @@ context manager (plain `with` works too); nested blocks rebind then restore.
 
 ## Cost-attribution tags
 
+<Callout type="info">
+  **Shipped in Phase 1** (#196). Completes the six-piece minimum alongside the
+  correlation IDs above.
+</Callout>
+
 A small, fixed set of tags — `team`, `project`, `env`, `enduser.id` — set once
-and injected as headers on every call:
+and emitted on every call, both as request headers and as `donkey.cost.*` span
+attributes:
 
 ```python
 donkey = Donkey.from_env(team="support", project="triage-v2", env="prod")
@@ -104,6 +113,13 @@ donkey = Donkey.from_env(team="support", project="triage-v2", env="prod")
 async with donkey.run(id=ticket.id, enduser_id=agent_user.id):
     await triage_agent.run(ticket)
 ```
+
+The tags resolve along the standard precedence — `Donkey.from_env(team=…)`
+kwargs, then `DONKEY_COST_*` env vars, then a `[donkey.cost]` table in
+`.donkey-kit.toml`. Per-run overrides layer on top: `donkey.run(team=…,
+project=…, env=…, enduser_id=…)` wins **per field** for its block and the rest
+fall back to the configured tags. The key set is **fixed** — an unknown
+dimension is a configuration error, never a silently-dropped header.
 
 ### The question this answers
 

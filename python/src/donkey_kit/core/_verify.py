@@ -81,6 +81,36 @@ ATTRIBUTION_BUSINESS_GROUP_HEADER = Unverified(
     doc_ref="docs/verified-apis.md §3",
 )
 
+# --- Cost-attribution tag headers (§3, the HIGHEST-priority unknown, #196) ---
+# The fixed cost dimensions (team / project / env / enduser.id) are emitted as
+# request headers so the gateway can group spend per dimension. The gateway-side
+# header NAMES are the single most important unverified value (docs §3): the
+# direct-proxy path did NOT surface them, so these are loud, overridable
+# placeholders (config: ``cost_*_header``), and the value ALWAYS lands on the
+# ``donkey.cost.*`` span regardless (the SDK controls the span end to end, #196
+# AC #4). The ``X-Anypoint-Cost-*`` shape mirrors the attribution placeholders
+# above; it is a guess, not a confirmed name.
+COST_TEAM_HEADER = Unverified(
+    key="cost.team_header",
+    placeholder="X-Anypoint-Cost-Team",
+    doc_ref="docs/verified-apis.md §3",
+)
+COST_PROJECT_HEADER = Unverified(
+    key="cost.project_header",
+    placeholder="X-Anypoint-Cost-Project",
+    doc_ref="docs/verified-apis.md §3",
+)
+COST_ENV_HEADER = Unverified(
+    key="cost.env_header",
+    placeholder="X-Anypoint-Cost-Env",
+    doc_ref="docs/verified-apis.md §3",
+)
+COST_ENDUSER_HEADER = Unverified(
+    key="cost.enduser_header",
+    placeholder="X-Anypoint-Cost-Enduser-Id",
+    doc_ref="docs/verified-apis.md §3",
+)
+
 # --- Correlation / call-id request headers (§2.3, #195) ---------------------
 # The gateway ECHOES `x-correlation-id` on RESPONSES (VERIFIED LIVE 2026-08-28,
 # docs §3). Whether it READS an INBOUND correlation header — and under what name

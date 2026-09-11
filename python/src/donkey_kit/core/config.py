@@ -23,6 +23,7 @@ else:  # 3.10 has no stdlib tomllib; the [core] dep ``tomli`` backfills it.
     import tomli as tomllib
 
 from ._verify import REGION_HOSTS
+from .cost import CostTags
 from .errors import ConfigError
 
 Region = Literal["us", "eu", "ca", "jp"]
@@ -62,6 +63,17 @@ class DonkeyConfig:
     correlation_header: str | None = None  # env: DONKEY_CORRELATION_HEADER
     call_id_header: str | None = None      # env: DONKEY_CALL_ID_HEADER
 
+    # --- Cost-attribution tags + request-header NAME overrides (§3, #196) ---
+    # The fixed dimensions (team/project/env/enduser.id), set once and emitted on
+    # every call. The gateway-side header names are the highest-priority unknown
+    # (docs §3); the ``cost_*_header`` overrides let a customer point them at the
+    # real names — unset → the loud ``Unverified`` placeholders in ``core/_verify``.
+    cost: CostTags = CostTags()            # env: DONKEY_COST_{TEAM,PROJECT,ENV,ENDUSER_ID}
+    cost_team_header: str | None = None    # env: DONKEY_COST_TEAM_HEADER
+    cost_project_header: str | None = None  # env: DONKEY_COST_PROJECT_HEADER
+    cost_env_header: str | None = None     # env: DONKEY_COST_ENV_HEADER
+    cost_enduser_header: str | None = None  # env: DONKEY_COST_ENDUSER_HEADER
+
     # --- Behaviour ---
     timeout_s: float = 60.0
     max_retries: int = 3
@@ -90,6 +102,7 @@ class DonkeyConfig:
             )
 
         return cls(
+            cost=_resolve_cost_tags(toml.get("cost")),
             client_id=_opt(pick("ANYPOINT_CLIENT_ID", "client_id", None)),
             client_secret=_opt(pick("ANYPOINT_CLIENT_SECRET", "client_secret", None)),
             org_id=_opt(pick("ANYPOINT_ORG_ID", "org_id", None)),
@@ -110,6 +123,16 @@ class DonkeyConfig:
                 pick("DONKEY_CORRELATION_HEADER", "correlation_header", None)
             ),
             call_id_header=_opt(pick("DONKEY_CALL_ID_HEADER", "call_id_header", None)),
+            cost_team_header=_opt(
+                pick("DONKEY_COST_TEAM_HEADER", "cost_team_header", None)
+            ),
+            cost_project_header=_opt(
+                pick("DONKEY_COST_PROJECT_HEADER", "cost_project_header", None)
+            ),
+            cost_env_header=_opt(pick("DONKEY_COST_ENV_HEADER", "cost_env_header", None)),
+            cost_enduser_header=_opt(
+                pick("DONKEY_COST_ENDUSER_HEADER", "cost_enduser_header", None)
+            ),
             timeout_s=_as_float(pick("DONKEY_TIMEOUT_S", "timeout_s", 60.0)),
             max_retries=_as_int(pick("DONKEY_MAX_RETRIES", "max_retries", 3)),
             registry_cache_ttl_s=_as_int(
@@ -168,6 +191,32 @@ class DonkeyConfig:
 
 def _opt(v: object) -> str | None:
     return None if v is None else str(v)
+
+
+# The four cost dimensions and the env var that overrides each, in field order.
+_COST_ENV_VARS: tuple[tuple[str, str], ...] = (
+    ("team", "DONKEY_COST_TEAM"),
+    ("project", "DONKEY_COST_PROJECT"),
+    ("env", "DONKEY_COST_ENV"),
+    ("enduser_id", "DONKEY_COST_ENDUSER_ID"),
+)
+
+
+def _resolve_cost_tags(toml_cost: object) -> CostTags:
+    """Resolve the cost tags along the fixed precedence: ``[donkey.cost]`` toml
+    table is the base (its keys validated against the fixed set — an unknown
+    dimension raises :class:`ConfigError`, never a silent drop, §196 AC #1), then
+    ``DONKEY_COST_*`` env vars override per dimension. Absent both → empty tags."""
+    if toml_cost is None:
+        base = CostTags()
+    elif isinstance(toml_cost, dict):
+        base = CostTags.from_mapping(toml_cost, source="[donkey.cost]")
+    else:
+        raise ConfigError("[donkey.cost] must be a table of cost-attribution tags.")
+    env_over = {
+        field: os.environ[var] for field, var in _COST_ENV_VARS if var in os.environ
+    }
+    return base.merge(CostTags(**env_over)) if env_over else base
 
 
 def _as_int(v: object) -> int:

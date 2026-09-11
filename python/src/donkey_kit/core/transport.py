@@ -44,11 +44,13 @@ from . import _verify
 from .auth import AuthProvider
 from .budget import Budget
 from .config import DonkeyConfig
+from .cost import CostTags
 from .errors import classify
 from .telemetry import (
     POLICY_DECISION_ALLOW,
     POLICY_DECISION_REFUSE,
     GenAiSpan,
+    current_cost_tags,
     ensure_correlation_id,
     genai_span,
     new_call_id,
@@ -82,6 +84,45 @@ _BACKOFF_BASE_S = 0.5
 _BACKOFF_CAP_S = 30.0
 
 
+# The four cost dimensions → the config field that overrides that header name →
+# the UNVERIFIED placeholder used when there is no override (§3, #196). The
+# gateway-side names are the highest-priority unknown, so each is a loud,
+# overridable placeholder resolved here.
+_COST_HEADER_SOURCES: tuple[tuple[str, str, _verify.Unverified], ...] = (
+    ("team", "cost_team_header", _verify.COST_TEAM_HEADER),
+    ("project", "cost_project_header", _verify.COST_PROJECT_HEADER),
+    ("env", "cost_env_header", _verify.COST_ENV_HEADER),
+    ("enduser_id", "cost_enduser_header", _verify.COST_ENDUSER_HEADER),
+)
+
+
+def cost_headers(cfg: DonkeyConfig, tags: CostTags) -> dict[str, str]:
+    """The request headers for the SET dimensions of ``tags`` (§3, BG §1.7, #196).
+
+    Each header NAME is the config override (``cost_*_header``) if set, else the
+    UNVERIFIED placeholder from ``core/_verify`` — the gateway-side cost header
+    name is the single highest-priority unknown (docs §3), so an un-overridden
+    name emits the one-time §0.3 warning. Values are pre-validated by
+    :class:`CostTags`, so they are always header-safe."""
+    override = {
+        field: getattr(cfg, attr) for field, attr, _placeholder in _COST_HEADER_SOURCES
+    }
+    placeholder = {field: ph for field, _attr, ph in _COST_HEADER_SOURCES}
+    headers: dict[str, str] = {}
+    for field, value in tags.items():
+        name = override[field] or placeholder[field].get()
+        headers[name] = value
+    return headers
+
+
+def effective_cost_tags(cfg: DonkeyConfig) -> CostTags:
+    """The cost tags in force for the current call: the configured tags with any
+    ``donkey.run(...)`` per-run overrides merged on top, per field (#196). Read
+    at send/record time so a run-scope override reaches every call in its block."""
+    run = current_cost_tags()
+    return cfg.cost.merge(run) if run is not None else cfg.cost
+
+
 def attribution_headers(cfg: DonkeyConfig) -> dict[str, str]:
     """A snapshot of attribution headers for frameworks that only accept a
     ``default_headers`` dict. Does NOT include the correlation ID (which must be
@@ -91,13 +132,19 @@ def attribution_headers(cfg: DonkeyConfig) -> dict[str, str]:
     surface application/business-group as request headers (docs §3), so these
     remain loud, overridable placeholders. The verified per-agent attribution
     unit is the ``client_id`` credential — see :func:`proxy_auth_headers`.
-    """
+
+    Includes the CONFIG-LEVEL cost tags (§3, #196). A static ``default_headers``
+    snapshot cannot see a later ``donkey.run(...)`` override — that binding is a
+    contextvar the live client reads per send — so the snapshot path carries the
+    set-once tags only, a documented degradation (like the per-run correlation
+    ID, §3.3)."""
 
     headers: dict[str, str] = {}
     if cfg.application_name:
         headers[_verify.ATTRIBUTION_APP_HEADER.get()] = cfg.application_name
     if cfg.business_group:
         headers[_verify.ATTRIBUTION_BUSINESS_GROUP_HEADER.get()] = cfg.business_group
+    headers.update(cost_headers(cfg, cfg.cost))
     return headers
 
 
@@ -152,10 +199,18 @@ def _apply_base_headers(
     so re-setting it on each retry is idempotent. The header NAME is resolved
     once by the client. The per-call ID is deliberately NOT set here — being
     random, it must be pinned once before the retry loop
-    (:func:`_apply_call_id_header`), never re-rolled per send."""
+    (:func:`_apply_call_id_header`), never re-rolled per send.
+
+    ``attribution_headers`` already carries the CONFIG-LEVEL cost tags; any
+    ``donkey.run(...)`` per-run overrides are applied on top here (read from the
+    contextvar per send), so a run-scope dimension wins for its block (#196)."""
     request.headers[correlation_header] = correlation_id
     for name, value in attribution_headers(cfg).items():
         request.headers[name] = value
+    run = current_cost_tags()
+    if run is not None:
+        for name, value in cost_headers(cfg, run).items():
+            request.headers[name] = value
 
 
 def _apply_call_id_header(request: httpx.Request, call_id_header: str) -> None:
@@ -272,6 +327,7 @@ def _record_response(
     budget: Budget | None,
     *,
     correlation_header: str,
+    cost_tags: CostTags,
 ) -> None:
     """Record the dual-namespace response attributes on the span, after
     ``_on_response`` has fed the budget. Never raises: a telemetry failure must
@@ -294,6 +350,10 @@ def _record_response(
             policy_type=policy_type,
             budget_remaining=budget.remaining if budget is not None else None,
             correlation_id=request.headers.get(correlation_header),
+            # donkey.cost.* carries the FULL tag value regardless of the
+            # (unverified) request-header name — the SDK owns the span end to end
+            # (#196 AC #4). Merged config⊕run tags, so a run-scope override shows.
+            **cost_tags.span_kwargs(),
         )
         # A refusal is a failed operation, not just a refuse attribute: mark the
         # span ERROR so a trace reads it as such (#193, AC #1). One place covers
@@ -661,7 +721,12 @@ class DonkeyAsyncClient(httpx.AsyncClient):
         usage and — for a refusal — ERROR status)."""
         await self._on_response(request, response)
         _record_response(
-            gspan, request, response, self._budget, correlation_header=self._correlation_header
+            gspan,
+            request,
+            response,
+            self._budget,
+            correlation_header=self._correlation_header,
+            cost_tags=effective_cost_tags(self._cfg),
         )
         if streaming:
             if _is_streaming_success(response):
@@ -798,7 +863,12 @@ class DonkeyClient(httpx.Client):
         (see :meth:`DonkeyAsyncClient._finish`)."""
         self._on_response(request, response)
         _record_response(
-            gspan, request, response, self._budget, correlation_header=self._correlation_header
+            gspan,
+            request,
+            response,
+            self._budget,
+            correlation_header=self._correlation_header,
+            cost_tags=effective_cost_tags(self._cfg),
         )
         if streaming:
             if _is_streaming_success(response):

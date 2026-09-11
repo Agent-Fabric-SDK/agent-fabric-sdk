@@ -8,6 +8,7 @@ from .auth import AnypointConnectedApp, AuthProvider, ChainedAuth, StaticToken
 from .budget import Budget
 from .cache import TTLCache
 from .config import DonkeyConfig, Region
+from .cost import CostTags
 from .errors import (
     AuthError,
     BudgetReserveReached,
@@ -26,13 +27,19 @@ from .errors import (
     UpstreamModelError,
     classify,
 )
-from .telemetry import current_correlation_id, new_correlation_id, run_context
+from .telemetry import (
+    current_correlation_id,
+    current_cost_tags,
+    new_correlation_id,
+    run_context,
+)
 from .transport import (
     DonkeyAsyncClient,
     DonkeyClient,
     attribution_headers,
     build_http_client,
     build_sync_http_client,
+    cost_headers,
 )
 
 __all__ = [
@@ -44,6 +51,7 @@ __all__ = [
     "ChainedAuth",
     "ConfigError",
     "ContentSafetyBlocked",
+    "CostTags",
     "DonkeyAsyncClient",
     "DonkeyClient",
     "DonkeyConfig",
@@ -65,7 +73,9 @@ __all__ = [
     "build_http_client",
     "build_sync_http_client",
     "classify",
+    "cost_headers",
     "current_correlation_id",
+    "current_cost_tags",
     "new_correlation_id",
     "run_context",
 ]
