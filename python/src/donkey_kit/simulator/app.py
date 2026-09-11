@@ -27,15 +27,20 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 from .fixtures import (
-    LIMIT_HEADER,
-    REMAINING_HEADER,
-    RESET_HEADER,
+    RATELIMIT_HEADER,
     Fixture,
     load,
     replay_headers,
 )
 
-__all__ = ["ASGIApp", "SimulatorConfig", "SIMULATOR_HEADER", "SIM_MODEL_PREFIX", "build_app"]
+__all__ = [
+    "ASGIApp",
+    "SimulatorConfig",
+    "SIMULATOR_HEADER",
+    "SIM_MODEL_PREFIX",
+    "RATELIMIT_HEADER",
+    "build_app",
+]
 
 # BG §1.4 honesty rule: stamped on EVERY response so nothing the simulator emits
 # can be mistaken for a real gateway. The bytes form is used by the ASGI wrapper
@@ -48,6 +53,14 @@ _SIMULATOR_HEADER_BYTES = SIMULATOR_HEADER.encode("latin-1")
 # whose model id is "donkey-sim/<shape>" is served that rejection shape. This is
 # a simulator control surface only — NEVER a real Omni Gateway behaviour (§0.3).
 SIM_MODEL_PREFIX = "donkey-sim/"
+
+# The budget window the live proxy emits on a happy-path `200` (with the
+# `llm-token-rate-limit` policy applied) is a single prose header,
+# `x-llm-proxy-ratelimit`, NOT the numeric `x-token-*` trio (which the live gateway
+# emits only on the `429`). The name is defined once in `core.budget` (which parses
+# it, #352) and imported here so the simulator renders what the client parses. The
+# format string is fixed by the live/fixture capture (#352/#353):
+#   "Token rate limit: {remaining} tokens remaining of {limit} limit. Reset in {ms}ms."
 
 # Shapes selectable via the model-id sentinel: the six documented rejections
 # plus the consumer-auth 401.
@@ -78,14 +91,15 @@ class ASGIApp(Protocol):
 
 @dataclass(frozen=True)
 class SimulatorConfig:
-    """Tunables for the happy-path ``x-token-*`` synthesis (BG §1.4 / #185/#186).
+    """Tunables for the happy-path budget window (BG §1.4 / #185/#186/#353).
 
-    The live success capture carries no ``x-token-*`` headers (they are per-request
-    stateful counters), so the simulator synthesises a plausible, monotonically
-    decreasing budget window. This is a serve-time OVERLAY, recorded as UNVERIFIED
-    real-proxy behaviour in ``docs/verified-apis.md`` pending a sandbox capture
-    (#253) — it exists so a developer can exercise :class:`~donkey_kit.Budget`
-    and its pacing against the simulator.
+    The live ``200`` (with the ``llm-token-rate-limit`` policy applied) carries the
+    budget window as a single prose ``x-llm-proxy-ratelimit`` header, not the numeric
+    ``x-token-*`` trio (#352). The simulator renders that same sentence from a
+    plausible, monotonically decreasing counter so a developer can exercise
+    :class:`~donkey_kit.Budget` and its pacing locally against the *observed* live
+    contract — the fields below drive ``{remaining}``/``{limit}``/``{ms}`` in the
+    rendered sentence.
     """
 
     token_limit: int = 100_000
@@ -94,7 +108,7 @@ class SimulatorConfig:
 
 
 class _Simulator:
-    """Holds the mutable ``x-token-*`` counter (guarded by an ``asyncio.Lock`` so
+    """Holds the mutable budget counter (guarded by an ``asyncio.Lock`` so
     concurrent requests can't race it) and builds every response."""
 
     def __init__(self, config: SimulatorConfig) -> None:
@@ -117,16 +131,17 @@ class _Simulator:
             media_type=fixture.content_type,
         )
 
-    async def _synth_token_headers(self) -> dict[str, str]:
-        """Next synthesised ``x-token-*`` window, decrementing under the lock."""
+    async def _synth_ratelimit_header(self) -> dict[str, str]:
+        """Next budget window as the live ``x-llm-proxy-ratelimit`` prose header,
+        decrementing the counter under the lock (#353)."""
         async with self._lock:
             self._remaining = max(0, self._remaining - self._config.token_step)
             remaining = self._remaining
-        return {
-            LIMIT_HEADER: str(self._config.token_limit),
-            REMAINING_HEADER: str(remaining),
-            RESET_HEADER: str(self._config.token_reset_ms),
-        }
+        sentence = (
+            f"Token rate limit: {remaining} tokens remaining of "
+            f"{self._config.token_limit} limit. Reset in {self._config.token_reset_ms}ms."
+        )
+        return {RATELIMIT_HEADER: sentence}
 
     async def dispatch(self, request: Any) -> Any:
         path = request.url.path
@@ -150,16 +165,16 @@ class _Simulator:
             if shape in _REJECTION_SHAPES:
                 return self._response(load(shape))
             # Unknown sentinel suffix falls through to the happy path.
-        token_headers = await self._synth_token_headers()
+        ratelimit_header = await self._synth_ratelimit_header()
         if isinstance(payload, dict) and payload.get("stream") is True:
             # The captured stream sample is a single, truncated `response.created`
             # event — a real capture, NOT a complete SSE stream ending in
             # `data: [DONE]`. It is replayed verbatim rather than fabricating the
             # remaining events (§0.3: never invent gateway output); a complete
-            # SSE capture is a follow-up. It still carries the synthesised budget
-            # window, like any happy path.
-            return self._response(load("stream"), extra=token_headers)
-        return self._response(load("success"), extra=token_headers)
+            # SSE capture is a follow-up. It still carries the budget window prose
+            # header, like any happy path.
+            return self._response(load("stream"), extra=ratelimit_header)
+        return self._response(load("success"), extra=ratelimit_header)
 
 
 class _HonestyStamp:

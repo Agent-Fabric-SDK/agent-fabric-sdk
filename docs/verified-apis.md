@@ -212,18 +212,20 @@ own quota, passed straight through — not the gateway's budget. Their reset
 values are Go-style **duration strings** (`0s`, `12ms`), **not** integer
 milliseconds, so they must not be parsed with the `x-token-*` / `ms` rule.
 
-**Simulator budget overlay — known divergence, pending #353.** Resolved (#354):
-a live probe confirms the production proxy **does** carry its budget window on a
-`200` success once a `llm-token-rate-limit` policy is applied — as the prose
-`x-llm-proxy-ratelimit` header above, **not** the numeric `x-token-*` trio
-(that trio appears only on the `429`). The local gateway simulator
-(`donkey mock`, BG §1.4) instead *synthesises* a monotonically decreasing
-numeric `x-token-*` window on its happy-path `200` so `Budget` and its pacing
-can be exercised locally. That is now a **known divergence** from real-proxy
-behaviour — the simulator emits the wrong *form* on a `200` (numeric trio rather
-than the prose header) — and correcting the overlay is tracked under **#353**.
-Nothing in `core/`/`llm/` depends on it today; only `simulator/app.py`
-(`SimulatorConfig`) emits it.
+**Simulator budget window (corrected, #353).** Resolved (#354): a live probe
+confirms the production proxy **does** carry its budget window on a `200` success
+once a `llm-token-rate-limit` policy is applied — as the prose
+`x-llm-proxy-ratelimit` header above, **not** the numeric `x-token-*` trio (that
+trio appears only on the `429`). The local gateway simulator (`donkey mock`,
+BG §1.4) now renders exactly this prose sentence — `Token rate limit: {remaining}
+tokens remaining of {limit} limit. Reset in {ms}ms.` — from a monotonically
+decreasing counter on its happy-path `200` (and streaming `200`), so the simulator
+matches the observed live contract rather than the earlier assumption. The former
+synthesised numeric `x-token-*` overlay is removed (#353); it diverged from the
+gateway on the exact header names a consumer parses, and `Budget.observe()` (with
+the prose parser from #352) now populates identically from a simulated or a live
+`200`. Nothing in `core/`/`llm/` depends on the simulator emitting it; only
+`simulator/app.py` (`SimulatorConfig`) renders it.
 
 | Policy | Exchange asset (verified) | Status | Rejection shape | Date | Source |
 |---|---|---|---|---|---|
