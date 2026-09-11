@@ -125,6 +125,63 @@ def test_run_without_id_generates_a_run_of_one() -> None:
     assert current_correlation_id() is None
 
 
+# --- cost-attribution tags on the public surface (§3, BG §1.7, #196) --------
+
+
+def test_from_env_sets_config_level_cost_tags(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from donkey_kit.core.cost import CostTags
+
+    # Isolate from any stray .donkey-kit.toml / DONKEY_COST_* in the environment.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    for var in (
+        "DONKEY_COST_TEAM",
+        "DONKEY_COST_PROJECT",
+        "DONKEY_COST_ENV",
+        "DONKEY_COST_ENDUSER_ID",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    fab = Donkey.from_env(team="support", project="triage-v2", env="prod")
+    assert fab.config.cost == CostTags(team="support", project="triage-v2", env="prod")
+
+
+def test_from_env_kwargs_merge_over_env_tags(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from donkey_kit.core.cost import CostTags
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setenv("DONKEY_COST_TEAM", "env-team")
+    monkeypatch.setenv("DONKEY_COST_ENV", "prod")
+    # kwarg overrides team; env-supplied env dimension is preserved.
+    fab = Donkey.from_env(team="kwarg-team")
+    assert fab.config.cost == CostTags(team="kwarg-team", env="prod")
+
+
+def test_run_binds_cost_override_for_the_block() -> None:
+    from donkey_kit.core.cost import CostTags
+    from donkey_kit.core.telemetry import current_cost_tags
+
+    fab = Donkey(_cfg())
+    assert current_cost_tags() is None
+    with fab.run(team="triage", project="triage-v2"):
+        assert current_cost_tags() == CostTags(team="triage", project="triage-v2")
+    assert current_cost_tags() is None  # restored on exit
+
+
+def test_run_without_cost_binds_nothing_on_the_cost_var() -> None:
+    from donkey_kit.core.telemetry import current_cost_tags
+
+    fab = Donkey(_cfg())
+    with fab.run(id="ticket-1"):
+        # A plain run binds only the correlation id — no cost override leaks in.
+        assert current_cost_tags() is None
+
+
 def test_llm_client_requires_proxy_config() -> None:
     from donkey_kit.core.errors import ConfigError
 
