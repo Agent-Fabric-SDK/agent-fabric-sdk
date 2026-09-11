@@ -3,11 +3,11 @@ collision resolution, description quality, digest, governance evaluation."""
 
 from __future__ import annotations
 
-from agent_fabric.core.cache import TTLCache
-from agent_fabric.provisioning.publish import content_digest
-from agent_fabric.registry.governance import Check, GovernanceCriteria, evaluate
-from agent_fabric.registry.publication import check_description_quality
-from agent_fabric.tools.filter import ToolDescriptor, ToolFilter, resolve_collisions
+from donkey_kit.core.cache import TTLCache
+from donkey_kit.provisioning.publish import content_digest
+from donkey_kit.registry.governance import Check, GovernanceCriteria, evaluate
+from donkey_kit.registry.publication import check_description_quality
+from donkey_kit.tools.filter import ToolDescriptor, ToolFilter, resolve_collisions
 
 
 def test_ttl_cache_expires() -> None:

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from agent_fabric.core.config import FabricConfig
-from agent_fabric.core.errors import ConfigError
+from donkey_kit.core.config import DonkeyConfig
+from donkey_kit.core.errors import ConfigError
 
 
 def test_validated_reports_all_missing_control_plane_fields_at_once() -> None:
-    cfg = FabricConfig()  # nothing set
+    cfg = DonkeyConfig()  # nothing set
     with pytest.raises(ConfigError) as exc:
         cfg.validated(need="control_plane")
     msg = str(exc.value)
@@ -20,7 +20,7 @@ def test_validated_reports_all_missing_control_plane_fields_at_once() -> None:
 
 
 def test_validated_llm_is_independent_of_control_plane() -> None:
-    cfg = FabricConfig(
+    cfg = DonkeyConfig(
         llm_proxy_url="https://proxy",
         llm_proxy_client_id="cid",
         llm_proxy_client_secret="csecret",
@@ -34,7 +34,7 @@ def test_validated_llm_is_independent_of_control_plane() -> None:
 def test_validated_llm_requires_client_id_and_secret_not_bearer() -> None:
     # Verified auth (§2/§3) is a client_id/secret pair — a bare url + api-key is
     # NOT sufficient, and the error names BOTH missing header credentials at once.
-    cfg = FabricConfig(llm_proxy_url="https://proxy", llm_proxy_key="k")
+    cfg = DonkeyConfig(llm_proxy_url="https://proxy", llm_proxy_key="k")
     with pytest.raises(ConfigError) as exc:
         cfg.validated(need="llm")
     msg = str(exc.value)
@@ -45,8 +45,8 @@ def test_validated_llm_requires_client_id_and_secret_not_bearer() -> None:
 def test_env_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANYPOINT_CLIENT_ID", "cid")
     monkeypatch.setenv("ANYPOINT_REGION", "eu")
-    monkeypatch.setenv("AGENT_FABRIC_TELEMETRY", "false")
-    cfg = FabricConfig.from_env()
+    monkeypatch.setenv("DONKEY_TELEMETRY", "false")
+    cfg = DonkeyConfig.from_env()
     assert cfg.client_id == "cid"
     assert cfg.region == "eu"
     assert cfg.telemetry is False
@@ -56,4 +56,4 @@ def test_env_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_unknown_region_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANYPOINT_REGION", "mars")
     with pytest.raises(ConfigError):
-        FabricConfig.from_env()
+        DonkeyConfig.from_env()

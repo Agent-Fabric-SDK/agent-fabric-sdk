@@ -15,7 +15,7 @@ from pathlib import Path
 
 import httpx
 
-from agent_fabric.core.errors import (
+from donkey_kit.core.errors import (
     AuthError,
     PIIDetected,
     PolicyViolation,
@@ -23,18 +23,14 @@ from agent_fabric.core.errors import (
     UpstreamRequestError,
     classify,
 )
+from donkey_kit.simulator.fixtures import parse_headers
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "anypoint" / "llm_proxy"
 
 
 def _headers(name: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for line in (FIXTURES / name).read_text().splitlines():
-        if line.startswith("HTTP/") or ":" not in line:
-            continue
-        k, _, v = line.partition(":")
-        out[k.strip().lower()] = v.strip()
-    return out
+    """Shared loader parser (BG §1.4): the simulator replays these same files."""
+    return parse_headers((FIXTURES / name).read_text())
 
 
 def _load(name: str) -> object:

@@ -1,5 +1,5 @@
 """The two additive adapter ergonomics (§3.1/§3.3), alongside the existing
-``fabric.<framework>.<factory>()`` methods:
+``donkey.<framework>.<factory>()`` methods:
 
   1. ``connection_kwargs()`` — governed kwargs you spread into the framework's
      own constructor yourself.
@@ -16,16 +16,16 @@ from __future__ import annotations
 
 import pytest
 
-from agent_fabric.core.config import FabricConfig
-from agent_fabric.core.errors import ConfigError
-from agent_fabric.core.transport import build_http_client
-from agent_fabric.integrations import _base
-from agent_fabric.integrations._base import default_adapter
-from agent_fabric.integrations.langgraph import LangGraphAdapter
+from donkey_kit.core.config import DonkeyConfig
+from donkey_kit.core.errors import ConfigError
+from donkey_kit.core.transport import build_http_client
+from donkey_kit.integrations import _base
+from donkey_kit.integrations._base import default_adapter
+from donkey_kit.integrations.langgraph import LangGraphAdapter
 
 
-def _cfg() -> FabricConfig:
-    return FabricConfig(
+def _cfg() -> DonkeyConfig:
+    return DonkeyConfig(
         llm_proxy_url="https://proxy",
         llm_proxy_client_id="cid",
         llm_proxy_client_secret="csecret",
@@ -49,7 +49,7 @@ def test_connection_kwargs_carry_governed_values() -> None:
 
 
 def test_connection_kwargs_requires_proxy_config() -> None:
-    cfg = FabricConfig()  # no proxy creds
+    cfg = DonkeyConfig()  # no proxy creds
     adapter = LangGraphAdapter(cfg, build_http_client(cfg, None))
     with pytest.raises(ConfigError):
         adapter.connection_kwargs()
@@ -58,7 +58,7 @@ def test_connection_kwargs_requires_proxy_config() -> None:
 def test_adk_connection_kwargs_use_litellm_names() -> None:
     # LiteLLM uses api_base/extra_headers rather than base_url/default_headers,
     # and owns its own transport (no shared http client injected).
-    from agent_fabric.integrations.adk import ADKAdapter
+    from donkey_kit.integrations.adk import ADKAdapter
 
     cfg = _cfg()
     kw = ADKAdapter(cfg, build_http_client(cfg, None)).connection_kwargs()
@@ -69,9 +69,9 @@ def test_adk_connection_kwargs_use_litellm_names() -> None:
 
 
 def test_default_adapter_is_cached_per_class(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_URL", "https://proxy")
-    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "cid")
-    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "csecret")
+    monkeypatch.setenv("DONKEY_LLM_PROXY_URL", "https://proxy")
+    monkeypatch.setenv("DONKEY_LLM_PROXY_CLIENT_ID", "cid")
+    monkeypatch.setenv("DONKEY_LLM_PROXY_CLIENT_SECRET", "csecret")
     _base._DEFAULT_ADAPTERS.clear()
 
     a1 = default_adapter(LangGraphAdapter)
@@ -82,12 +82,12 @@ def test_default_adapter_is_cached_per_class(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_module_level_factory_matches_method(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("langchain_openai")
-    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_URL", "https://proxy")
-    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_ID", "cid")
-    monkeypatch.setenv("AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET", "csecret")
+    monkeypatch.setenv("DONKEY_LLM_PROXY_URL", "https://proxy")
+    monkeypatch.setenv("DONKEY_LLM_PROXY_CLIENT_ID", "cid")
+    monkeypatch.setenv("DONKEY_LLM_PROXY_CLIENT_SECRET", "csecret")
     _base._DEFAULT_ADAPTERS.clear()
 
-    from agent_fabric.integrations.langgraph import chat_model
+    from donkey_kit.integrations.langgraph import chat_model
 
     model = chat_model("gpt-4o", temperature=0.1)
     assert type(model).__name__ == "ChatOpenAI"  # native object, no wrapper

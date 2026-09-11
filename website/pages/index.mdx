@@ -7,7 +7,7 @@ import { Badge, Card, CardGrid, Figure, Hero } from '../components'
 
 <Hero
   eyebrow="Governed model access — live-verified"
-  title="Agent Fabric SDK"
+  title="Donkey Development Kit"
   tagline={
     <>
       Consume <strong>Agent Fabric</strong> capabilities — governed model
@@ -42,15 +42,15 @@ never a wrapper you have to code around.
 <Callout type="info">
   **"Agent Fabric" is a MuleSoft (Salesforce) product name**, not a generic
   term. This project is an SDK *for* that product; it is descriptive, not a
-  first-party release. See [§0.4 in the README](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk).
+  first-party release. See [§0.4 in the README](https://github.com/Donkey-Development-Kit/donkey-development-kit).
 </Callout>
 
 ## The one design rule
 
 > **Adapters return the framework's native object — never a wrapper.**
 
-`fabric.langgraph.chat_model("gpt-4o")` returns a real `langchain_openai.ChatOpenAI`.
-`fabric.llamaindex.llm("gpt-4o")` returns a real `OpenAILike`. You can hand these
+`donkey.langgraph.chat_model("gpt-4o")` returns a real `langchain_openai.ChatOpenAI`.
+`donkey.llamaindex.llm("gpt-4o")` returns a real `OpenAILike`. You can hand these
 straight to `create_agent`, a LlamaIndex query engine, a Strands `Agent`,
 and so on. If you ever want to drop the SDK, you eject to three lines of native
 constructor code — every framework page shows you exactly which three.
@@ -66,7 +66,7 @@ SDK yet.)
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.langgraph import chat_model
+from donkey_kit.integrations.langgraph import chat_model
 
 # A real langchain_openai.ChatOpenAI, already pointed at your governed proxy.
 model = chat_model("gpt-4o", temperature=0)
@@ -78,11 +78,11 @@ print(reply.content)
 <Tabs.Tab>
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
 # A real openai.OpenAI, already pointed at your governed proxy — no event loop.
-with Fabric.from_env() as fabric:
-    client = fabric.llm.client(sync=True)
+with Donkey.from_env() as donkey:
+    client = donkey.llm.client(sync=True)
     reply = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Explain quantum computing in simple terms."}],
@@ -94,13 +94,13 @@ with Fabric.from_env() as fabric:
 <Tabs.Tab>
 
 ```typescript
-const base = process.env.AGENT_FABRIC_LLM_PROXY_URL!;   // ends in "/", no /v1
+const base = process.env.DONKEY_LLM_PROXY_URL!;   // ends in "/", no /v1
 const resp = await fetch(`${base}chat/completions`, {
   method: "POST",
   headers: {
     "content-type": "application/json",
-    client_id: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_ID!,
-    client_secret: process.env.AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET!,
+    client_id: process.env.DONKEY_LLM_PROXY_CLIENT_ID!,
+    client_secret: process.env.DONKEY_LLM_PROXY_CLIENT_SECRET!,
   },
   body: JSON.stringify({
     model: "gpt-4o",
@@ -114,10 +114,10 @@ console.log((await resp.json()).choices[0].message.content);
 <Tabs.Tab>
 
 ```bash
-curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
+curl "${DONKEY_LLM_PROXY_URL}chat/completions" \
   -H "content-type: application/json" \
-  -H "client_id: ${AGENT_FABRIC_LLM_PROXY_CLIENT_ID}" \
-  -H "client_secret: ${AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET}" \
+  -H "client_id: ${DONKEY_LLM_PROXY_CLIENT_ID}" \
+  -H "client_secret: ${DONKEY_LLM_PROXY_CLIENT_SECRET}" \
   -d '{
     "model": "gpt-4o",
     "messages": [{"role": "user", "content": "Explain quantum computing in simple terms."}]

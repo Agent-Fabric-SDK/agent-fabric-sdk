@@ -35,7 +35,7 @@ checks per framework and never guesses a name:
   the class from its **recorded §8 path** and checks the object `isinstance` of
   it, so a silently-renamed or re-exported class is caught. **Construction
   succeeding is the signature verification.**
-- **B — Live round-trip (`--live`; needs the 3 `AGENT_FABRIC_LLM_PROXY_*` env vars).**
+- **B — Live round-trip (`--live`; needs the 3 `DONKEY_LLM_PROXY_*` env vars).**
   Makes one real completion. Only LangGraph's runtime call (`ChatOpenAI.ainvoke`)
   is exercised directly — the other seven frameworks' agent-loop APIs are
   themselves unverified, so the harness constructs the object and relies on the
@@ -61,7 +61,7 @@ the confirmed class path → remove/relax the code's UNVERIFIED note.**
 | Google ADK | 1 | `google.adk.models.lite_llm.LiteLlm` | ⬜ install `[adk]` + run harness | ⬜ | ⬜ |
 | Strands | 1 | `strands.models.openai.OpenAIModel` | ⬜ install `[strands]` + run harness | ⬜ | ⬜ |
 | MS Agent Framework | 1 | `agent_framework.openai.OpenAIChatClient` | 🔒 adapter raises `blocked on verification` — class path/kwarg unconfirmed; package renamed classes recently | ⬜ | ⬜ |
-| OpenAI Agents SDK | 1 | `agents.OpenAIChatCompletionsModel` | ⬜ install `[openai]` + run harness | ⬜ | ⬜ |
+| OpenAI Agents SDK | 1 | `agents.OpenAIChatCompletionsModel` | ⬜ install `[openai-agents]` + run harness | ⬜ | ⬜ |
 | Anthropic SDK | 1 | `anthropic.AsyncAnthropic` | ⬜ install `[anthropic]` + run harness | ⬜ | ⬜ |
 | CrewAI | 1 | `crewai.LLM` | ⬜ install `[crewai]` + run harness | ⬜ | ⬜ |
 | LlamaIndex | 2 | `llama_index.llms.openai_like.OpenAILike` | ⬜ install `[llamaindex]` + run harness | ⬜ | ⬜ |
@@ -99,7 +99,7 @@ Applies to each Tier-1 adapter before it counts as shipped.
   fixtures + the shared proxy path, executed identically per adapter.
 - 🟡 **`lint` command** — provisioning `lint` exists; confirm it's exposed and
   documented for the M1 surface, or descope to M2 explicitly.
-- ✅ **Framework-free client** (`fabric.llm.client()`) — live-verified.
+- ✅ **Framework-free client** (`donkey.llm.client()`) — live-verified.
 - ✅ **Error taxonomy + `classify()`** — live-verified against the 4 rejection shapes.
 - ✅ **Model handles** (`resolve()`), honest `list_models(live=True)` ConfigError.
 - ✅ **Two adapter ergonomics** — `connection_kwargs()` + module-level factories.

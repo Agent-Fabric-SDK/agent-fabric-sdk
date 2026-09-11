@@ -44,7 +44,7 @@ jobs:
       - name: Build static export (served under the project sub-path)
         run: npm run build
         env:
-          DOCS_BASE_PATH: /agent-fabric-sdk
+          DOCS_BASE_PATH: /donkey-development-kit
       - name: Disable Jekyll so Pages serves Next's _next/ directory
         run: touch out/.nojekyll
       - uses: actions/configure-pages@v6

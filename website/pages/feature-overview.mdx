@@ -13,7 +13,7 @@ on this page is speculative.
 
 <Figure
   src="/img/sdk-architecture.svg"
-  alt="Agent Fabric SDK architecture: your unchanged framework code calls the SDK, which resolves config, builds the native object, governs the transport, and classifies responses into typed errors; the call goes out as one OpenAI-compatible HTTPS request with client_id, client_secret, correlation and attribution headers injected, through the Omni Gateway LLM proxy — which enforces consumer auth, PII detection, token budget and metering — and on to upstream model providers."
+  alt="Donkey Development Kit architecture: your unchanged framework code calls the SDK, which resolves config, builds the native object, governs the transport, and classifies responses into typed errors; the call goes out as one OpenAI-compatible HTTPS request with client_id, client_secret, correlation and attribution headers injected, through the Omni Gateway LLM proxy — which enforces consumer auth, PII detection, token budget and metering — and on to upstream model providers."
   caption="The whole path, end to end. The SDK occupies one layer: it injects governance into the transport, and the gateway — not your process — enforces policy."
   width={1800}
   height={1160}
@@ -32,14 +32,14 @@ retry policy injected:
 
 | Framework | Call | Returns |
 |---|---|---|
-| LangGraph | `fabric.langgraph.chat_model("gpt-4o")` | `langchain_openai.ChatOpenAI` |
-| Google ADK | `fabric.adk.model("gpt-4o")` | `google.adk … LiteLlm` |
-| Strands | `fabric.strands.model("gpt-4o")` | `strands … OpenAIModel` |
-| MS Agent Framework | `fabric.agent_framework.chat_client("gpt-4o")` | Agent Framework chat client |
-| LlamaIndex | `fabric.llamaindex.llm("gpt-4o")` | `OpenAILike` (`is_chat_model=True`) |
-| OpenAI Agents SDK | `fabric.openai.model("gpt-4o")` | `agents.OpenAIChatCompletionsModel` |
-| Anthropic SDK | `fabric.anthropic.client()` | `anthropic.AsyncAnthropic` (client, not model-bound) |
-| CrewAI | `fabric.crewai.llm("gpt-4o")` | `crewai.LLM` (LiteLLM-backed) |
+| LangGraph | `donkey.langgraph.chat_model("gpt-4o")` | `langchain_openai.ChatOpenAI` |
+| Google ADK | `donkey.adk.model("gpt-4o")` | `google.adk … LiteLlm` |
+| Strands | `donkey.strands.model("gpt-4o")` | `strands … OpenAIModel` |
+| MS Agent Framework | `donkey.agent_framework.chat_client("gpt-4o")` | Agent Framework chat client |
+| LlamaIndex | `donkey.llamaindex.llm("gpt-4o")` | `OpenAILike` (`is_chat_model=True`) |
+| OpenAI Agents SDK | `donkey.openai_agents.model("gpt-4o")` | `agents.OpenAIChatCompletionsModel` |
+| Anthropic SDK | `donkey.anthropic.client()` | `anthropic.AsyncAnthropic` (client, not model-bound) |
+| CrewAI | `donkey.crewai.llm("gpt-4o")` | `crewai.LLM` (LiteLLM-backed) |
 
 See [Model access](/frameworks) for each framework's page. Support **depth**
 differs even though the shape does not: LangGraph is the one deep,
@@ -53,16 +53,16 @@ truth:
 
 ```python
 # 1. Factory method — shared client + explicit lifecycle
-async with Fabric.from_env() as fabric:
-    model = fabric.langgraph.chat_model("gpt-4o", temperature=0.2)
+async with Donkey.from_env() as donkey:
+    model = donkey.langgraph.chat_model("gpt-4o", temperature=0.2)
 
 # 2. Module-level factory — shortest; cached default from the environment
-from agent_fabric.integrations.langgraph import chat_model
+from donkey_kit.integrations.langgraph import chat_model
 model = chat_model("gpt-4o", temperature=0.2)
 
 # 3. Governed-kwargs accessor — you build the native object yourself
 from langchain_openai import ChatOpenAI
-model = ChatOpenAI(model="gpt-4o", **fabric.langgraph.connection_kwargs())
+model = ChatOpenAI(model="gpt-4o", **donkey.langgraph.connection_kwargs())
 ```
 
 Prefer the factory when you want shared-client reuse and lifecycle
@@ -71,7 +71,7 @@ constructor.
 
 ## Framework-free client
 
-`fabric.llm.client()` returns a native `AsyncOpenAI` aimed at the proxy — use the
+`donkey.llm.client()` returns a native `AsyncOpenAI` aimed at the proxy — use the
 OpenAI SDK exactly as you normally would (Chat Completions or the Responses API,
 streaming included); the SDK adds the governance headers and retry policy.
 
@@ -80,8 +80,8 @@ same base URL, same verified `client_id` / `client_secret` headers, same
 correlation ID and retry policy:
 
 ```python
-with Fabric.from_env() as fabric:
-    client = fabric.llm.client(sync=True)      # openai.OpenAI
+with Donkey.from_env() as donkey:
+    client = donkey.llm.client(sync=True)      # openai.OpenAI
     reply = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Say hi in three words."}],
@@ -98,10 +98,14 @@ fetched token — but it does mean the control-plane surfaces (`registry`,
 
 ## A typed governed error taxonomy
 
-`classify()` maps the proxy's four live rejection shapes to typed exceptions —
-`AuthError` (401), `PIIDetected` (403), `TokenBudgetExceeded` (429), plus upstream
-passthrough — so you branch on governance outcomes instead of parsing bodies.
-See [Error taxonomy](/errors).
+`classify()` maps the proxy's six rejection shapes to typed exceptions —
+`PIIDetected` (403), `TokenBudgetExceeded` (429), `PromptInjectionBlocked`
+(`x-injection-protection`), a generic `PolicyViolation` fall-through for
+content-moderation, `UpstreamRequestError` (4xx) and `UpstreamModelError` (5xx),
+plus `AuthError` (401) for the separate consumer-auth case — so you branch on
+governance outcomes instead of parsing bodies. Four are live-verified; the
+injection and content-moderation bodies are pending sandbox capture (#253). See
+[Error taxonomy](/errors).
 
 Those exception types are the client-side mirror of the policies the gateway
 enforces. The **LLM** lane below is the one this SDK targets today; the same
@@ -121,7 +125,7 @@ agents. Those two columns are not decoration — **MCP** is what
 ## Model handles without a `/models` endpoint
 
 The governed proxy has **no** catalog endpoint (`GET /models` → `404`, verified).
-`fabric.llm.resolve("gpt-4o")` gives you a heuristic capability handle
+`donkey.llm.resolve("gpt-4o")` gives you a heuristic capability handle
 (function-calling / vision / json-output) from a known id, and
 `list_models(live=True)` raises a clear `ConfigError` explaining the absence
 rather than fabricating a path.

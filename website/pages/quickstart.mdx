@@ -14,11 +14,11 @@ own native model object pointed at your Omni Gateway proxy.
 Install the base SDK plus the raw LLM client and one framework extra:
 
 ```bash
-pip install "agent-fabric[llm,langgraph]"
+pip install "donkey-kit[llm,langgraph]"
 ```
 
 One extra per framework is available: `langgraph`, `adk`, `strands`,
-`agent_framework`, `openai`, `anthropic`, `crewai`, `llamaindex`.
+`agent_framework`, `openai-agents`, `anthropic`, `crewai`, `llamaindex`.
 
 ### Configure
 
@@ -27,17 +27,17 @@ Governed model access needs three values. The proxy authenticates on a
 token, and separate from any Anypoint control-plane credential.
 
 ```bash
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 # Optional attribution, surfaced on telemetry
-export AGENT_FABRIC_APP_NAME="checkout-agent"
-export AGENT_FABRIC_BUSINESS_GROUP="payments"
+export DONKEY_APP_NAME="checkout-agent"
+export DONKEY_BUSINESS_GROUP="payments"
 ```
 
 <Callout type="info">
-  `Fabric.from_env()` reads these. Missing fields are reported **all at once**
+  `Donkey.from_env()` reads these. Missing fields are reported **all at once**
   with the env-var names, so you fix configuration in one pass.
 </Callout>
 
@@ -57,38 +57,38 @@ export AGENT_FABRIC_BUSINESS_GROUP="payments"
 
 ```python
 import asyncio
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
 async def main():
-    async with Fabric.from_env() as fabric:
+    async with Donkey.from_env() as donkey:
         # Returns a real langchain_openai.ChatOpenAI, pointed at the proxy.
-        model = fabric.langgraph.chat_model("gpt-4o", temperature=0)
+        model = donkey.langgraph.chat_model("gpt-4o", temperature=0)
         reply = await model.ainvoke([("user", "Say hi in three words.")])
         print(reply.content)
 
 asyncio.run(main())
 ```
 
-Prefer no `fabric.` prefix? Use the module-level factory — or drop to the
-framework-free `AsyncOpenAI` client with `fabric.llm.client()`:
+Prefer no `donkey.` prefix? Use the module-level factory — or drop to the
+framework-free `AsyncOpenAI` client with `donkey.llm.client()`:
 
 ```python
-from agent_fabric.integrations.langgraph import chat_model
+from donkey_kit.integrations.langgraph import chat_model
 model = chat_model("gpt-4o", temperature=0)   # native ChatOpenAI at the proxy
 ```
 
 </Tabs.Tab>
 <Tabs.Tab>
 
-No event loop, no `await`. `fabric.llm.client(sync=True)` returns the blocking
+No event loop, no `await`. `donkey.llm.client(sync=True)` returns the blocking
 `openai.OpenAI`, governed on identical terms — same base URL, same verified
 header pair, same correlation ID and retry policy:
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-with Fabric.from_env() as fabric:
-    client = fabric.llm.client(sync=True)      # a real openai.OpenAI
+with Donkey.from_env() as donkey:
+    client = donkey.llm.client(sync=True)      # a real openai.OpenAI
     reply = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Say hi in three words."}],
@@ -111,7 +111,7 @@ for chunk in stream:
 
 <Callout type="info">
   The sync surface covers **governed model access**. The control-plane surfaces
-  — `fabric.registry` and `fabric.tools` — stay async, because credential
+  — `donkey.registry` and `donkey.tools` — stay async, because credential
   refresh there is an `async` protocol customers can implement themselves. See
   [Feature overview](/feature-overview#framework-free-client).
 </Callout>
@@ -130,10 +130,10 @@ format instead? See the **cURL** tab.
 <Tabs.Tab>
 
 ```bash
-curl "${AGENT_FABRIC_LLM_PROXY_URL}chat/completions" \
+curl "${DONKEY_LLM_PROXY_URL}chat/completions" \
   -H "content-type: application/json" \
-  -H "client_id: ${AGENT_FABRIC_LLM_PROXY_CLIENT_ID}" \
-  -H "client_secret: ${AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET}" \
+  -H "client_id: ${DONKEY_LLM_PROXY_CLIENT_ID}" \
+  -H "client_secret: ${DONKEY_LLM_PROXY_CLIENT_SECRET}" \
   -d '{
     "model": "gpt-4o",
     "messages": [{"role": "user", "content": "Say hi in three words."}]
@@ -154,8 +154,8 @@ those into typed exceptions instead of parsing bodies — see the
 
 ```python
 import openai
-from agent_fabric import PIIDetected, TokenBudgetExceeded
-from agent_fabric.core.errors import classify
+from donkey_kit import PIIDetected, TokenBudgetExceeded
+from donkey_kit.core.errors import classify
 
 try:
     resp = await client.chat.completions.create(model="gpt-4o", messages=msgs)

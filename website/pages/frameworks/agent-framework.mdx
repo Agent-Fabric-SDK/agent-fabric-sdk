@@ -15,7 +15,7 @@ governance rejection instead of letting the agent loop retry.
 ## Install
 
 ```bash
-pip install "agent-fabric[agent_framework]"
+pip install "donkey-kit[agent_framework]"
 ```
 
 ## Quickstart
@@ -24,7 +24,7 @@ pip install "agent-fabric[agent_framework]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.agent_framework import chat_client
+from donkey_kit.integrations.agent_framework import chat_client
 
 llm = chat_client("gpt-4o")
 ```
@@ -49,19 +49,19 @@ proxy with the official `openai` npm client:
 
 ## Three ways to construct
 
-**1. Off a shared `Fabric` instance:**
+**1. Off a shared `Donkey` instance:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-async with Fabric.from_env() as fabric:
-    llm = fabric.agent_framework.chat_client("gpt-4o")
+async with Donkey.from_env() as donkey:
+    llm = donkey.agent_framework.chat_client("gpt-4o")
 ```
 
 **2. Module-level factory** (shortest):
 
 ```python
-from agent_fabric.integrations.agent_framework import chat_client
+from donkey_kit.integrations.agent_framework import chat_client
 
 llm = chat_client("gpt-4o")
 ```
@@ -69,13 +69,13 @@ llm = chat_client("gpt-4o")
 **3. Governed kwargs, native constructor:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 from agent_framework.openai import OpenAIChatClient
 
-async with Fabric.from_env() as fabric:
+async with Donkey.from_env() as donkey:
     llm = OpenAIChatClient(
         model_id="gpt-4o",
-        **fabric.agent_framework.connection_kwargs(),
+        **donkey.agent_framework.connection_kwargs(),
     )
 ```
 
@@ -86,7 +86,7 @@ from agent_framework.openai import OpenAIChatClient
 
 llm = OpenAIChatClient(
     model_id=...,        # UNVERIFIED kwarg name — confirm against your install
-    base_url=...,        # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
+    base_url=...,        # from DONKEY_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     default_headers=...,  # client_id / client_secret header pair
 )

@@ -17,18 +17,18 @@ an API.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[LlamaIndex](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/llamaindex)**.
+> **[LlamaIndex](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/llamaindex)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[llamaindex]"
+pip install "donkey-kit[llamaindex]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/llamaindex/main.py
 ```
@@ -43,18 +43,18 @@ from llama_index.llms.openai_like import OpenAILike
 
 m = OpenAILike(
     model="gpt-4o",
-    api_base=AGENT_FABRIC_LLM_PROXY_URL,
+    api_base=DONKEY_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     default_headers={
-        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+        "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+        "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
     },
     is_chat_model=True,  # never omit — defaults to False and silently breaks
     is_function_calling_model=True,
 )
 ```
 
-The factory (`agent_fabric.integrations.llamaindex.llm`) fills in
+The factory (`donkey_kit.integrations.llamaindex.llm`) fills in
 `api_base`, `api_key`, `default_headers`, and the two `is_*` flags from one
 governed config source.
 

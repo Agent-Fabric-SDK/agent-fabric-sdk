@@ -18,18 +18,18 @@ itself.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[Microsoft Agent Framework](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/agent-framework)**.
+> **[Microsoft Agent Framework](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/agent-framework)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[agent_framework]"
+pip install "donkey-kit[agent_framework]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/agent_framework/main.py
 ```
@@ -46,16 +46,16 @@ from agent_framework.openai import OpenAIChatClient
 
 client = OpenAIChatClient(
     model_id="gpt-4o",  # kwarg name UNVERIFIED
-    base_url=AGENT_FABRIC_LLM_PROXY_URL,
+    base_url=DONKEY_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     default_headers={
-        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+        "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+        "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
     },
 )
 ```
 
-The factory (`agent_fabric.integrations.agent_framework.chat_client`) fills
+The factory (`donkey_kit.integrations.agent_framework.chat_client`) fills
 in `base_url`, `api_key`, and `default_headers` from one governed config
 source, and raises a clear "blocked on verification" error instead of
 silently guessing if the class import fails.

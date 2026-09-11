@@ -14,7 +14,7 @@ LiteLLM's own model-string and kwarg conventions rather than raw OpenAI ones.
 ## Install
 
 ```bash
-pip install "agent-fabric[adk]"
+pip install "donkey-kit[adk]"
 ```
 
 ## Quickstart
@@ -23,7 +23,7 @@ pip install "agent-fabric[adk]"
 <Tabs.Tab>
 
 ```python
-from agent_fabric.integrations.adk import model
+from donkey_kit.integrations.adk import model
 
 llm = model("gpt-4o")
 ```
@@ -49,19 +49,19 @@ official `openai` npm client at it — the same base URL and
 
 ## Three ways to construct
 
-**1. Off a shared `Fabric` instance:**
+**1. Off a shared `Donkey` instance:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 
-async with Fabric.from_env() as fabric:
-    llm = fabric.adk.model("gpt-4o")
+async with Donkey.from_env() as donkey:
+    llm = donkey.adk.model("gpt-4o")
 ```
 
 **2. Module-level factory** (shortest):
 
 ```python
-from agent_fabric.integrations.adk import model
+from donkey_kit.integrations.adk import model
 
 llm = model("gpt-4o")
 ```
@@ -69,11 +69,11 @@ llm = model("gpt-4o")
 **3. Governed kwargs, native constructor:**
 
 ```python
-from agent_fabric import Fabric
+from donkey_kit import Donkey
 from google.adk.models.lite_llm import LiteLlm
 
-async with Fabric.from_env() as fabric:
-    llm = LiteLlm(model="openai/gpt-4o", **fabric.adk.connection_kwargs())
+async with Donkey.from_env() as donkey:
+    llm = LiteLlm(model="openai/gpt-4o", **donkey.adk.connection_kwargs())
 ```
 
 ## The manual equivalent (eject at any time)
@@ -83,7 +83,7 @@ from google.adk.models.lite_llm import LiteLlm
 
 llm = LiteLlm(
     model="openai/gpt-4o",
-    api_base=...,       # from AGENT_FABRIC_LLM_PROXY_URL, no /v1 suffix
+    api_base=...,       # from DONKEY_LLM_PROXY_URL, no /v1 suffix
     api_key=...,
     extra_headers=...,  # client_id / client_secret header pair
 )

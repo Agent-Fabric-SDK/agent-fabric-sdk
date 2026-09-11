@@ -43,7 +43,7 @@
 > whole package (§0.3).
 
 Placeholder constants that gate behaviour live in
-`src/agent_fabric/core/_verify.py`. Each is emitted with a runtime warning until
+`src/donkey_kit/core/_verify.py`. Each is emitted with a runtime warning until
 its status here flips to `VERIFIED`.
 
 ---
@@ -53,14 +53,14 @@ its status here flips to `VERIFIED`.
 CLI-verified rows were confirmed against the real sandbox org
 `82a0453b-22e6-430d-bbf4-35b989d043dc` (user `admin-af`) on 2026-08-28 using
 `anypoint-cli-v4` 1.6.26. The CLI confirms **data contracts and the auth model**;
-the exact direct-REST paths the SDK calls come from the agent-fabric CLI plugin
+the exact direct-REST paths the SDK calls come from the donkey-kit CLI plugin
 analysis (see §11/§12) — do not remove a code guard until its own row is
 VERIFIED with a concrete path.
 
 | Item | Where used | Status | Verified value | Date | Source |
 |---|---|---|---|---|---|
 | Control-plane host (US) | `core/config.py` | VERIFIED (CLI) | `anypoint.mulesoft.com`; overridable via `ANYPOINT_HOST` | 2026-08-28 | `anypoint-cli-v4 conf host` |
-| Auth env var names | `core/config.py` | VERIFIED (CLI) | `ANYPOINT_CLIENT_ID`, `ANYPOINT_CLIENT_SECRET`, `ANYPOINT_ORG`, `ANYPOINT_ENV`, `ANYPOINT_BEARER` — match FabricConfig | 2026-08-28 | CLI flag defaults (`agent-network:*`) |
+| Auth env var names | `core/config.py` | VERIFIED (CLI) | `ANYPOINT_CLIENT_ID`, `ANYPOINT_CLIENT_SECRET`, `ANYPOINT_ORG`, `ANYPOINT_ENV`, `ANYPOINT_BEARER` — match DonkeyConfig | 2026-08-28 | CLI flag defaults (`agent-network:*`) |
 | Auth model | `core/auth.py` | VERIFIED (CLI) | connected-app `client_id`/`client_secret` OR direct `bearer` token both accepted | 2026-08-28 | CLI flags |
 | Org / business-group as attribution unit | `core/config.py` | VERIFIED (CLI) | root BG `anypoint-cbp-1780648272` = org id (UUID); assets publish under org id as Maven groupId | 2026-08-28 | `account:business-group:list`, `api-mgr:api:describe` |
 | Environments | `core/config.py` §6.2 | VERIFIED (CLI) | `{Name, Id (UUID), Sandbox: Y/N}`; sandbox has `Design` + `Sandbox` | 2026-08-28 | `account:environment:list` |
@@ -128,9 +128,19 @@ agent→agent egress-telemetry path, not needed for direct LLM proxy calls.
 | Item | Where used | Status | Verified value | Date | Source |
 |---|---|---|---|---|---|
 | Per-agent attribution unit (direct proxy) | `core/config.py`, transport | VERIFIED (LIVE) | the `client_id`/`client_secret` credential pair = the agent identity; issued per client application | 2026-08-28 | live probe + `policy:list` |
-| Gateway identity on response | telemetry | VERIFIED (LIVE) | `x-envoy-decorator-operation: api-instance-21133858.3e6ce455-…svc`; `x-correlation-id`; `x-llm-proxy-llm-provider/-llm-model/-routing-type` | 2026-08-28 | `responses.success.headers.txt` |
+| Gateway identity on response | `core/transport.py` (`x-llm-proxy-llm-provider` → `gen_ai.system`, #192) | VERIFIED (LIVE) | `x-envoy-decorator-operation: api-instance-21133858.3e6ce455-…svc`; `x-correlation-id`; `x-llm-proxy-llm-provider/-llm-model/-routing-type` | 2026-08-28 | `responses.success.headers.txt` |
 | Agent→agent egress attribution header | `core/_verify.py` → transport | VERIFIED (build) | `x-anypoint-api-instance-id` → `agent-connection-telemetry` policy `sourceAgentId`; `tracing` labels `mulesoft.api.instance.id`, `mulesoft.api.type=llm` | 2026-08-28 | built `connection.json` (§12.6) |
 | Business-group attribution header name | `core/_verify.py` → transport | UNVERIFIED | not surfaced as a request header in the direct-proxy path | — | — |
+| Run correlation id **request** header (`X-Correlation-Id`, #195) | `core/_verify.py` `CORRELATION_ID_HEADER` → transport | UNVERIFIED | `x-correlation-id` is verified as a **response echo** (row above); that the gateway **reads** an inbound `X-Correlation-Id` as the run/trace join key is NOT confirmed. Placeholder, overridable via `correlation_header` / `DONKEY_CORRELATION_HEADER`. | — | — |
+| Per-call id **request** header (`X-Donkey-Request-Id`, #195) | `core/_verify.py` `CALL_ID_HEADER` → transport | UNVERIFIED | client-generated per logical request, stable across that request's retries; no evidence the gateway reads this name yet. Placeholder, overridable via `call_id_header` / `DONKEY_CALL_ID_HEADER`. | — | — |
+
+The two #195 rows are **request** headers the SDK *sends* (the client→gateway
+join keys behind `donkey.run()` and `DonkeyError.correlation_id`/`.call_id`).
+The verified `x-correlation-id` above is the gateway's **response** echo — a
+different direction. Until an inbound-read name is confirmed against a sandbox,
+both request-header names stay `Unverified(...)` placeholders and emit the §0.3
+one-time warning; a customer whose gateway reads different names points the SDK
+at them via config rather than the SDK guessing.
 
 ## 4. Policy rejection response shapes (capture as fixtures, §8.2)
 
@@ -157,13 +167,30 @@ headers.
    Budget state is header-only: `x-token-limit`, `x-token-remaining`,
    `x-token-reset` (**milliseconds** to reset). There is **NO** `retry-after`.
 
-`core/errors.classify()` implements this (tests: `test_llm_proxy_contract.py`):
-error `type == "pii_detected"` → `PIIDetected` (checked *before* the 401/403→auth
-rule; parses `entities` from the message); `429` → `TokenBudgetExceeded` with
-`retry_after` derived from `x-token-reset` (ms→s); non-auth 4xx with a nested
-`error` object → `UpstreamRequestError` (carries provider `code`/`type`/`param`);
-otherwise `PolicyViolation`. prompt-injection / content-safety bodies remain
-uncaptured and fall through to a generic `PolicyViolation`.
+`core/errors.classify()` implements this (tests: `test_llm_proxy_contract.py`,
+`test_rejection_contract.py`): error `type == "pii_detected"` → `PIIDetected`
+(checked *before* the 401/403→auth rule; parses `entities` from the message);
+header `x-injection-protection: blocked` → `PromptInjectionBlocked` (the header,
+not the status, is the discriminator, so a bare `400` is unaffected); `429` →
+`TokenBudgetExceeded` with `retry_after` derived from `x-token-reset` (ms→s);
+non-auth 4xx with a nested `error` object → `UpstreamRequestError` (carries
+provider `code`/`type`/`param`); `5xx` → `UpstreamModelError`; otherwise
+`PolicyViolation`. The full six-shape taxonomy is indexed in
+`tests/fixtures/rejections/README.md`. The **injection body** and
+**content-moderation / federated-guardrail** shapes remain uncaptured (the
+latter falls through to a generic `PolicyViolation`) — re-confirming both against
+current docs and a sandbox is tracked in #253 (§0.3: no invented docs URL or
+version is recorded for them).
+
+**Simulator budget overlay (UNVERIFIED, #253).** The live `200` success capture
+carries **no** `x-token-*` budget headers — those are observed only on the
+token-rate-limit `429` (item 4 above). The local gateway simulator
+(`donkey mock`, BG §1.4) *synthesises* a plausible, monotonically
+decreasing `x-token-*` window on its happy-path `200` purely so `Budget` and its
+pacing can be exercised locally. This is a serve-time overlay, **not** confirmed
+real-proxy behaviour: whether the production proxy emits `x-token-*` on a `200`
+is unverified and tracked under #253. Nothing in `core/`/`llm/` depends on it —
+only `simulator/app.py` (`SimulatorConfig`) emits it.
 
 | Policy | Exchange asset (verified) | Status | Rejection shape | Date | Source |
 |---|---|---|---|---|---|
@@ -191,7 +218,7 @@ FINDING (CLI, 2026-08-28): provisioning is delivered as a **Maven-project + CLI*
 flow via the `mulesoft-anypoint-cli-agent-fabric-plugin` (v1.0.11), branded
 **"Agent Network"**, NOT a clean REST CRUD. The deploy target is a **Private
 Space** running **Flex Gateway** with a paired **ingress + egress** gateway.
-This reshapes §5: the SDK's declarative `fabric.yaml` plan/apply either wraps
+This reshapes §5: the SDK's declarative `donkey.yaml` plan/apply either wraps
 this CLI/Maven toolchain or emits its project layout — it does not invent a REST
 provisioning API. Exact REST calls behind the CLI are now recorded in §12
 (static analysis of plugin v1.0.11 + `anypoint-cli-command` 1.6.8).
@@ -256,7 +283,7 @@ run is diagnosable instead of surprising.
 
 | Dependency | Breaks at | Symptom | Status | Date |
 |---|---|---|---|---|
-| `openai` | `>=3.0` | The SDK passes its shared `FabricAsyncClient` (an `httpx.AsyncClient` subclass) into `AsyncOpenAI(http_client=…)`. openai 3.x retyped that parameter to `httpx2.AsyncClient`, a distinct class from a separate distribution, so `mypy --strict` flagged `llm/client.py` and `integrations/openai_agents.py`. Calls still succeed at runtime — openai duck-types the client — so this was a typecheck failure, not a test failure. **Mitigated** with a targeted `# type: ignore[arg-type]` at the three call sites (`llm/client.py` ×2, `integrations/openai_agents.py`); `mypy --strict` passes under openai 3.x (#137). | MITIGATED | 2026-09-02 |
+| `openai` | `>=3.0` | The SDK passes its shared `DonkeyAsyncClient` (an `httpx.AsyncClient` subclass) into `AsyncOpenAI(http_client=…)`. openai 3.x retyped that parameter to `httpx2.AsyncClient`, a distinct class from a separate distribution, so `mypy --strict` flagged `llm/client.py` and `integrations/openai_agents.py`. Calls still succeed at runtime — openai duck-types the client — so this was a typecheck failure, not a test failure. **Mitigated** with a targeted `# type: ignore[arg-type]` at the three call sites (`llm/client.py` ×2, `integrations/openai_agents.py`); `mypy --strict` passes under openai 3.x (#137). | MITIGATED | 2026-09-02 |
 
 The targeted ignores keep `mypy --strict` green against the newest `openai` a fresh
 resolve pulls (§8.4). A full fix — migrating `core/transport.py` off `httpx` onto
@@ -330,7 +357,7 @@ value types against real data, **not** a license to point `ExchangeRegistry` at
    `mocked|pre_prod|prod` per asset, orthogonal to Exchange asset versions;
    reconcile with the plan's `environment` targeting (§6.2).
 
-## 12. Agent-fabric CLI plugin — direct REST contract (static analysis, 2026-08-28)
+## 12. Agent-donkey CLI plugin — direct REST contract (static analysis, 2026-08-28)
 
 Source: static analysis of the installed
 `mulesoft-anypoint-cli-agent-fabric-plugin` **v1.0.11** (`dist/**`) and its HTTP

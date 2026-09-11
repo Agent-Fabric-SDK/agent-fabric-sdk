@@ -1,4 +1,4 @@
-# Agent Fabric SDK
+# Donkey Development Kit
 
 An SDK for consuming **Agent Fabric** capabilities — governed model access,
 governed tool access, and provisioning-as-code — from your own agent framework,
@@ -18,7 +18,7 @@ in your own IDE, without adopting Mule.
 > Salesforce trademarks.
 >
 > **Maintainer & support.** This is an **independent, community-maintained**
-> project, published under the org-scoped `Agent-Fabric-SDK` name — it is **not**
+> project, published under the org-scoped `Donkey-Development-Kit` name — it is **not**
 > affiliated with, endorsed by, or supported by Salesforce or MuleSoft. It is
 > provided **as-is, without warranty of any kind**; the maintainers triage issues
 > and pull requests on a **best-effort basis, with no SLA**. Because it ships
@@ -35,11 +35,11 @@ in your own IDE, without adopting Mule.
 Two audiences, two doc sets:
 
 - **Use the SDK** → the documentation site:
-  **<https://agent-fabric-sdk.github.io/agent-fabric-sdk/>**. Install and
+  **<https://donkey-development-kit.github.io/donkey-development-kit/>**. Install and
   configure, per-framework model access, the governed error taxonomy, and what
   to trust today — everything you need to point your agent at a governed proxy.
 - **See it run** → runnable demos live in the companion repo
-  **[agent-fabric-sdk-demos](https://github.com/Agent-Fabric-SDK/agent-fabric-sdk-demos)**:
+  **[donkey-development-kit-demos](https://github.com/Donkey-Development-Kit/donkey-development-kit-demos)**:
   the framework-free client, native framework objects, the governed error
   taxonomy, and the screen-recording scripts.
 - **Understand or contribute to the repo:**
@@ -59,15 +59,17 @@ Two audiences, two doc sets:
 > source:
 
 ```bash
-git clone https://github.com/Agent-Fabric-SDK/agent-fabric-sdk.git
-cd agent-fabric-sdk/python
+git clone https://github.com/Donkey-Development-Kit/donkey-development-kit.git
+cd donkey-development-kit/python
 pip install -e ".[llm,langgraph]"   # base + raw client + one framework
 ```
 
 Extras are one per framework (`langgraph`, `adk`, `strands`, `agent_framework`,
-`openai`, `anthropic`, `crewai`, `llamaindex`) plus `mcp`, `a2a`, `otel`, `cli`,
-`local`, and `all`. Configuration and first-agent walkthroughs live on the
-[documentation site](https://agent-fabric-sdk.github.io/agent-fabric-sdk/).
+`openai-agents`, `anthropic`, `crewai`, `llamaindex`) plus `mcp`, `a2a`, `otel`, `cli`,
+`local`, `test` (the [conformance pytest plugin](https://donkey-development-kit.github.io/donkey-development-kit/testing) —
+`pytest --donkey-conformance --agent=my_app.agent:build`), and `all`.
+Configuration and first-agent walkthroughs live on the
+[documentation site](https://donkey-development-kit.github.io/donkey-development-kit/).
 
 ## What's verified (§0.3)
 
@@ -82,3 +84,15 @@ and the exact framework adapter class names/kwargs.
 The discipline behind this is documented in
 [`ARCHITECTURE.md` → Verification discipline](ARCHITECTURE.md#verification-discipline-03);
 the row-by-row worklist is [`docs/verified-apis.md`](docs/verified-apis.md).
+
+## Conformance exemptions
+
+The [conformance plugin](https://donkey-development-kit.github.io/donkey-development-kit/testing)
+holds the SDK to the same bar it asks of your agent. Where a framework
+legitimately cannot satisfy a scenario, the reason is asserted in code
+(`KNOWN_LIMITATIONS`) and published here as credibility — never a silent skip
+(§8.1):
+
+| Framework | Scenario | Why it's exempt |
+| --- | --- | --- |
+| ADK, CrewAI | correlation ID propagated | LiteLLM owns the transport, so the SDK's `httpx` client cannot be injected — the correlation ID ends up per-client, not per-run. A LiteLLM logger callback may recover trace correlation later. |

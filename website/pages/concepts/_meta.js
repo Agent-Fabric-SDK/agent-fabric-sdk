@@ -3,4 +3,5 @@ export default {
   governance: 'Governance',
   environments: 'Governance & environments',
   attribution: 'Attribution & cost',
+  observability: 'Observability',
 }

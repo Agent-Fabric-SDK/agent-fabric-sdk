@@ -2,8 +2,8 @@ import { Callout } from 'nextra/components'
 
 # Configuration
 
-`Fabric.from_env()` resolves configuration from, in precedence order: explicit
-kwargs → environment variables → `.agent-fabric.toml` → defaults.
+`Donkey.from_env()` resolves configuration from, in precedence order: explicit
+kwargs → environment variables → `.donkey-kit.toml` → defaults.
 
 ## Governed model access
 
@@ -11,9 +11,9 @@ The three required values for the LLM proxy:
 
 | Env var | Meaning |
 |---|---|
-| `AGENT_FABRIC_LLM_PROXY_URL` | Proxy base URL: `https://<ingress-gw>/<instance>/` — **no `/v1`**. |
-| `AGENT_FABRIC_LLM_PROXY_CLIENT_ID` | Consumer client id (the per-agent identity). |
-| `AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET` | Consumer client secret. |
+| `DONKEY_LLM_PROXY_URL` | Proxy base URL: `https://<ingress-gw>/<instance>/` — **no `/v1`**. |
+| `DONKEY_LLM_PROXY_CLIENT_ID` | Consumer client id (the per-agent identity). |
+| `DONKEY_LLM_PROXY_CLIENT_SECRET` | Consumer client secret. |
 
 <Callout type="info">
   Auth is a `client_id` / `client_secret` **header pair** (consumer auth), **not**
@@ -28,8 +28,8 @@ you fix configuration in a single pass rather than one error per run.
 
 | Env var | Meaning |
 |---|---|
-| `AGENT_FABRIC_APP_NAME` | Human-readable app name, surfaced on telemetry. |
-| `AGENT_FABRIC_BUSINESS_GROUP` | Business group for attribution. |
+| `DONKEY_APP_NAME` | Human-readable app name, surfaced on telemetry. |
+| `DONKEY_BUSINESS_GROUP` | Business group for attribution. |
 
 ## Anypoint control plane (used by later phases)
 
@@ -39,23 +39,23 @@ These match the Anypoint CLI's own variable names (CLI-verified):
 
 ## Config file
 
-Instead of env vars you can use `.agent-fabric.toml` in your project. Secrets and
-local dev credentials belong in `.agent-fabric.local.toml` (git-ignored), never
+Instead of env vars you can use `.donkey-kit.toml` in your project. Secrets and
+local dev credentials belong in `.donkey-kit.local.toml` (git-ignored), never
 in the committed file.
 
 ## Programmatic
 
 ```python
-from agent_fabric import Fabric, FabricConfig
+from donkey_kit import Donkey, DonkeyConfig
 
 # Explicit config (kwargs win over env):
-fabric = Fabric(FabricConfig(
+donkey = Donkey(DonkeyConfig(
     llm_proxy_url="https://<ingress-gw>/<instance>/",
     llm_proxy_client_id="…",
     llm_proxy_client_secret="…",
 ))
 
 # Or from the environment, with lifecycle:
-async with Fabric.from_env() as fabric:
+async with Donkey.from_env() as donkey:
     ...
 ```

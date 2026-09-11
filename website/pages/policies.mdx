@@ -18,12 +18,12 @@ On first connection, the SDK fetches the policy set in force for your
 credentials and exposes it:
 
 ```python
-fabric.policies.models_allowed        # ["gpt-4o", "claude-sonnet"]
-fabric.policies.tools_allowed         # [...]
-fabric.policies.budget                # the same Budget object, now live
-fabric.policies.pii.mode              # "block" | "mask" | "log"
-fabric.policies.content_safety.on     # True
-fabric.policies.observed_at           # when this view was fetched
+donkey.policies.models_allowed        # ["gpt-4o", "claude-sonnet"]
+donkey.policies.tools_allowed         # [...]
+donkey.policies.budget                # the same Budget object, now live
+donkey.policies.pii.mode              # "block" | "mask" | "log"
+donkey.policies.content_safety.on     # True
+donkey.policies.observed_at           # when this view was fetched
 ```
 
 ## Why it is worth an upstream ask

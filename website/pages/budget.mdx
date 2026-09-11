@@ -7,9 +7,12 @@ import { Callout } from 'nextra/components'
 # Budget & pacing
 
 <Callout type="info">
-  **Phase 1 — designed, not yet shipped.** The API shape below is a proposal so
-  the design can be argued about concretely; the committed part is the
-  behaviour and the acceptance bar. See [Roadmap](/roadmap) and
+  **Phase 1 — the `Budget` object and its pacing helpers ship.** The object
+  below (`limit` / `remaining` / `reset_at` / `observed_at` / `fraction_used`),
+  updated in-band from every response, and the two pacing helpers — `pace()` and
+  `wait_for_reset()` — are implemented. The one deferred piece is the *end-to-end
+  test against the local gateway simulator* (`donkey mock`), which lands with the
+  simulator itself. See [Roadmap](/roadmap) and
   [Verification policy](/concepts/verification).
 </Callout>
 
@@ -19,24 +22,24 @@ and most people don't — so the first time budget matters is the moment it runs
 out.
 
 The point of this piece: **you never parse a header.** Every response updates a
-`Budget` object on the `Fabric` instance.
+`Budget` object on the `Donkey` instance.
 
 ## The object
 
 ```python
-fabric.budget.limit          # int, tokens per window
-fabric.budget.remaining      # int, from the last response
-fabric.budget.reset_at       # datetime, converted from x-token-reset (ms) — not raw
-fabric.budget.observed_at    # when headers were last seen (staleness)
-fabric.budget.fraction_used  # 0.0–1.0
+donkey.budget.limit          # int, tokens per window
+donkey.budget.remaining      # int, from the last response
+donkey.budget.reset_at       # datetime, converted from x-token-reset (ms) — not raw
+donkey.budget.observed_at    # when headers were last seen (staleness)
+donkey.budget.fraction_used  # 0.0–1.0
 ```
 
 And two helpers that use it:
 
 ```python
-await fabric.budget.wait_for_reset()          # sleeps until reset_at
+await donkey.budget.wait_for_reset()          # sleeps until reset_at
 
-async with fabric.budget.pace(reserve=0.10):  # raises BudgetReserveReached at 90%
+async with donkey.budget.pace(reserve=0.10):  # raises BudgetReserveReached at 90%
     ...
 ```
 
@@ -54,7 +57,7 @@ spending the budget twice to do the same work.
 
 ```python
 for batch in chunks(records, 200):
-    async with fabric.budget.pace(reserve=0.05):
+    async with donkey.budget.pace(reserve=0.05):
         await enrich(batch)
     checkpoint(batch)
 ```
@@ -62,7 +65,7 @@ for batch in chunks(records, 200):
 On `BudgetReserveReached`, wait for the window and carry on:
 
 ```python
-await fabric.budget.wait_for_reset()
+await donkey.budget.wait_for_reset()
 continue
 ```
 
@@ -97,9 +100,9 @@ last-known-good. See [Roadmap](/roadmap).
   against a fixture with a known value.
 - `pace()` raises before the request that would cross the reserve, never after
   a `429`.
-- The budget object is per-`Fabric`, not global: two instances with different
+- The budget object is per-`Donkey`, not global: two instances with different
   credentials do not share state.
 
 ---
 
-**Status: Phase 1 — not yet shipped.**
+**Status: Phase 1 — the `Budget` object, `pace()`, and `wait_for_reset()` are shipped. The end-to-end simulator test is deferred to the local gateway simulator (`donkey mock`).**

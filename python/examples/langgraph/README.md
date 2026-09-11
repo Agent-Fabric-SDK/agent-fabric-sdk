@@ -14,18 +14,18 @@ proxy.
 
 > 📖 **Prefer reading to running?** The canonical walkthrough — install,
 > configure, and the manual equivalent — is in the docs:
-> **[LangGraph](https://agent-fabric-sdk.github.io/agent-fabric-sdk/frameworks/langgraph)**.
+> **[LangGraph](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/langgraph)**.
 > This README duplicates the runnable essentials on purpose so you can run it in
 > place; if the two ever differ, the docs page is canonical.
 
 ## Run
 
 ```bash
-pip install "agent-fabric[langgraph]"
+pip install "donkey-kit[langgraph]"
 
-export AGENT_FABRIC_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
-export AGENT_FABRIC_LLM_PROXY_CLIENT_ID="<consumer client id>"
-export AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
+export DONKEY_LLM_PROXY_URL="https://<ingress-gw>/<instance>/"   # note: no /v1
+export DONKEY_LLM_PROXY_CLIENT_ID="<consumer client id>"
+export DONKEY_LLM_PROXY_CLIENT_SECRET="<consumer client secret>"
 
 python examples/langgraph/main.py
 ```
@@ -41,18 +41,18 @@ from langchain_openai import ChatOpenAI
 
 model = ChatOpenAI(
     model="gpt-4o",
-    base_url=AGENT_FABRIC_LLM_PROXY_URL,
+    base_url=DONKEY_LLM_PROXY_URL,
     api_key="unused",  # the proxy enforces client_id/client_secret headers instead
     default_headers={
-        "client_id": AGENT_FABRIC_LLM_PROXY_CLIENT_ID,
-        "client_secret": AGENT_FABRIC_LLM_PROXY_CLIENT_SECRET,
+        "client_id": DONKEY_LLM_PROXY_CLIENT_ID,
+        "client_secret": DONKEY_LLM_PROXY_CLIENT_SECRET,
     },
     http_async_client=httpx.AsyncClient(...),  # your own transport, retries, hooks
     max_retries=0,
 )
 ```
 
-The factory (`agent_fabric.integrations.langgraph.chat_model`) fills in
+The factory (`donkey_kit.integrations.langgraph.chat_model`) fills in
 `base_url`, `api_key`, `default_headers`, and `http_async_client` from one
 governed config source and gives you the SDK's shared transport (with its
 retry policy and telemetry hooks) for free.
