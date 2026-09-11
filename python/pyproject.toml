@@ -44,7 +44,10 @@ llm = ["openai>=1.30"]
 # --- Per-framework integrations (one extra each) ---
 # Floors, never ceilings (working instruction, §8.4). Class names / kwargs
 # inside the adapters are marked UNVERIFIED until §0.3 confirms them.
-langgraph = ["langchain-openai>=0.1", "langchain-core>=0.2"]
+# The deep, conformance-gated adapter (BG §1.8, #198): its extra ships the graph
+# runtime so `interrupt()` composition and the conformance harness run against a
+# real LangGraph app, not just a bare ChatOpenAI.
+langgraph = ["langgraph>=0.3", "langchain-openai>=0.1", "langchain-core>=0.2"]
 adk = ["google-adk>=0.2", "litellm>=1.84"]
 agent_framework = ["agent-framework>=0.1"]
 openai-agents = ["openai-agents>=0.1", "openai>=1.30"]
