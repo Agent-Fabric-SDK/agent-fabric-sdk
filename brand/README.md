@@ -32,9 +32,12 @@ stacked lockup is also provided pre-split as single-theme `-black` and
 - These are raster (PNG) source art. A vector (SVG) master is not yet
   part of this set; regenerate one before print or large-format use.
 
-## Not yet wired in
+## Wiring status
 
-These assets are added to the repo but are **not** yet referenced by the
-docs site (`website/theme.config.tsx` logo/favicon) or the top-level
-`README.md`. Wiring them into those surfaces is intentionally a separate
-change.
+`ddk-logo-stacked-black.png` is wired into the top-level `README.md` header
+and the docs-site nav (`website/theme.config.tsx`); the served copy lives at
+`website/public/img/ddk-logo-stacked-black.png` (this `brand/` directory stays
+the canonical source).
+
+Still **not** wired: the other four marks, and the favicon / OG-image /
+social-preview slots. Those are deliberately left for follow-up changes.

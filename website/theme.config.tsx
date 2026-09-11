@@ -4,10 +4,30 @@ import { useConfig, type DocsThemeConfig } from 'nextra-theme-docs'
 
 const SITE_NAME = 'Donkey Development Kit'
 
+// next/image's unoptimized loader does not prefix basePath for /public assets,
+// so reference the served copy under website/public/img/ with the base path
+// applied manually — same convention as components/index.tsx.
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+
 const config: DocsThemeConfig = {
   logo: (
-    <span style={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
-      🧵 Donkey Development Kit
+    <span
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        fontWeight: 700,
+        letterSpacing: '-0.01em',
+      }}
+    >
+      <img
+        src={`${BASE_PATH}/img/ddk-logo-stacked-black.png`}
+        alt=""
+        width={28}
+        height={28}
+        style={{ borderRadius: 4 }}
+      />
+      Donkey Development Kit
     </span>
   ),
   project: {
@@ -42,9 +62,9 @@ const config: DocsThemeConfig = {
   footer: {
     content: (
       <span>
-        Donkey Development Kit — an SDK <em>for</em> Agent Fabric. “Agent
-        Donkey”, “Anypoint”, and “Omni Gateway” are Salesforce trademarks; this
-        project is descriptive (§0.4).
+        Donkey Development Kit — an SDK <em>for</em> Agent Fabric.
+        “Agent Fabric”, “Anypoint”, and “Omni Gateway” are Salesforce
+        trademarks; this project is descriptive (§0.4).
       </span>
     ),
   },
