@@ -44,6 +44,7 @@ def test_connection_kwargs_carry_governed_values() -> None:
     assert "client_secret" in kw["default_headers"]
     assert kw["max_retries"] == 0  # we retry in transport, not the framework
     assert kw["http_async_client"] is not None  # our shared, hooked client
+    assert kw["use_responses_api"] is True  # verified /responses endpoint (docs §4)
     # No model id — the caller supplies that: ChatOpenAI(model=…, **kw)
     assert "model" not in kw
 

@@ -314,7 +314,7 @@ provisioning API. Exact REST calls behind the CLI are now recorded in §12
 
 | Framework | Symbol / kwarg | Status | Verified value | Date | Source |
 |---|---|---|---|---|---|
-| LangGraph | `langchain_openai.ChatOpenAI(base_url, api_key, default_headers, http_async_client)` | UNVERIFIED | — | — | — |
+| LangGraph | `langchain_openai.ChatOpenAI(base_url, api_key, default_headers, http_async_client, use_responses_api=True)` | UNVERIFIED (constructor); endpoint VERIFIED | The kwargs/class name are still §8-pending, but the deep adapter (#198) pins `use_responses_api=True` so it calls the **live-verified** `/responses` data plane (§4) rather than ChatOpenAI's default `/chat/completions` route. Overridable via `chat_model(..., use_responses_api=False)`. | 2026-09-11 | #198 |
 | Google ADK | `google.adk.models.lite_llm.LiteLlm(model="openai/…", api_base, extra_headers)` | UNVERIFIED | — | — | — |
 | MS Agent Framework | `agent_framework.openai.OpenAIChatClient` name + `model_id` kwarg | UNVERIFIED | — | — | — |
 | OpenAI Agents SDK | `agents.OpenAIChatCompletionsModel(model, openai_client=AsyncOpenAI(...))` | UNVERIFIED | — | — | — |

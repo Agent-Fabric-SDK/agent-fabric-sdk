@@ -75,6 +75,10 @@ async with Donkey.from_env() as donkey:
     llm = ChatOpenAI(model="gpt-4o", **donkey.langgraph.connection_kwargs())
 ```
 
+The adapter is also **callable** as the shortest form of option 1 —
+`donkey.langgraph("gpt-4o")` is exactly `donkey.langgraph.chat_model("gpt-4o")`,
+returning the same native `ChatOpenAI`.
+
 ## The manual equivalent (eject at any time)
 
 Everything above is sugar over this native constructor call:
@@ -89,11 +93,83 @@ llm = ChatOpenAI(
     default_headers=...,      # client_id / client_secret header pair, not bearer
     http_async_client=...,    # the SDK's shared httpx async client
     max_retries=0,            # the SDK retries in its own transport layer
+    use_responses_api=True,   # the proxy's live-verified data plane is /responses
 )
 ```
 
 Nothing here is hidden — `connection_kwargs()` returns exactly these keys, so
-you can always drop the factory and construct `ChatOpenAI` by hand.
+you can always drop the factory and construct `ChatOpenAI` by hand. Pass
+`use_responses_api=False` to `chat_model(...)` (or omit it from your own
+constructor) only if a deployment exposes chat-completions instead — the
+Responses API (`/responses`) is the endpoint verified against a live proxy.
+
+## What "deep adapter" buys you
+
+LangGraph is the one adapter held to the conformance bar, so three graph-level
+guarantees are tested end to end against a real compiled `StateGraph`, not just
+a bare model call.
+
+### Correlation IDs reach every node — for free
+
+Bind a run id once with `donkey.run(id=…)` and every node sees it via
+`current_correlation_id()`, with nothing threaded through graph state. LangGraph
+runs nodes on `asyncio` tasks that copy the current context, so the id
+propagates on its own:
+
+```python
+from donkey_kit.core.telemetry import current_correlation_id
+
+async def prepare(state):
+    logger.info("handling", extra={"correlation_id": current_correlation_id()})
+    return {}
+
+async with donkey.run(id=ticket.id):
+    await graph.ainvoke({"messages": [("user", ticket.text)]})
+```
+
+### Typed refusals inside a node
+
+A node that calls the model directly gets whatever LangChain raises on a proxy
+refusal — a framework-wrapped `OpenAIPermissionDeniedError`, not the SDK's typed
+exception. Wrap the call in `typed_refusals()` and a gateway refusal comes back
+through the [error taxonomy](/errors) instead:
+
+```python
+from donkey_kit.integrations.langgraph import typed_refusals
+
+async def call_model(state):
+    with donkey.langgraph.typed_refusals():   # or: with typed_refusals():
+        reply = await model.ainvoke(state["messages"])
+    return {"messages": [reply]}
+```
+
+A PII block now propagates out of `graph.ainvoke(...)` as `PIIDetected`, a budget
+block as `TokenBudgetExceeded`, etc. — each carrying the correlation/call ids the
+client sent. This is a helper plus a documented pattern, not a transport change:
+transport-level errors with no HTTP response (connection/timeout) pass through
+untouched.
+
+### `interrupt()` composes with typed refusals
+
+A human-in-the-loop `interrupt()` and a typed refusal don't swallow each other:
+the graph pauses cleanly at the interrupt (no refusal fires mid-pause), and on
+resume a refusal in a downstream model node still surfaces as its typed
+exception.
+
+### Run the conformance suite against your own graph
+
+The same suite that gates this adapter is a customer-facing pytest plugin you
+can point at your own agent:
+
+```bash
+pytest --donkey-conformance --agent=my_app:build
+```
+
+`build` returns an object with an awaitable `run(text)`; the suite checks it
+retries no budget refusal, surfaces `PIIDetected` typed, carries the correlation
+id into its logs, and tolerates a response with no budget headers. The shipped
+[`examples/langgraph`](https://github.com/Donkey-Development-Kit/donkey-development-kit/tree/main/python/examples/langgraph)
+factory is exactly this shape.
 
 ## Notes & limitations
 
