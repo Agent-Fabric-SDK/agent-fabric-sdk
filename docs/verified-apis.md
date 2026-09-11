@@ -182,15 +182,26 @@ latter falls through to a generic `PolicyViolation`) — re-confirming both agai
 current docs and a sandbox is tracked in #253 (§0.3: no invented docs URL or
 version is recorded for them).
 
-**Simulator budget overlay (UNVERIFIED, #253).** The live `200` success capture
-carries **no** `x-token-*` budget headers — those are observed only on the
-token-rate-limit `429` (item 4 above). The local gateway simulator
-(`donkey mock`, BG §1.4) *synthesises* a plausible, monotonically
-decreasing `x-token-*` window on its happy-path `200` purely so `Budget` and its
-pacing can be exercised locally. This is a serve-time overlay, **not** confirmed
-real-proxy behaviour: whether the production proxy emits `x-token-*` on a `200`
-is unverified and tracked under #253. Nothing in `core/`/`llm/` depends on it —
-only `simulator/app.py` (`SimulatorConfig`) emits it.
+**Happy-path budget window — prose `x-llm-proxy-ratelimit` (VERIFIED (LIVE), #352/#353).**
+A live `200` **with the `llm-token-rate-limit` policy applied** carries the budget
+window as a single prose header, **not** the numeric `x-token-*` trio (that trio
+appears only on the `429`, item 4 above):
+
+```
+x-llm-proxy-ratelimit: Token rate limit: 10000 tokens remaining of 10000 limit. Reset in 56711ms.
+```
+
+The sentence is regular — `Token rate limit: {remaining} tokens remaining of {limit}
+limit. Reset in {ms}ms.` — with `{ms}` in the same millisecond unit as `x-token-reset`.
+The same shape is committed in `reject.pii-detected.headers.txt`. This closes the `200`
+half of #253. The local gateway simulator (`donkey mock`, BG §1.4) renders exactly this
+sentence from a monotonically decreasing counter on its happy-path `200` (and streaming
+`200`), so the simulator matches the observed live contract rather than an assumption
+(the earlier synthesised numeric `x-token-*` overlay is removed — it diverged from the
+live gateway on the exact header names a consumer parses, #353). `Budget.observe()`
+gains the matching prose parser in #352; until then a `200` (simulated or live) is
+observed as a no-op, never a misleading populated window. Only `simulator/app.py`
+(`SimulatorConfig`) renders the header; nothing in `core/`/`llm/` depends on it.
 
 | Policy | Exchange asset (verified) | Status | Rejection shape | Date | Source |
 |---|---|---|---|---|---|
