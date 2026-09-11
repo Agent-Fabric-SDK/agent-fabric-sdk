@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="brand/ddk-logo-stacked-black.png" alt="Donkey Development Kit (DDK)" width="180" />
+</p>
+
 # Donkey Development Kit
 
 An SDK for consuming **Agent Fabric** capabilities — governed model access,
