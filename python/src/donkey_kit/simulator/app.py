@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 from .fixtures import (
+    RATELIMIT_HEADER,
     Fixture,
     load,
     replay_headers,
@@ -54,14 +55,12 @@ _SIMULATOR_HEADER_BYTES = SIMULATOR_HEADER.encode("latin-1")
 SIM_MODEL_PREFIX = "donkey-sim/"
 
 # The budget window the live proxy emits on a happy-path `200` (with the
-# `llm-token-rate-limit` policy applied): a single prose header, NOT the numeric
-# `x-token-*` trio (which the live gateway emits only on the `429`). Captured at
-# #352 and matched byte-for-byte here so the simulator stops validating the SDK
-# against its own former assumption. `Budget.observe()` gains the matching prose
-# parser in #352; until then a simulated `200` is observed as a no-op, exactly as
-# a live `200` is today. The format string is fixed by the live/fixture capture:
+# `llm-token-rate-limit` policy applied) is a single prose header,
+# `x-llm-proxy-ratelimit`, NOT the numeric `x-token-*` trio (which the live gateway
+# emits only on the `429`). The name is defined once in `core.budget` (which parses
+# it, #352) and imported here so the simulator renders what the client parses. The
+# format string is fixed by the live/fixture capture (#352/#353):
 #   "Token rate limit: {remaining} tokens remaining of {limit} limit. Reset in {ms}ms."
-RATELIMIT_HEADER = "x-llm-proxy-ratelimit"
 
 # Shapes selectable via the model-id sentinel: the six documented rejections
 # plus the consumer-auth 401.

@@ -79,19 +79,19 @@ async def test_happy_path_serves_the_live_ratelimit_prose_header() -> None:
     assert "x-token-reset" not in resp.headers
 
 
-async def test_happy_path_ratelimit_is_a_budget_no_op_until_the_prose_parser_lands() -> None:
-    # Budget.observe() reads only x-token-* today, so a simulated `200` — like a live
-    # `200` — is observed as a no-op (every field None). The matching prose parser is
-    # #352; once merged this observation populates the window. Asserting the no-op here
-    # is the honest contract: the simulator no longer lets a `200` look observable.
+async def test_happy_path_ratelimit_is_a_budget_the_object_observes_from_prose() -> None:
+    # With the prose parser (#352) merged, Budget.observe() populates from the
+    # simulated `200`'s x-llm-proxy-ratelimit header exactly as it would from a live
+    # `200` — the whole point of #353: the simulator now exercises the real code path.
     async with _client() as client:
         resp = await client.post("/v1/responses", json={"model": "gpt-5.1"})
     budget = Budget()
     budget.observe(resp)
-    assert budget.limit is None
-    assert budget.remaining is None
-    assert budget.reset_at is None
-    assert budget.observed_at is None
+    assert budget.limit == 100_000
+    assert budget.remaining == 99_500  # limit - one token_step
+    assert budget.reset_at is not None
+    assert budget.observed_at is not None
+    assert budget.fraction_used == pytest.approx(0.005)
 
 
 async def test_ratelimit_window_decrements_monotonically_per_request() -> None:
