@@ -30,10 +30,17 @@ from pathlib import Path
 
 # Verified header names, imported from the framework-free core so the simulator
 # and the client parse the identical strings (upward import, allowed under §1.1).
-from ..core.budget import LIMIT_HEADER, REMAINING_HEADER, RESET_HEADER
+# RATELIMIT_HEADER is the prose budget header the live 200/403 carries (#352/#353).
+from ..core.budget import (
+    LIMIT_HEADER,
+    RATELIMIT_HEADER,
+    REMAINING_HEADER,
+    RESET_HEADER,
+)
 
 __all__ = [
     "LIMIT_HEADER",
+    "RATELIMIT_HEADER",
     "REMAINING_HEADER",
     "RESET_HEADER",
     "Fixture",

@@ -20,7 +20,8 @@ def test_boot_serves_the_happy_path_over_a_real_port(simulator_base_url: str) ->
     assert resp.status_code == 200
     assert resp.headers["x-donkey-simulator"] == "true"
     assert resp.json()["object"] == "response"
-    assert "x-token-remaining" in resp.headers  # synthesized budget window
+    # Live `200` budget window: prose header, not the numeric x-token-* trio (#352/#353).
+    assert resp.headers["x-llm-proxy-ratelimit"].startswith("Token rate limit:")
 
 
 def test_boot_replays_a_rejection_shape_over_a_real_port(simulator_base_url: str) -> None:

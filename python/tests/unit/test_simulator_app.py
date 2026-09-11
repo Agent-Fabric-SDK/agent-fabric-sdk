@@ -33,7 +33,11 @@ from donkey_kit.core.errors import (  # noqa: E402
 )
 from donkey_kit.simulator import build_app  # noqa: E402
 from donkey_kit.simulator import fixtures as fx  # noqa: E402
-from donkey_kit.simulator.app import SIM_MODEL_PREFIX, SIMULATOR_HEADER  # noqa: E402
+from donkey_kit.simulator.app import (  # noqa: E402
+    RATELIMIT_HEADER,
+    SIM_MODEL_PREFIX,
+    SIMULATOR_HEADER,
+)
 
 
 def _client() -> httpx.AsyncClient:
@@ -58,11 +62,31 @@ async def test_happy_path_replays_success_verbatim_and_stamps_honesty() -> None:
     assert "x-content-type-options" not in resp.headers
 
 
-async def test_happy_path_synthesizes_a_budget_the_object_can_observe() -> None:
+async def test_happy_path_serves_the_live_ratelimit_prose_header() -> None:
+    # The live `200` (with the llm-token-rate-limit policy applied) emits the budget
+    # window as a single prose header, NOT the numeric x-token-* trio (#352/#353).
+    # The simulator must match that sentence byte-for-byte so it stops validating
+    # the SDK against its own former assumption.
+    async with _client() as client:
+        resp = await client.post("/v1/responses", json={"model": "gpt-5.1"})
+    assert (
+        resp.headers[RATELIMIT_HEADER]
+        == "Token rate limit: 99500 tokens remaining of 100000 limit. Reset in 60000ms."
+    )
+    # The false overlay is gone: no numeric x-token-* on a `200`, matching live.
+    assert "x-token-limit" not in resp.headers
+    assert "x-token-remaining" not in resp.headers
+    assert "x-token-reset" not in resp.headers
+
+
+async def test_happy_path_ratelimit_is_a_budget_the_object_observes_from_prose() -> None:
+    # With the prose parser (#352) merged, Budget.observe() populates from the
+    # simulated `200`'s x-llm-proxy-ratelimit header exactly as it would from a live
+    # `200` — the whole point of #353: the simulator now exercises the real code path.
     async with _client() as client:
         resp = await client.post("/v1/responses", json={"model": "gpt-5.1"})
     budget = Budget()
-    budget.observe(resp)  # the whole point of the x-token-* overlay (#185/#186)
+    budget.observe(resp)
     assert budget.limit == 100_000
     assert budget.remaining == 99_500  # limit - one token_step
     assert budget.reset_at is not None
@@ -70,13 +94,16 @@ async def test_happy_path_synthesizes_a_budget_the_object_can_observe() -> None:
     assert budget.fraction_used == pytest.approx(0.005)
 
 
-async def test_token_counter_decrements_monotonically_per_request() -> None:
+async def test_ratelimit_window_decrements_monotonically_per_request() -> None:
     async with _client() as client:
         first = await client.post("/v1/responses", json={"model": "gpt-5.1"})
         second = await client.post("/v1/responses", json={"model": "gpt-5.1"})
-    assert first.headers["x-token-limit"] == "100000"
-    assert int(first.headers["x-token-remaining"]) == 99_500
-    assert int(second.headers["x-token-remaining"]) == 99_000
+    assert first.headers[RATELIMIT_HEADER] == (
+        "Token rate limit: 99500 tokens remaining of 100000 limit. Reset in 60000ms."
+    )
+    assert second.headers[RATELIMIT_HEADER] == (
+        "Token rate limit: 99000 tokens remaining of 100000 limit. Reset in 60000ms."
+    )
 
 
 async def test_stream_replays_the_sse_capture_with_event_stream_media_type() -> None:
@@ -89,10 +116,11 @@ async def test_stream_replays_the_sse_capture_with_event_stream_media_type() -> 
     # rest is not fabricated). Assert byte-identity, not consumability.
     assert resp.content == fx.load("stream").body
     assert resp.headers[SIMULATOR_HEADER] == "true"
-    # A streaming call is still a happy path: it carries and decrements the
-    # synthesised budget window, same as the non-stream success path.
-    assert resp.headers["x-token-limit"] == "100000"
-    assert int(resp.headers["x-token-remaining"]) == 99_500
+    # A streaming call is still a happy path: it carries the same prose budget
+    # window header as the non-stream success path.
+    assert resp.headers[RATELIMIT_HEADER] == (
+        "Token rate limit: 99500 tokens remaining of 100000 limit. Reset in 60000ms."
+    )
 
 
 async def test_get_models_is_an_honest_404() -> None:

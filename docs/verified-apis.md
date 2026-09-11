@@ -88,7 +88,7 @@ request against the deployed gateway.
 | Endpoint/API surface | `llm/client.py` | VERIFIED (LIVE) | OpenAI **Responses API** works (`POST /openai-sdk/responses`, body `{model, input}`). Upstream registered as `https://api.openai.com/v1/`; `proxyUri http://0.0.0.0:8081/openai-sdk` | 2026-08-28 | `api:describe`, live probe |
 | Auth: header name / model | `core/transport.py`, `core/config.py` | VERIFIED (LIVE) | **`client_id` + `client_secret` request headers** (NOT bearer) — enforced by `client-id-enforcement` 1.3.3. A consumer **credential pair**, mapped to an Anypoint client application | 2026-08-28 | live probe + `policy:list` |
 | Model routing | `llm/client.py` | VERIFIED (LIVE) | `model-based-routing` 1.0.3 reads `model` from body → provider. Response headers `x-llm-proxy-routing-type: ModelBased`, `x-llm-proxy-llm-provider`, `x-llm-proxy-llm-model` | 2026-08-28 | live probe |
-| Token accounting (cost attribution) | `llm/*`, telemetry | VERIFIED (LIVE) | response `usage: {input_tokens, output_tokens, total_tokens, input_tokens_details, output_tokens_details}`; also upstream `x-ratelimit-*` headers passed through | 2026-08-28 | `responses.success.body.json` |
+| Token accounting (cost attribution) | `llm/*`, telemetry | VERIFIED (LIVE) | response `usage: {input_tokens, output_tokens, total_tokens, input_tokens_details, output_tokens_details}`; also upstream `x-ratelimit-*` headers passed through (Go-style **duration-string** resets, e.g. `0s`/`12ms` — distinct from the gateway's own `x-llm-proxy-ratelimit`/`x-token-*` window, see §4) | 2026-08-28 | `responses.success.body.json` |
 | Request fields passed through | `llm/client.py` | VERIFIED (LIVE) | OpenAI body passed through verbatim; response returned verbatim (model `gpt-5.1`→`gpt-5.1-2025-11-13`, full Responses object) | 2026-08-28 | live probe |
 | Streaming support | `llm/client.py` | VERIFIED (LIVE) | `"stream": true` → `200`, `content-type: text/event-stream`, chunked SSE (`event: response.created` / `response.in_progress` / …); same `x-llm-proxy-*` headers | 2026-08-28 | live probe (`responses.stream.*`) |
 | `/models` endpoint | `llm/catalog.py` | VERIFIED (LIVE) | **Does not exist** — `GET /openai-sdk/models` → `404`, `x-llm-proxy-model-based-routing-success: Request passed through without model-based routing`. The proxy only routes requests carrying `model` in the body; no catalog endpoint. `llm/catalog.py` must source models elsewhere | 2026-08-28 | live probe (`models.notfound.headers.txt`) |
@@ -182,22 +182,57 @@ latter falls through to a generic `PolicyViolation`) — re-confirming both agai
 current docs and a sandbox is tracked in #253 (§0.3: no invented docs URL or
 version is recorded for them).
 
-**Simulator budget overlay (UNVERIFIED, #253).** The live `200` success capture
-carries **no** `x-token-*` budget headers — those are observed only on the
-token-rate-limit `429` (item 4 above). The local gateway simulator
-(`donkey mock`, BG §1.4) *synthesises* a plausible, monotonically
-decreasing `x-token-*` window on its happy-path `200` purely so `Budget` and its
-pacing can be exercised locally. This is a serve-time overlay, **not** confirmed
-real-proxy behaviour: whether the production proxy emits `x-token-*` on a `200`
-is unverified and tracked under #253. Nothing in `core/`/`llm/` depends on it —
-only `simulator/app.py` (`SimulatorConfig`) emits it.
+**Budget window emission — two forms, keyed on outcome not status class
+(LIVE-VERIFIED).** The gateway signals its token-rate-limit window in two
+distinct shapes depending on the response outcome, **not** on the status class:
+
+| Response | Budget signal | Reset unit | Status |
+|---|---|---|---|
+| `200` success, policy applied | `x-llm-proxy-ratelimit`, one prose sentence | milliseconds | VERIFIED (LIVE) |
+| `403` refusal (e.g. PII) | `x-llm-proxy-ratelimit`, one prose sentence | milliseconds | VERIFIED (LIVE) |
+| `429` limit exceeded | `x-token-limit` / `x-token-remaining` / `x-token-reset` (item 4 above) | milliseconds | VERIFIED (LIVE) |
+
+On a `200` and on a `403` (with a `llm-token-rate-limit` policy applied) the
+window arrives as a **single prose header**, not the numeric trio:
+
+```
+x-llm-proxy-ratelimit: Token rate limit: 10000 tokens remaining of 10000 limit. Reset in 56711ms.
+```
+
+The reset is in **milliseconds** (`…ms`). The committed `403` PII capture
+(`reject.pii-detected.headers.txt`) carries the same header in the same sentence
+shape, and the `openai-sdk` API lists `x-llm-proxy-ratelimit` in its CORS
+`exposedHeaders`; the existing `responses.success.headers.txt` capture lacks it
+only because it predates the policy being applied.
+
+**Distinct from the gateway window: the upstream provider's quota passthrough.**
+The `x-ratelimit-limit-tokens` / `x-ratelimit-remaining-tokens` /
+`x-ratelimit-reset-tokens` headers on a `200` are the **upstream provider's**
+own quota, passed straight through — not the gateway's budget. Their reset
+values are Go-style **duration strings** (`0s`, `12ms`), **not** integer
+milliseconds, so they must not be parsed with the `x-token-*` / `ms` rule.
+
+**Simulator budget window (corrected, #353).** Resolved (#354): a live probe
+confirms the production proxy **does** carry its budget window on a `200` success
+once a `llm-token-rate-limit` policy is applied — as the prose
+`x-llm-proxy-ratelimit` header above, **not** the numeric `x-token-*` trio (that
+trio appears only on the `429`). The local gateway simulator (`donkey mock`,
+BG §1.4) now renders exactly this prose sentence — `Token rate limit: {remaining}
+tokens remaining of {limit} limit. Reset in {ms}ms.` — from a monotonically
+decreasing counter on its happy-path `200` (and streaming `200`), so the simulator
+matches the observed live contract rather than the earlier assumption. The former
+synthesised numeric `x-token-*` overlay is removed (#353); it diverged from the
+gateway on the exact header names a consumer parses, and `Budget.observe()` (with
+the prose parser from #352) now populates identically from a simulated or a live
+`200`. Nothing in `core/`/`llm/` depends on the simulator emitting it; only
+`simulator/app.py` (`SimulatorConfig`) renders it.
 
 | Policy | Exchange asset (verified) | Status | Rejection shape | Date | Source |
 |---|---|---|---|---|---|
 | client-id-enforcement | `client-id-enforcement` `1.3.3` | VERIFIED (LIVE) | `401` + `www-authenticate: Client-ID-Enforcement`, `{"error":"Client ID is not present"}` | 2026-08-28 | live probe |
 | model-based-routing / upstream | `model-based-routing` `1.0.3` | VERIFIED (LIVE) | passthrough of provider error (OpenAI `400 model_not_found` object) | 2026-08-28 | live probe |
 | LLM proxy core | `llm-proxy-core` `1.0.5` | applied VERIFIED (LIVE) | on `openai-sdk`; rejection body not yet triggered | 2026-08-28 | `policy:list` |
-| Token rate limiting | interface `llm-token-rate-limit` `1.0.2` (impl `-policy-flex` `1.0.4`) | VERIFIED (LIVE) | `429`, **empty body**; headers `x-token-limit`/`x-token-remaining`/`x-token-reset`(ms), no `retry-after` | 2026-08-28 | applied + live probe |
+| Token rate limiting | interface `llm-token-rate-limit` `1.0.2` (impl `-policy-flex` `1.0.4`) | VERIFIED (LIVE) | Two emission forms: `429` limit-exceeded → **empty body**, numeric trio `x-token-limit`/`x-token-remaining`/`x-token-reset`(ms), no `retry-after`; `200`/`403` under the same policy → the window as prose in a single `x-llm-proxy-ratelimit` header (ms reset). See "Budget window emission" above. | 2026-08-28 | applied + live probe |
 | PII detection | interface `llm-pii-detection-policy` `1.0.0` (impl `-flex` `1.0.2`) | VERIFIED (LIVE) | `403`, nested `{"error":{message,type:"pii_detected"}}`, no `www-authenticate` | 2026-08-28 | applied + live probe |
 
 **Apply note (verified):** these LLM policies apply against the schema-bearing
