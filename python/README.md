@@ -81,11 +81,30 @@ Extras are one per framework (`langgraph`, `adk`, `strands`, `agent_framework`,
 Configuration and first-agent walkthroughs live on the
 [documentation site](https://donkey-development-kit.github.io/donkey-development-kit/).
 
+## Framework support
+
+The roster is deliberately **one deep, seven shallow** (`BG §1.8`): one adapter
+held to the full conformance bar, the rest supported through the three-line
+`connection_kwargs()` escape hatch. Every framework below returns its framework's
+**own native object** — never a wrapper.
+
+| Tier | Frameworks | What it means |
+| --- | --- | --- |
+| **Conformance-tested** | The raw client (`donkey.llm.client()`) and **LangGraph** | Held to the conformance suite in CI — the governed contract is proven end to end. |
+| **Supported via `connection_kwargs()`** | Google ADK, Strands, Microsoft Agent Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex | Governed kwargs verified at the `connection_kwargs()` level, not conformance-tested. |
+
+`connection_kwargs()` works for all eight; a second deep adapter is promoted from
+demand evidence, one at a time (#223/#244) — never guessed up front. See the
+[framework pages](https://donkey-development-kit.github.io/donkey-development-kit/frameworks/)
+for each.
+
 ## What's verified (§0.3)
 
 The **LLM data plane** — governed model access through the Omni Gateway proxy —
 is live-verified against a real Anypoint sandbox, and both the framework-free
-client and the eight framework adapters are wired to that verified contract.
+client and the framework adapters are wired to that verified contract — LangGraph
+is held to the conformance suite, the other seven are supported at the
+`connection_kwargs()` level (see [Framework support](#framework-support)).
 Everything still gated raises `NotImplementedError("blocked on verification: …")`
 rather than guessing at an unverified endpoint, header, or class name — that
 currently includes Exchange→MCP tool discovery, the provisioning control-plane,

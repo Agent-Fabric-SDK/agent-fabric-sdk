@@ -20,7 +20,13 @@ class AdapterSpec:
     module: str
     cls: str
     extra: str
-    tier: int
+    #: Whether this adapter is held to the conformance suite in CI (`BG §1.8`).
+    #: The roster is deliberately "one deep, seven shallow": only LangGraph is
+    #: conformance-tested; the other seven are supported at ``connection_kwargs()``
+    #: only. A second deep adapter is promoted from demand evidence, one at a time
+    #: (#223/#244) — never guessed up front. Replaces the retired Tier 1/Tier 2
+    #: split (#197).
+    conformance_tested: bool
     #: A representative top-level module of the framework, probed with
     #: ``importlib.util.find_spec`` so ``Donkey.__getattr__`` can raise the
     #: curated ImportError at ACCESS time (§3.2). The adapters import their
@@ -29,27 +35,41 @@ class AdapterSpec:
     probe: str
 
 
+# One deep, seven shallow (`BG §1.8`, #197): only LangGraph is conformance-tested;
+# the other seven are supported at ``connection_kwargs()`` only. All eight keep
+# their adapter, extra, and module-level factory — this is a support-tier flag,
+# not a removal.
 ADAPTERS: dict[str, AdapterSpec] = {
     "langgraph": AdapterSpec(
-        "langgraph", ".langgraph", "LangGraphAdapter", "langgraph", 1, "langchain_openai"
+        "langgraph", ".langgraph", "LangGraphAdapter", "langgraph",
+        conformance_tested=True, probe="langchain_openai",
     ),
-    "adk": AdapterSpec("adk", ".adk", "ADKAdapter", "adk", 1, "google.adk"),
-    "strands": AdapterSpec("strands", ".strands", "StrandsAdapter", "strands", 1, "strands"),
+    "adk": AdapterSpec(
+        "adk", ".adk", "ADKAdapter", "adk",
+        conformance_tested=False, probe="google.adk",
+    ),
+    "strands": AdapterSpec(
+        "strands", ".strands", "StrandsAdapter", "strands",
+        conformance_tested=False, probe="strands",
+    ),
     "agent_framework": AdapterSpec(
-        "agent_framework", ".agent_framework", "AgentFrameworkAdapter", "agent_framework", 1,
-        "agent_framework",
+        "agent_framework", ".agent_framework", "AgentFrameworkAdapter", "agent_framework",
+        conformance_tested=False, probe="agent_framework",
     ),
     "openai_agents": AdapterSpec(
-        "openai_agents", ".openai_agents", "OpenAIAgentsAdapter", "openai-agents", 1, "agents"
+        "openai_agents", ".openai_agents", "OpenAIAgentsAdapter", "openai-agents",
+        conformance_tested=False, probe="agents",
     ),
     "anthropic": AdapterSpec(
-        "anthropic", ".anthropic", "AnthropicAdapter", "anthropic", 1, "anthropic"
+        "anthropic", ".anthropic", "AnthropicAdapter", "anthropic",
+        conformance_tested=False, probe="anthropic",
     ),
     "crewai": AdapterSpec(
-        "crewai", ".crewai", "CrewAIAdapter", "crewai", 1, "crewai"
+        "crewai", ".crewai", "CrewAIAdapter", "crewai",
+        conformance_tested=False, probe="crewai",
     ),
     "llamaindex": AdapterSpec(
-        "llamaindex", ".llamaindex", "LlamaIndexAdapter", "llamaindex", 2,
-        "llama_index.llms.openai_like",
+        "llamaindex", ".llamaindex", "LlamaIndexAdapter", "llamaindex",
+        conformance_tested=False, probe="llama_index.llms.openai_like",
     ),
 }

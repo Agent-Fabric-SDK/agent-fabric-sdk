@@ -1,6 +1,6 @@
 # Microsoft Agent Framework example
 
-Tier 1.
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 **What this shows.** A one-line factory call attempts to build a native
 Agent Framework OpenAI-compatible chat client pointed at the governed
