@@ -15,6 +15,12 @@ in your own IDE, without adopting Mule.
 > [install from source](#install). **Unofficial:** an independent project,
 > **not** affiliated with or endorsed by Salesforce or MuleSoft.
 
+> **Already integrated the pre-rebrand SDK?** The move to Donkey Development Kit
+> is a clean break — no import shims, env fallbacks, or OpenTelemetry dual-emit.
+> The [migration guide](https://github.com/Donkey-Development-Kit/donkey-development-kit/blob/main/MIGRATION.md)
+> maps every renamed import, class, CLI, config key, and environment variable,
+> and calls out the breaking OpenTelemetry attribute-namespace change.
+
 > ### Support & trademark statement (please read — §0.4)
 >
 > **"Agent Fabric" is a MuleSoft (Salesforce) product name, not a generic
