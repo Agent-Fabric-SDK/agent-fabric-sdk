@@ -5,6 +5,8 @@
   "description": "Documentation site for the Donkey Development Kit",
   "scripts": {
     "dev": "next dev",
+    "generate:llms": "node scripts/generate-llms.mjs",
+    "prebuild": "npm run generate:llms",
     "build": "next build",
     "preview:pages": "node scripts/preview-pages.mjs",
     "start": "next start -p ${PORT:-3000}"

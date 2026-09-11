@@ -35,6 +35,26 @@ deployment. GitHub's Jekyll preview instructions do not apply here: this site
 is a Nextra/Next.js static export, and the Pages workflow disables Jekyll
 before deployment.
 
+## AI-readable docs (`llms.txt`)
+
+The site publishes its docs in the [llms.txt convention](https://llmstxt.org)
+so coding assistants can read them (#205, BG §1.10):
+
+- `public/llms.txt` — a link index, grouped by nav section.
+- `public/llms-full.txt` — every page inlined into one file.
+- `public/<path>.md` — the raw markdown for each page, served beside its HTML.
+
+These are **generated** from the pages by
+[`scripts/generate-llms.mjs`](scripts/generate-llms.mjs) — the source of truth
+is `_meta.js` (ordering + titles) and each `.mdx` (content + frontmatter);
+nothing is hand-maintained. `npm run build` regenerates them first (via the
+`prebuild` hook), and the `docs-llms-drift` CI job regenerates and fails on any
+diff, so the committed artifacts cannot drift from the pages.
+
+```bash
+npm run generate:llms   # regenerate after editing pages; commit the result
+```
+
 ## Deploy — GitHub Pages
 
 The site is published by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)

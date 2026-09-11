@@ -1,0 +1,144 @@
+# Telemetry & cost
+
+  **Phase 1 — designed, not yet shipped.** Attribute and API shapes below are a
+  proposal; the committed part is the behaviour and the acceptance bar. See
+  [Roadmap](https://donkey-development-kit.github.io/donkey-development-kit/roadmap.md) and [Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md).
+
+Two pieces of the six-piece minimum land here, because they answer the same
+two questions: *what happened?* and *who pays for it?*
+
+## OpenTelemetry GenAI spans
+
+Every governed call produces a span following the OpenTelemetry **GenAI
+semantic conventions** — `gen_ai.system`, `gen_ai.request.model`,
+`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` — plus attributes
+for the governance layer that generic instrumentation cannot know about:
+
+```
+donkey.policy.decision      = allow | refuse
+donkey.policy.type          = pii_detected | token_budget | injection | …
+donkey.budget.remaining     = 18450
+donkey.correlation_id       = …
+donkey.cost.team            = support
+donkey.cost.project         = triage-v2
+donkey.cost.env             = prod
+donkey.cost.enduser.id      = user-42
+```
+
+Export goes over OTLP to wherever you already send spans. **Nothing in the
+emit path is Anypoint-specific.**
+
+That is the point: if your team already runs Langfuse, Datadog, or Phoenix,
+then "policy refusals per hour by type" and "tokens per ticket" show up in the
+dashboard you already have, with no new tooling to adopt.
+
+### Two honest caveats
+
+  **The GenAI conventions are still `Development` status upstream.** Attribute
+  names can change. So the semconv version is **pinned**, and spans are
+  **dual-emitted**: `gen_ai.*` at the pinned version, plus a stable `donkey.*`
+  namespace under this project's control. Your dashboards do not break when
+  upstream renames something.
+
+Second: whether Anypoint Monitoring or Agent Visualizer **ingests** OTLP GenAI
+spans is not publicly documented. So this page promises *"exports OTLP"* and
+lets the sink be your choice. It does not promise your spans appear in Agent
+Visualizer, because that has not been confirmed — see
+[Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md).
+
+## Correlation IDs
+
+  **Shipped in Phase 1** (#195) — unlike the cost-attribution tags below, which
+  are still designed-not-shipped. See [Observability](https://donkey-development-kit.github.io/donkey-development-kit/concepts/observability.md)
+  for the full detail.
+
+Set a per-**run** id once, and every call inside the block carries it — on the
+wire, on every span, and on every exception — with nothing threaded through your
+framework state:
+
+```python
+async with donkey.run(id=ticket.id):
+    await triage_agent.run(ticket)
+```
+
+`donkey.run(id=…)` binds **two ids**:
+
+- a **run id** → the `X-Correlation-Id` request header → the span's
+  `donkey.correlation_id` → `DonkeyError.correlation_id`. Shared by every call in
+  the block, so a client-side log line **joins** to the gateway's own record.
+- a fresh **per-call id** → the `X-Donkey-Request-Id` request header →
+  `DonkeyError.call_id`. Unique per logical request, stable across that request's
+  retries, so one call is pinpointable within a run.
+
+Propagation is contextvar-based, so it reaches through framework nodes (every
+LangGraph node, for instance) without threading an argument through every
+function, and concurrent runs never leak into each other. It works with or
+without OpenTelemetry installed. `donkey.run(...)` is a **dual sync/async**
+context manager (plain `with` works too); nested blocks rebind then restore.
+
+  Whether the gateway **reads** an inbound `X-Correlation-Id` /
+  `X-Donkey-Request-Id` is unverified — `x-correlation-id` is confirmed only as a
+  gateway **response** echo. So those request-header **names** are overridable
+  placeholders (`correlation_header` / `call_id_header`), not guesses
+  ([Verification policy](https://donkey-development-kit.github.io/donkey-development-kit/concepts/verification.md), §0.3).
+
+## Cost-attribution tags
+
+  **Shipped in Phase 1** (#196). Completes the six-piece minimum alongside the
+  correlation IDs above.
+
+A small, fixed set of tags — `team`, `project`, `env`, `enduser.id` — set once
+and emitted on every call, both as request headers and as `donkey.cost.*` span
+attributes:
+
+```python
+donkey = Donkey.from_env(team="support", project="triage-v2", env="prod")
+
+async with donkey.run(id=ticket.id, enduser_id=agent_user.id):
+    await triage_agent.run(ticket)
+```
+
+The tags resolve along the standard precedence — `Donkey.from_env(team=…)`
+kwargs, then `DONKEY_COST_*` env vars, then a `[donkey.cost]` table in
+`.donkey-kit.toml`. Per-run overrides layer on top: `donkey.run(team=…,
+project=…, env=…, enduser_id=…)` wins **per field** for its block and the rest
+fall back to the configured tags. The key set is **fixed** — an unknown
+dimension is a configuration error, never a silently-dropped header.
+
+### The question this answers
+
+Finance asks what the support agent cost last month versus the HR bot.
+
+Without tags, both agents share one `client_id`, and the honest answer is
+*"we don't know."* With tags it is a group-by.
+
+And for compliance: *"prove the HR bot's answer to user X on date Y went
+through the content-safety policy."* The correlation ID on the log line joins
+to the gateway record, and the span carries `enduser.id` and
+`donkey.policy.type`. That is what an EU AI Act Article 12 log request looks
+like in practice — one query, not an investigation.
+
+  **Which header names the gateway reads for attribution is unverified.** Until
+  it is confirmed, those names live behind an overridable placeholder rather
+  than a guess. The tags still carry full value in the OTel spans, which this
+  SDK controls end to end.
+
+The tags are **validated** — fixed keys, bounded length — so nobody stuffs a
+JSON blob into a header.
+
+## Acceptance bar
+
+- Zero-config: `Donkey.from_env()` plus `OTEL_EXPORTER_OTLP_ENDPOINT` produces
+  spans, with no SDK-specific environment variable.
+- A **refused** request still produces a span, with
+  `donkey.policy.decision=refuse` and `otel.status_code=ERROR`.
+- A streaming response produces **exactly one** span, with token counts filled
+  in at stream end.
+- Opt-out behind a single flag, and under 1 ms of overhead — benchmarked in CI,
+  not asserted in prose.
+- Every `DonkeyError` exposes `.correlation_id` (the run id) and `.call_id` (the
+  per-call id), each matching the header sent.
+
+---
+
+**Status: Phase 1 — not yet shipped.**
