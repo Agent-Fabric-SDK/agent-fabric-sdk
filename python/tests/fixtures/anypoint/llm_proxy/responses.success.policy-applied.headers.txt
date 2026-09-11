@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+x-llm-proxy-ratelimit: Token rate limit: 10000 tokens remaining of 10000 limit. Reset in 56711ms.
+x-llm-proxy-routing-type: ModelBased
+x-llm-proxy-llm-provider: openai
+x-ratelimit-limit-tokens: 4000000
+x-ratelimit-remaining-tokens: 3999963
+x-ratelimit-reset-tokens: 0s

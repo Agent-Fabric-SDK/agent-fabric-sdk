@@ -1,11 +1,14 @@
-"""Budget: the first-class object parsed from the LLM proxy's ``x-token-*``
-headers (§1.3 / BG §1.3, #185). No network is touched — headers are attached to
-constructed ``httpx.Response`` objects, and the transport wiring is exercised via
+"""Budget: the first-class object parsed from the LLM proxy's budget headers —
+the numeric ``x-token-*`` trio (§1.3 / BG §1.3, #185) and the prose
+``x-llm-proxy-ratelimit`` fallback that is the only budget signal on a live 200
+(#352). No network is touched — headers are attached to constructed
+``httpx.Response`` objects, and the transport wiring is exercised via
 ``httpx.MockTransport``."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 
@@ -13,12 +16,20 @@ from donkey_kit import Budget, Donkey
 from donkey_kit.core.budget import Budget as CoreBudget
 from donkey_kit.core.config import DonkeyConfig
 from donkey_kit.core.transport import DonkeyAsyncClient, DonkeyClient
+from donkey_kit.simulator.fixtures import parse_headers
 
 _FIXED_NOW = datetime(2026, 9, 8, 14, 0, 0, tzinfo=timezone.utc)
+
+_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "anypoint" / "llm_proxy"
 
 
 def _resp(status: int = 200, **headers: str) -> httpx.Response:
     return httpx.Response(status, headers=headers)
+
+
+def _resp_from_fixture(name: str, status: int = 200) -> httpx.Response:
+    """A response carrying the exact headers of a committed live capture."""
+    return httpx.Response(status, headers=parse_headers((_FIXTURES / name).read_text()))
 
 
 # --- the object in isolation ----------------------------------------------
@@ -99,6 +110,127 @@ def test_non_numeric_headers_are_ignored_not_fatal() -> None:
     assert b.limit is None  # garbage ignored
     assert b.remaining == 500  # the parseable one still landed
     assert b.observed_at == _FIXED_NOW
+
+
+# --- prose x-llm-proxy-ratelimit fallback (#352) ---------------------------
+#
+# The numeric x-token-* trio arrives only on the 429. On a live 200 (and the 403
+# refusal) the same three values arrive as one prose header. Without parsing it,
+# Budget could only ever populate from a rate-limit rejection.
+
+_PROSE = "Token rate limit: 10000 tokens remaining of 10000 limit. Reset in 56711ms."
+
+
+def test_prose_ratelimit_populates_when_numeric_trio_absent() -> None:
+    """AC: observe() fills limit/remaining/reset_at/observed_at from
+    x-llm-proxy-ratelimit when x-token-* is absent — the live-200 case."""
+    b = Budget()
+    b.observe(_resp(200, **{"x-llm-proxy-ratelimit": _PROSE}), now=_FIXED_NOW)
+    assert b.limit == 10000
+    assert b.remaining == 10000
+    assert b.observed_at == _FIXED_NOW
+    assert b.reset_at == _FIXED_NOW + timedelta(milliseconds=56711)
+    assert b.fraction_used == 0.0  # full window, nothing used yet
+
+
+def test_numeric_trio_wins_when_both_present() -> None:
+    """AC: the numeric x-token-* trio still wins when both shapes are present.
+    The prose here reports a full window; the numeric trio reports it drained."""
+    b = Budget()
+    b.observe(
+        _resp(
+            200,
+            **{
+                "x-token-limit": "10000",
+                "x-token-remaining": "250",
+                "x-token-reset": "1000",
+                "x-llm-proxy-ratelimit": _PROSE,  # says 10000 remaining — must not win
+            },
+        ),
+        now=_FIXED_NOW,
+    )
+    assert b.limit == 10000
+    assert b.remaining == 250  # numeric, not the prose's 10000
+    assert b.reset_at == _FIXED_NOW + timedelta(milliseconds=1000)  # numeric, not 56711
+    assert b.fraction_used == 0.975
+
+
+def test_prose_fills_only_fields_the_numeric_trio_leaves_unset() -> None:
+    """Field-by-field merge: a numeric field present wins; a numeric field absent
+    is filled from the prose. (A mixed response is not seen live, but the merge
+    must be well-defined.)"""
+    b = Budget()
+    b.observe(
+        _resp(200, **{"x-token-remaining": "42", "x-llm-proxy-ratelimit": _PROSE}),
+        now=_FIXED_NOW,
+    )
+    assert b.limit == 10000  # from prose (numeric absent)
+    assert b.remaining == 42  # numeric wins
+    assert b.reset_at == _FIXED_NOW + timedelta(milliseconds=56711)  # from prose
+
+
+def test_unparseable_prose_is_a_noop_and_never_raises() -> None:
+    """AC: an unparseable sentence is a no-op, per §0.3 — never a crash, never a
+    half-populated budget."""
+    b = Budget()
+    b.observe(_resp(200, **{"x-llm-proxy-ratelimit": "rate limited, try later"}), now=_FIXED_NOW)
+    assert b.limit is None
+    assert b.remaining is None
+    assert b.reset_at is None
+    assert b.observed_at is None  # nothing observed
+
+
+def test_partial_prose_is_a_noop() -> None:
+    """AC: a partial sentence (missing the reset clause) is discarded whole — a
+    half-parsed budget is worse than none, so observed_at stays None."""
+    b = Budget()
+    partial = "Token rate limit: 10000 tokens remaining of 10000 limit."  # no 'Reset in …ms'
+    b.observe(_resp(200, **{"x-llm-proxy-ratelimit": partial}), now=_FIXED_NOW)
+    assert b.limit is None
+    assert b.remaining is None
+    assert b.reset_at is None
+    assert b.observed_at is None
+
+
+def test_observes_from_committed_pii_fixture() -> None:
+    """AC: regression against the committed reject.pii-detected.headers.txt, which
+    already carries the prose header on a 403 refusal (`1 … of 1 limit`)."""
+    b = Budget()
+    b.observe(_resp_from_fixture("reject.pii-detected.headers.txt", status=403), now=_FIXED_NOW)
+    assert b.limit == 1
+    assert b.remaining == 1
+    assert b.reset_at == _FIXED_NOW + timedelta(milliseconds=60000)
+    assert b.observed_at == _FIXED_NOW
+
+
+def test_observes_from_committed_success_policy_fixture() -> None:
+    """AC: regression against the committed live 200-with-policy-applied capture —
+    the case that was previously an unobserved no-op."""
+    b = Budget()
+    b.observe(_resp_from_fixture("responses.success.policy-applied.headers.txt"), now=_FIXED_NOW)
+    assert b.limit == 10000
+    assert b.remaining == 10000
+    assert b.reset_at == _FIXED_NOW + timedelta(milliseconds=56711)
+    assert b.observed_at == _FIXED_NOW
+
+
+def test_upstream_openai_ratelimit_headers_are_not_mistaken_for_budget() -> None:
+    """The passed-through x-ratelimit-* set is OpenAI's own quota, not the gateway
+    window. Absent the gateway's headers, the budget stays unobserved rather than
+    picking up the upstream numbers (whose resets are Go durations like `0s`)."""
+    b = Budget()
+    b.observe(
+        _resp(
+            200,
+            **{
+                "x-ratelimit-limit-tokens": "4000000",
+                "x-ratelimit-remaining-tokens": "3999963",
+                "x-ratelimit-reset-tokens": "0s",
+            },
+        ),
+        now=_FIXED_NOW,
+    )
+    assert b.observed_at is None
 
 
 def test_top_level_export_is_the_core_object() -> None:
