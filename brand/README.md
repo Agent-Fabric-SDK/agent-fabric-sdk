@@ -12,10 +12,14 @@ The mark is a donkey/bunny-eared head paired with the **DDK** wordmark.
 | --- | --- | --- | --- | --- |
 | [`ddk-logo-horizontal-duo.png`](ddk-logo-horizontal-duo.png) | DDK | Horizontal lockup (mark + wordmark) | Dark + light pair | **Primary logo.** Headers, README, nav bars. Crop the half that fits your background. |
 | [`ddk-logo-stacked-duo.png`](ddk-logo-stacked-duo.png) | DDK | Square / stacked (mark over wordmark) | Dark + light pair | Square spaces — avatars, app icons, social cards. |
+| [`ddk-logo-stacked-black.png`](ddk-logo-stacked-black.png) | DDK | Square / stacked | Black bg, white mark | Single-theme square for dark surfaces. |
+| [`ddk-logo-stacked-white.png`](ddk-logo-stacked-white.png) | DDK | Square / stacked | White bg, black mark | Single-theme square for light surfaces. |
 | [`ddk-logo-chalkboard.png`](ddk-logo-chalkboard.png) | DDK | Horizontal, chalk texture | White chalk on black | Hero banners, decorative headers, slides. |
 
 The `-duo` files contain **both** a dark-background and a light-background
-treatment in one image; crop to the variant that suits your surface.
+treatment in one image; crop to the variant that suits your surface. The
+stacked lockup is also provided pre-split as single-theme `-black` and
+`-white` files.
 
 ## Usage notes
 
