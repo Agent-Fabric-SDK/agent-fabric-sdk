@@ -46,6 +46,7 @@ done < <(
     ':(exclude)spec/archive/**' \
     ':(exclude)MIGRATION.md' \
     ':(exclude)scripts/check-rebrand.sh' \
+    ':(exclude)scripts/rebrand/**' \
     ':(exclude).github/workflows/rebrand-completeness.yml' \
     ':(exclude)website/package-lock.json'
 )
