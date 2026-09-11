@@ -1,4 +1,6 @@
-"""LangGraph / LangChain adapter (§3.3). Tier 1.
+"""LangGraph / LangChain adapter (§3.3).
+
+Deep adapter — conformance-tested (BG §1.8).
 
 Header injection: FULL (``default_headers`` + custom async http client). This is
 the best-case adapter.

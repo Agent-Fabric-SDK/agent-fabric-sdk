@@ -1,4 +1,6 @@
-"""Microsoft Agent Framework adapter example (§3.3). Tier 1.
+"""Microsoft Agent Framework adapter example (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Demonstrates constructing a native Agent Framework OpenAI-compatible chat
 client pointed at the governed Agent Fabric LLM proxy with a single factory

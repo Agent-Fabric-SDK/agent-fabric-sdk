@@ -1,4 +1,6 @@
-"""Strands Agents adapter (§3.3). Tier 1.
+"""Strands Agents adapter (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 ``client_args`` is forwarded to the underlying OpenAI client, so header AND
 transport injection are both available (full injection). Strands also has

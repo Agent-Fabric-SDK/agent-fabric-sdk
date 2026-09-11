@@ -1,4 +1,6 @@
-"""CrewAI adapter example (§3.3). Tier 1.
+"""CrewAI adapter example (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Demonstrates constructing a native ``crewai.LLM`` pointed at the governed
 Agent Fabric LLM proxy with a single factory call:

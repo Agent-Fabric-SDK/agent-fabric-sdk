@@ -1,4 +1,6 @@
-"""CrewAI adapter (§3.3). Tier 1.
+"""CrewAI adapter (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 CrewAI reaches models through its own ``crewai.LLM`` class, which wraps LiteLLM.
 As with ADK, an OpenAI-compatible proxy is addressed with the ``openai/`` model

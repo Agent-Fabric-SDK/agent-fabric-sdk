@@ -1,4 +1,6 @@
-"""Google ADK adapter example (§3.3). Tier 1.
+"""Google ADK adapter example (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Demonstrates constructing a native ``google.adk.models.lite_llm.LiteLlm``
 pointed at the governed Agent Fabric LLM proxy with a single factory call:

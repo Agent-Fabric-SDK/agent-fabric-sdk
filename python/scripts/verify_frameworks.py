@@ -49,6 +49,10 @@ from dataclasses import asdict, dataclass, field
 
 # --- ground truth: the exact §8 rows this script confirms --------------------
 # (framework key, factory import path, factory fn, expected native module.Class)
+# This stays the FULL eight-framework roster so the offline signature check can be
+# run on demand for any of them. Only LangGraph is conformance-tested and carried
+# in the nightly matrix (BG §1.8, #197); the other seven are supported at
+# connection_kwargs() only. `--only <fw>` targets one framework.
 FRAMEWORKS: list[tuple[str, str, str, str]] = [
     ("langgraph", "donkey_kit.integrations.langgraph", "chat_model",
      "langchain_openai.ChatOpenAI"),

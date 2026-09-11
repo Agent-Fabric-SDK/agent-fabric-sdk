@@ -1,4 +1,6 @@
-"""LlamaIndex adapter (§3.3). Tier 2.
+"""LlamaIndex adapter (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 GOTCHA (§3.3): ``OpenAILike`` defaults ``is_chat_model=False``, which silently
 routes to the completions endpoint and fails against a chat-only proxy. We

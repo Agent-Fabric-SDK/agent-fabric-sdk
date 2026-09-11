@@ -1,4 +1,6 @@
-"""LlamaIndex adapter example (§3.3). Tier 2.
+"""LlamaIndex adapter example (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Demonstrates constructing a native
 ``llama_index.llms.openai_like.OpenAILike`` pointed at the governed Agent Fabric

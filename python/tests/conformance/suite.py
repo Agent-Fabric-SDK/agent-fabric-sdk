@@ -1,9 +1,13 @@
 """The adapter conformance kit — the most important test asset (§8.1).
 
-ONE suite, defined once, executed identically against every framework adapter.
-A framework is "supported" only when it passes all of it, or records a
-documented, asserted exemption in ``KNOWN_LIMITATIONS`` (§8.1) — never a silent
-skip.
+ONE suite, defined once. Its blocking scope is the conformance-tested roster
+(BG §1.8, #197): LangGraph and the raw client. A framework is "supported" only
+when it passes all of it, or records a documented, asserted exemption in
+``KNOWN_LIMITATIONS`` (§8.1) — never a silent skip. The other seven frameworks
+are supported at ``connection_kwargs()`` only and are not run here; a demoted
+framework rejoins with its own conformance run when demand promotes it
+(#223/#244). The customer-facing pytest plugin (``donkey_kit.conformance``, #191)
+is the shipped deliverable this internal matrix backstops.
 
 The scenario bodies are wired in M1+ against captured contract fixtures (§8.2)
 and the local gateway (§8.3). This module fixes the scenario list and the

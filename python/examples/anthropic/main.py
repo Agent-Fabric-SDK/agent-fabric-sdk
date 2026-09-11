@@ -1,4 +1,6 @@
-"""Anthropic SDK adapter example (§3.3). Tier 1.
+"""Anthropic SDK adapter example (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Demonstrates constructing a native ``anthropic.AsyncAnthropic`` client pointed
 at the governed Agent Fabric LLM proxy with a single factory call:

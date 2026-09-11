@@ -214,14 +214,15 @@ correlation/request IDs and the raw response for inspection.
 
 Not every framework gets the same CI guarantee, and the roster is deliberately
 scoped rather than exhaustive. The former Tier 1 / Tier 2 split is **retired**
-along with the eight-adapter roster:
+along with the eight-adapter roster (#197):
 
-- **Deep — conformance-gated, *blocking* CI (target state):** LangGraph, and only
-  LangGraph. *Today,* until #197 lands, the full eight-adapter matrix still runs
-  in blocking CI (see the closing note below).
+- **Deep — conformance-tested:** LangGraph, and only LangGraph. Held to the
+  conformance suite; the `ADAPTERS` registry marks it `conformance_tested=True`.
 - **Supported at `connection_kwargs()`:** Google ADK, Strands, Microsoft Agent
   Framework, OpenAI Agents SDK, Anthropic SDK, CrewAI, LlamaIndex. Verified at
-  the kwargs level rather than the constructor level.
+  the kwargs level rather than the constructor level, and no longer carried in
+  the nightly framework matrix — a demoted framework returns with its own
+  conformance run when demand justifies it.
 - **Out of scope:** AutoGen and Semantic Kernel — Microsoft positions Agent
   Framework as their direct successor, so carrying all three would mean
   shipping two sunset-path adapters.
@@ -229,8 +230,7 @@ along with the eight-adapter roster:
 This makes `connection_kwargs()` *more* load-bearing, not less: it is the
 entire supported surface for seven of the eight. A second framework is
 promoted to deep support from demand evidence, one at a time — never guessed
-up front. The demotion is tracked in #197 and deepening LangGraph in #198;
-until #197 lands, the eight-adapter matrix is still in blocking CI.
+up front. The demotion landed in #197; deepening LangGraph is tracked in #198.
 
 **Conformance is how "supported" is proven, not asserted.** One suite
 (`python/tests/conformance/suite.py`) runs identically against every adapter. A

@@ -1,4 +1,6 @@
-"""OpenAI Agents SDK adapter example (§3.3). Tier 1.
+"""OpenAI Agents SDK adapter example (§3.3).
+
+Supported at connection_kwargs() — not conformance-tested (BG §1.8).
 
 Demonstrates constructing a native ``agents.OpenAIChatCompletionsModel`` pointed
 at the governed Agent Fabric LLM proxy with a single factory call:
