@@ -1,13 +1,28 @@
-"""Budget — the token-budget window, parsed from the proxy's ``x-token-*``
-headers (§1.3, BG §1.3, piece 2 of the six-piece minimum).
+"""Budget — the token-budget window, parsed from the proxy's budget headers
+(§1.3, BG §1.3, piece 2 of the six-piece minimum).
 
 The developer never parses a header::
 
-    donkey.budget.limit          # int  — tokens per window (x-token-limit)
-    donkey.budget.remaining      # int  — from the last response (x-token-remaining)
-    donkey.budget.reset_at       # datetime — observed_at + x-token-reset (ms delta)
+    donkey.budget.limit          # int  — tokens per window
+    donkey.budget.remaining      # int  — from the last response
+    donkey.budget.reset_at       # datetime — observed_at + reset (ms delta)
     donkey.budget.observed_at    # datetime — freshness of the above
     donkey.budget.fraction_used  # 0.0-1.0 — (limit-remaining)/limit
+
+The governed proxy publishes the same three values in **two shapes**, and which
+one arrives depends on the response class (#352):
+
+- the numeric trio ``x-token-limit`` / ``x-token-remaining`` / ``x-token-reset``,
+  VERIFIED (LIVE) — but only on the ``429`` that pacing exists to *prevent*; and
+- the prose ``x-llm-proxy-ratelimit`` header, e.g.
+  ``Token rate limit: 10000 tokens remaining of 10000 limit. Reset in 56711ms.``
+  — the only budget signal on a successful ``200`` (and on the ``403`` refusal)
+  once the ``llm-token-rate-limit`` policy is applied.
+
+:meth:`Budget.observe` reads both: the numeric trio wins where present, and the
+prose header fills any field the trio leaves unset. Without the prose fallback a
+``Budget`` could only ever be populated by a rate-limit rejection, leaving
+:meth:`Budget.pace` inert against a live gateway until after the first ``429``.
 
 Honest limitation (upstream gap #2): the gateway exposes budget **only in-band**.
 There is no budget-query endpoint, so ``remaining`` is only as fresh as the last
@@ -16,14 +31,16 @@ call, and a brand-new process knows nothing until its first request returns.
 unobserved ``Budget`` (no call has returned yet) reports every field as ``None``,
 never a misleading zero.
 
-``x-token-reset`` is VERIFIED (LIVE) as **milliseconds *to* reset** — a delta, not
-an epoch (docs/verified-apis.md §4) — so ``reset_at`` is anchored to
-``observed_at`` the same way ``errors._retry_after`` treats the header.
+Both the numeric ``x-token-reset`` and the prose ``Reset in … ms`` are
+**milliseconds *to* reset** — a delta, not an epoch (docs/verified-apis.md §4) —
+so ``reset_at`` is anchored to ``observed_at`` the same way ``errors._retry_after``
+treats the header.
 """
 
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -32,12 +49,27 @@ import httpx
 
 from .errors import BudgetReserveReached
 
-# The three budget headers, VERIFIED (LIVE) against the token-rate-limit policy
-# (docs/verified-apis.md §4, row `Token rate limiting`). Named here so the one
-# place that parses them is greppable.
+# The three numeric budget headers, VERIFIED (LIVE) against the token-rate-limit
+# policy (docs/verified-apis.md §4, row `Token rate limiting`) — present on the
+# 429. Named here so the one place that parses them is greppable.
 LIMIT_HEADER = "x-token-limit"
 REMAINING_HEADER = "x-token-remaining"
 RESET_HEADER = "x-token-reset"
+
+# The prose fallback: one header carrying all three values as an English sentence,
+# emitted on the 200 (and the 403) that never carry the numeric trio (#352). Listed
+# in the API's CORS `exposedHeaders`, so it is an intended part of the contract.
+RATELIMIT_HEADER = "x-llm-proxy-ratelimit"
+
+# Matches `… 10000 tokens remaining of 10000 limit. Reset in 56711ms.`. Requires
+# all three values: a partial or reworded sentence fails to match and is treated
+# as no signal (§0.3 — never guess at an unexpected wire shape). `search`, not
+# `match`, so the leading `Token rate limit:` label is not load-bearing.
+_RATELIMIT_RE = re.compile(
+    r"(?P<remaining>\d+)\s+tokens?\s+remaining\s+of\s+(?P<limit>\d+)\s+limit\b"
+    r".*?reset\s+in\s+(?P<reset>\d+)\s*ms",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _utcnow() -> datetime:
@@ -56,9 +88,26 @@ def _parse_int(raw: str | None) -> int | None:
         return None
 
 
+def _parse_ratelimit_prose(raw: str | None) -> tuple[int | None, int | None, int | None]:
+    """The prose ``x-llm-proxy-ratelimit`` header as ``(limit, remaining, reset_ms)``,
+    or an all-``None`` tuple when the header is absent, partial, or reworded.
+
+    Like :func:`_parse_int` this never raises on unexpected input (§0.3): an
+    unparseable sentence is simply "no signal", never a crash on the caller's
+    request path. All three values must be present in the recognised shape or the
+    whole header is discarded — a half-parsed budget is worse than none."""
+    if raw is None:
+        return None, None, None
+    m = _RATELIMIT_RE.search(raw)
+    if m is None:
+        return None, None, None
+    return int(m["limit"]), int(m["remaining"]), int(m["reset"])
+
+
 class Budget:
     """The token-budget window for one :class:`~donkey_kit.Donkey`, updated
-    in-band from each response's ``x-token-*`` headers.
+    in-band from each response's budget headers (numeric ``x-token-*`` or the
+    prose ``x-llm-proxy-ratelimit`` fallback, #352).
 
     Per-``Donkey``, never global: two instances with different credentials hold
     independent state. Construct empty (unobserved); :meth:`observe` mutates it
@@ -83,14 +132,19 @@ class Budget:
         return min(1.0, max(0.0, used))
 
     def observe(self, response: httpx.Response, *, now: datetime | None = None) -> None:
-        """Update from a response's ``x-token-*`` headers.
+        """Update from a response's budget headers.
 
-        A response carrying **none** of the three headers is a defined no-op — the
-        object stays exactly as it was (``observed_at`` unchanged), so a happy-path
-        call without budget headers never resets freshness or raises. If at least
-        one header is present, ``observed_at`` is stamped and each parseable header
-        is applied; a missing or non-numeric individual header leaves that field
-        untouched.
+        Reads two shapes and merges them (#352): the numeric trio ``x-token-*``
+        (present on the ``429``) wins where present, and the prose
+        ``x-llm-proxy-ratelimit`` (the only signal on a ``200``/``403``) fills any
+        field the trio leaves unset. Without the prose fallback a live ``Budget``
+        would populate only from a rate-limit rejection.
+
+        A response carrying **neither** shape is a defined no-op — the object stays
+        exactly as it was (``observed_at`` unchanged), so a happy-path call without
+        budget headers never resets freshness or raises. If any field is resolved,
+        ``observed_at`` is stamped and each resolved field is applied; a missing or
+        unparseable value leaves that field untouched.
 
         ``now`` is injectable for tests; production passes nothing and the wall
         clock (UTC) is used.
@@ -99,6 +153,17 @@ class Budget:
         limit = _parse_int(headers.get(LIMIT_HEADER))
         remaining = _parse_int(headers.get(REMAINING_HEADER))
         reset_ms = _parse_int(headers.get(RESET_HEADER))
+
+        # Prose fallback for whatever the numeric trio did not supply. The trio is
+        # preferred field-by-field: prose only fills a field left `None` above.
+        if limit is None or remaining is None or reset_ms is None:
+            p_limit, p_remaining, p_reset = _parse_ratelimit_prose(headers.get(RATELIMIT_HEADER))
+            if limit is None:
+                limit = p_limit
+            if remaining is None:
+                remaining = p_remaining
+            if reset_ms is None:
+                reset_ms = p_reset
 
         if limit is None and remaining is None and reset_ms is None:
             return  # no budget signal on this response; nothing observed

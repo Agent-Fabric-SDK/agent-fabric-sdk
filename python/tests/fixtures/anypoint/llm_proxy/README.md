@@ -21,6 +21,17 @@ targets — the first live confirmation of §§2–4 (previously UNVERIFIED). Se
   (routing-type/provider/model), `x-envoy-decorator-operation`
   (`api-instance-<id>.<envId>.svc`), `x-correlation-id`, and passed-through
   OpenAI `x-ratelimit-*` / `x-request-id` headers.
+- `responses.success.policy-applied.headers.txt` — HTTP **200** headers from the
+  same instance **after** the `llm-token-rate-limit` policy was applied
+  (`maximumTokens:10000`, `timePeriodInMilliseconds:60000`,
+  `keySelector:#[attributes.headers['client_id']]`). Unlike
+  `responses.success.headers.txt` (captured before any budget policy), the budget
+  window here surfaces **only** as prose in `x-llm-proxy-ratelimit`
+  (`Token rate limit: … tokens remaining of … limit. Reset in …ms.`) — the numeric
+  `x-token-*` trio appears only on the `429`. Non-secret subset published in #352;
+  the passed-through `x-ratelimit-*` set is OpenAI's own upstream quota, a distinct
+  thing from the gateway policy window (its resets are Go durations, e.g. `0s`).
+  Drives the `Budget.observe` prose-fallback regression test.
 - `reject.client-id-missing.{body,headers}.json/txt` — HTTP 401 from calling
   without credentials. Anypoint policy envelope `{"error":"Client ID is not
   present"}` + `www-authenticate: Client-ID-Enforcement`.
